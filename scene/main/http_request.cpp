@@ -555,6 +555,21 @@ void HTTPRequest::set_https_proxy(const String &p_host, int p_port) {
 	client->set_https_proxy(p_host, p_port);
 }
 
+Dictionary HTTPRequest::get_dictionary_from_headers(const PackedStringArray &p_headers) {
+	Dictionary ret;
+	for (const String &s : p_headers) {
+		int sp = s.find(":");
+		if (sp == -1) {
+			continue;
+		}
+		String key = s.substr(0, sp).strip_edges();
+		String value = s.substr(sp + 1, s.length()).strip_edges();
+		ret[key] = value;
+	}
+
+	return ret;
+}
+
 void HTTPRequest::set_timeout(double p_timeout) {
 	ERR_FAIL_COND(p_timeout < 0);
 	timeout = p_timeout;
@@ -605,6 +620,11 @@ void HTTPRequest::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_http_proxy", "host", "port"), &HTTPRequest::set_http_proxy);
 	ClassDB::bind_method(D_METHOD("set_https_proxy", "host", "port"), &HTTPRequest::set_https_proxy);
+
+	ClassDB::bind_method(D_METHOD("has_header", "headers", "header_name"), &HTTPRequest::has_header);
+	ClassDB::bind_method(D_METHOD("get_header_value", "headers", "header_name"), &HTTPRequest::get_header_value);
+
+	ClassDB::bind_method(D_METHOD("get_dictionary_from_headers", "headers"), &HTTPRequest::get_dictionary_from_headers);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "download_file", PROPERTY_HINT_FILE), "set_download_file", "get_download_file");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "download_chunk_size", PROPERTY_HINT_RANGE, "256,16777216,suffix:B"), "set_download_chunk_size", "get_download_chunk_size");
