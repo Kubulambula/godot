@@ -173,7 +173,7 @@
 				[b]Note:[/b] Some Web servers may not send a body length. In this case, the value returned will be [code]-1[/code]. If using chunked transfer encoding, the body length will also be [code]-1[/code].
 			</description>
 		</method>
-		<method name="get_dictionary_from_header" qualifiers="const">
+		<method name="get_dictionary_from_headers" qualifiers="const">
 			<return type="Dictionary" />
 			<argument index="0" name="headers" type="PackedStringArray" />
 			<description>
