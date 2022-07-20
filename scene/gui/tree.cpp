@@ -2815,6 +2815,9 @@ void Tree::value_editor_changed(double p_value) {
 
 	TreeItem::Cell &c = popup_edited_item->cells.write[popup_edited_item_col];
 	c.val = p_value;
+
+	text_editor->set_text(String::num(c.val, Math::range_step_decimals(c.step)));
+
 	item_edited(popup_edited_item_col, popup_edited_item);
 	update();
 }
@@ -5015,7 +5018,7 @@ Tree::Tree() {
 	popup_editor_vb = memnew(VBoxContainer);
 	popup_editor->add_child(popup_editor_vb);
 	popup_editor_vb->add_theme_constant_override("separation", 0);
-	popup_editor_vb->set_anchors_and_offsets_preset(PRESET_WIDE);
+	popup_editor_vb->set_anchors_and_offsets_preset(PRESET_FULL_RECT);
 	text_editor = memnew(LineEdit);
 	popup_editor_vb->add_child(text_editor);
 	text_editor->set_v_size_flags(SIZE_EXPAND_FILL);

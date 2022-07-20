@@ -1801,9 +1801,9 @@ Vector<Vector<Ref<Texture2D>>> TileSet::generate_terrains_icons(Size2i p_size) {
 			if (counts[terrain_set][terrain].count > 0) {
 				// Get the best tile.
 				Ref<Texture2D> texture = counts[terrain_set][terrain].texture;
-				Rect2 region = counts[terrain_set][terrain].region;
+				Rect2i region = counts[terrain_set][terrain].region;
 				image->create(region.size.x, region.size.y, false, Image::FORMAT_RGBA8);
-				image->blit_rect(texture->get_image(), region, Point2());
+				image->blit_rect(texture->get_image(), region, Point2i());
 				image->resize(p_size.x, p_size.y, Image::INTERPOLATE_NEAREST);
 			} else {
 				image->create(1, 1, false, Image::FORMAT_RGBA8);
@@ -3927,7 +3927,7 @@ void TileSetAtlasSource::_get_property_list(List<PropertyInfo> *p_list) const {
 		tile_property_list.push_back(property_info);
 
 		// animation_frames_count.
-		tile_property_list.push_back(PropertyInfo(Variant::INT, "animation_frames_count", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NETWORK));
+		tile_property_list.push_back(PropertyInfo(Variant::INT, "animation_frames_count", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE));
 
 		// animation_frame_*.
 		bool store_durations = tiles[E_tile.key].animation_frames_durations.size() >= 2;

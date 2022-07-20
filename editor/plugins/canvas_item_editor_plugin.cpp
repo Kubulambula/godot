@@ -1201,7 +1201,7 @@ bool CanvasItemEditor::_gui_input_rulers_and_guides(const Ref<InputEvent> &p_eve
 			}
 			snap_target[0] = SNAP_TARGET_NONE;
 			snap_target[1] = SNAP_TARGET_NONE;
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -1369,14 +1369,14 @@ bool CanvasItemEditor::_gui_input_pivot(const Ref<InputEvent> &p_event) {
 							drag_selection[0]->get_name(),
 							drag_selection[0]->_edit_get_pivot().x,
 							drag_selection[0]->_edit_get_pivot().y));
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			return true;
 		}
 
 		// Cancel a drag
 		if (b.is_valid() && b->get_button_index() == MouseButton::RIGHT && b->is_pressed()) {
 			_restore_canvas_item_state(drag_selection);
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -1452,14 +1452,14 @@ bool CanvasItemEditor::_gui_input_rotate(const Ref<InputEvent> &p_event) {
 				_insert_animation_keys(false, true, false, true);
 			}
 
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			return true;
 		}
 
 		// Cancel a drag
 		if (b.is_valid() && b->get_button_index() == MouseButton::RIGHT && b->is_pressed()) {
 			_restore_canvas_item_state(drag_selection);
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -1614,14 +1614,14 @@ bool CanvasItemEditor::_gui_input_anchors(const Ref<InputEvent> &p_event) {
 			_commit_canvas_item_state(
 					drag_selection,
 					vformat(TTR("Move CanvasItem \"%s\" Anchor"), drag_selection[0]->get_name()));
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			return true;
 		}
 
 		// Cancel a drag
 		if (b.is_valid() && b->get_button_index() == MouseButton::RIGHT && b->is_pressed()) {
 			_restore_canvas_item_state(drag_selection);
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -1820,7 +1820,7 @@ bool CanvasItemEditor::_gui_input_resize(const Ref<InputEvent> &p_event) {
 
 			snap_target[0] = SNAP_TARGET_NONE;
 			snap_target[1] = SNAP_TARGET_NONE;
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -1830,7 +1830,7 @@ bool CanvasItemEditor::_gui_input_resize(const Ref<InputEvent> &p_event) {
 			_restore_canvas_item_state(drag_selection);
 			snap_target[0] = SNAP_TARGET_NONE;
 			snap_target[1] = SNAP_TARGET_NONE;
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -1959,7 +1959,7 @@ bool CanvasItemEditor::_gui_input_scale(const Ref<InputEvent> &p_event) {
 				_insert_animation_keys(false, false, true, true);
 			}
 
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -1967,7 +1967,7 @@ bool CanvasItemEditor::_gui_input_scale(const Ref<InputEvent> &p_event) {
 		// Cancel a drag
 		if (b.is_valid() && b->get_button_index() == MouseButton::RIGHT && b->is_pressed()) {
 			_restore_canvas_item_state(drag_selection);
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -2092,7 +2092,7 @@ bool CanvasItemEditor::_gui_input_move(const Ref<InputEvent> &p_event) {
 			snap_target[0] = SNAP_TARGET_NONE;
 			snap_target[1] = SNAP_TARGET_NONE;
 
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -2102,7 +2102,7 @@ bool CanvasItemEditor::_gui_input_move(const Ref<InputEvent> &p_event) {
 			_restore_canvas_item_state(drag_selection, true);
 			snap_target[0] = SNAP_TARGET_NONE;
 			snap_target[1] = SNAP_TARGET_NONE;
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -2209,7 +2209,7 @@ bool CanvasItemEditor::_gui_input_move(const Ref<InputEvent> &p_event) {
 								drag_selection[0]->_edit_get_position().y),
 						true);
 			}
-			drag_type = DRAG_NONE;
+			_reset_drag();
 		}
 		viewport->update();
 		return true;
@@ -2360,7 +2360,7 @@ bool CanvasItemEditor::_gui_input_select(const Ref<InputEvent> &p_event) {
 
 	if (drag_type == DRAG_QUEUED) {
 		if (b.is_valid() && !b->is_pressed()) {
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			return true;
 		}
 		if (m.is_valid()) {
@@ -2411,14 +2411,14 @@ bool CanvasItemEditor::_gui_input_select(const Ref<InputEvent> &p_event) {
 				}
 			}
 
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
 
 		if (b.is_valid() && b->is_pressed() && b->get_button_index() == MouseButton::RIGHT) {
 			// Cancel box selection
-			drag_type = DRAG_NONE;
+			_reset_drag();
 			viewport->update();
 			return true;
 		}
@@ -3645,7 +3645,7 @@ void CanvasItemEditor::_draw_hover() {
 }
 
 void CanvasItemEditor::_draw_transform_message() {
-	if (drag_selection.is_empty() || !drag_selection.front()->get()) {
+	if (drag_type == DRAG_NONE || drag_selection.is_empty() || !drag_selection.front()->get()) {
 		return;
 	}
 	String transform_message;
@@ -3981,7 +3981,7 @@ void CanvasItemEditor::_notification(int p_what) {
 
 void CanvasItemEditor::_selection_changed() {
 	if (!selected_from_canvas) {
-		drag_type = DRAG_NONE;
+		_reset_drag();
 	}
 	selected_from_canvas = false;
 }
@@ -3989,7 +3989,7 @@ void CanvasItemEditor::_selection_changed() {
 void CanvasItemEditor::edit(CanvasItem *p_canvas_item) {
 	Array selection = editor_selection->get_selected_nodes();
 	if (selection.size() != 1 || Object::cast_to<Node>(selection[0]) != p_canvas_item) {
-		drag_type = DRAG_NONE;
+		_reset_drag();
 
 		// Clear the selection
 		editor_selection->clear(); //_clear_canvas_items();
@@ -4701,6 +4701,11 @@ void CanvasItemEditor::_focus_selection(int p_op) {
 	}
 }
 
+void CanvasItemEditor::_reset_drag() {
+	drag_type = DRAG_NONE;
+	drag_selection.clear();
+}
+
 void CanvasItemEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_update_override_camera_button", "game_running"), &CanvasItemEditor::_update_override_camera_button);
 	ClassDB::bind_method("_get_editor_data", &CanvasItemEditor::_get_editor_data);
@@ -4976,7 +4981,7 @@ CanvasItemEditor::CanvasItemEditor() {
 
 	hb = memnew(HBoxContainer);
 	add_child(hb);
-	hb->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	hb->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 
 	bottom_split = memnew(VSplitContainer);
 	add_child(bottom_split);
@@ -5001,7 +5006,7 @@ CanvasItemEditor::CanvasItemEditor() {
 	SubViewportContainer *scene_tree = memnew(SubViewportContainer);
 	viewport_scrollable->add_child(scene_tree);
 	scene_tree->set_stretch(true);
-	scene_tree->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	scene_tree->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	scene_tree->add_child(EditorNode::get_singleton()->get_scene_root());
 
 	controls_vb = memnew(VBoxContainer);
@@ -5031,7 +5036,7 @@ CanvasItemEditor::CanvasItemEditor() {
 	viewport = memnew(CanvasItemEditorViewport(this));
 	viewport_scrollable->add_child(viewport);
 	viewport->set_mouse_filter(MOUSE_FILTER_PASS);
-	viewport->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	viewport->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	viewport->set_clip_contents(true);
 	viewport->set_focus_mode(FOCUS_ALL);
 	viewport->connect("draw", callable_mp(this, &CanvasItemEditor::_draw_viewport));
@@ -5420,7 +5425,7 @@ CanvasItemEditorPlugin::CanvasItemEditorPlugin() {
 	canvas_item_editor = memnew(CanvasItemEditor);
 	canvas_item_editor->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	EditorNode::get_singleton()->get_main_control()->add_child(canvas_item_editor);
-	canvas_item_editor->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	canvas_item_editor->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	canvas_item_editor->hide();
 }
 
