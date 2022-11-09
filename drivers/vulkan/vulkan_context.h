@@ -70,9 +70,9 @@ public:
 	};
 
 	struct VRSCapabilities {
-		bool pipeline_vrs_supported; // We can specify our fragment rate on a pipeline level
-		bool primitive_vrs_supported; // We can specify our fragment rate on each drawcall
-		bool attachment_vrs_supported; // We can provide a density map attachment on our framebuffer
+		bool pipeline_vrs_supported; // We can specify our fragment rate on a pipeline level.
+		bool primitive_vrs_supported; // We can specify our fragment rate on each drawcall.
+		bool attachment_vrs_supported; // We can provide a density map attachment on our framebuffer.
 
 		Size2i min_texel_size;
 		Size2i max_texel_size;
@@ -107,7 +107,7 @@ private:
 	bool device_initialized = false;
 	bool inst_initialized = false;
 
-	// Vulkan 1.0 doesn't return version info so we assume this by default until we know otherwise
+	// Vulkan 1.0 doesn't return version info so we assume this by default until we know otherwise.
 	uint32_t vulkan_major = 1;
 	uint32_t vulkan_minor = 0;
 	uint32_t vulkan_patch = 0;
@@ -188,6 +188,7 @@ private:
 	uint32_t enabled_extension_count = 0;
 	const char *extension_names[MAX_EXTENSIONS];
 	bool enabled_debug_utils = false;
+	bool has_renderpass2_ext = false;
 
 	/**
 	 * True if VK_EXT_debug_report extension is used. VK_EXT_debug_report is deprecated but it is
@@ -257,6 +258,8 @@ private:
 	Error _create_swap_chain();
 	Error _create_semaphores();
 
+	Vector<VkAttachmentReference> _convert_VkAttachmentReference2(uint32_t p_count, const VkAttachmentReference2 *p_refs);
+
 protected:
 	virtual const char *_get_platform_surface_extension() const = 0;
 
@@ -266,9 +269,12 @@ protected:
 
 	Error _get_preferred_validation_layers(uint32_t *count, const char *const **names);
 
+	virtual VkExtent2D _compute_swapchain_extent(const VkSurfaceCapabilitiesKHR &p_surf_capabilities, int *p_window_width, int *p_window_height) const;
+
 public:
-	// Extension calls
-	VkResult vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2 *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass);
+	// Extension calls.
+	bool supports_renderpass2() const { return has_renderpass2_ext; }
+	VkResult vkCreateRenderPass2KHR(VkDevice p_device, const VkRenderPassCreateInfo2 *p_create_info, const VkAllocationCallbacks *p_allocator, VkRenderPass *p_render_pass);
 
 	uint32_t get_vulkan_major() const { return vulkan_major; };
 	uint32_t get_vulkan_minor() const { return vulkan_minor; };

@@ -72,7 +72,7 @@ class EditorNode3DGizmo : public Node3DGizmo {
 	Vector<Instance> instances;
 	Node3D *spatial_node = nullptr;
 
-	void _set_spatial_node(Node *p_node) { set_spatial_node(Object::cast_to<Node3D>(p_node)); }
+	void _set_node_3d(Node *p_node) { set_node_3d(Object::cast_to<Node3D>(p_node)); }
 
 protected:
 	static void _bind_methods();
@@ -116,8 +116,8 @@ public:
 	void set_selected(bool p_selected) { selected = p_selected; }
 	bool is_selected() const { return selected; }
 
-	void set_spatial_node(Node3D *p_node);
-	Node3D *get_spatial_node() const { return spatial_node; }
+	void set_node_3d(Node3D *p_node);
+	Node3D *get_node_3d() const { return spatial_node; }
 	Ref<EditorNode3DGizmoPlugin> get_plugin() const { return gizmo_plugin; }
 	bool intersect_frustum(const Camera3D *p_camera, const Vector<Plane> &p_frustum);
 	void handles_intersect_ray(Camera3D *p_camera, const Vector2 &p_point, bool p_shift_pressed, int &r_id, bool &r_secondary);
@@ -334,11 +334,10 @@ public:
 	Label3DGizmoPlugin();
 };
 
-class Position3DGizmoPlugin : public EditorNode3DGizmoPlugin {
-	GDCLASS(Position3DGizmoPlugin, EditorNode3DGizmoPlugin);
+class Marker3DGizmoPlugin : public EditorNode3DGizmoPlugin {
+	GDCLASS(Marker3DGizmoPlugin, EditorNode3DGizmoPlugin);
 
 	Ref<ArrayMesh> pos3d_mesh;
-	Vector<Vector3> cursor_points;
 
 public:
 	bool has_gizmo(Node3D *p_spatial) override;
@@ -346,7 +345,7 @@ public:
 	int get_priority() const override;
 	void redraw(EditorNode3DGizmo *p_gizmo) override;
 
-	Position3DGizmoPlugin();
+	Marker3DGizmoPlugin();
 };
 
 class PhysicalBone3DGizmoPlugin : public EditorNode3DGizmoPlugin {
@@ -409,8 +408,8 @@ public:
 	VehicleWheel3DGizmoPlugin();
 };
 
-class SoftDynamicBody3DGizmoPlugin : public EditorNode3DGizmoPlugin {
-	GDCLASS(SoftDynamicBody3DGizmoPlugin, EditorNode3DGizmoPlugin);
+class SoftBody3DGizmoPlugin : public EditorNode3DGizmoPlugin {
+	GDCLASS(SoftBody3DGizmoPlugin, EditorNode3DGizmoPlugin);
 
 public:
 	bool has_gizmo(Node3D *p_spatial) override;
@@ -424,7 +423,7 @@ public:
 	void commit_handle(const EditorNode3DGizmo *p_gizmo, int p_id, bool p_secondary, const Variant &p_restore, bool p_cancel = false) override;
 	bool is_handle_highlighted(const EditorNode3DGizmo *p_gizmo, int p_id, bool p_secondary) const override;
 
-	SoftDynamicBody3DGizmoPlugin();
+	SoftBody3DGizmoPlugin();
 };
 
 class VisibleOnScreenNotifier3DGizmoPlugin : public EditorNode3DGizmoPlugin {
@@ -629,6 +628,23 @@ public:
 	void redraw(EditorNode3DGizmo *p_gizmo) override;
 
 	NavigationRegion3DGizmoPlugin();
+};
+
+class NavigationLink3DGizmoPlugin : public EditorNode3DGizmoPlugin {
+	GDCLASS(NavigationLink3DGizmoPlugin, EditorNode3DGizmoPlugin);
+
+public:
+	bool has_gizmo(Node3D *p_spatial) override;
+	String get_gizmo_name() const override;
+	int get_priority() const override;
+	void redraw(EditorNode3DGizmo *p_gizmo) override;
+
+	String get_handle_name(const EditorNode3DGizmo *p_gizmo, int p_id, bool p_secondary) const override;
+	Variant get_handle_value(const EditorNode3DGizmo *p_gizmo, int p_id, bool p_secondary) const override;
+	void set_handle(const EditorNode3DGizmo *p_gizmo, int p_id, bool p_secondary, Camera3D *p_camera, const Point2 &p_point) override;
+	void commit_handle(const EditorNode3DGizmo *p_gizmo, int p_id, bool p_secondary, const Variant &p_restore, bool p_cancel = false) override;
+
+	NavigationLink3DGizmoPlugin();
 };
 
 class JointGizmosDrawer {

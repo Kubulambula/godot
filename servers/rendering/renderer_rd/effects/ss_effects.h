@@ -44,8 +44,11 @@
 #include "servers/rendering/renderer_rd/shaders/effects/ssil_blur.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssil_importance_map.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssil_interleave.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/subsurface_scattering.glsl.gen.h"
 #include "servers/rendering/renderer_scene_render.h"
 #include "servers/rendering_server.h"
+
+class RenderSceneBuffersRD;
 
 namespace RendererRD {
 
@@ -61,9 +64,10 @@ public:
 
 	/* SS Downsampler */
 
-	void downsample_depth(RID p_depth_buffer, const Vector<RID> &p_depth_mipmaps, RS::EnvironmentSSAOQuality p_ssao_quality, RS::EnvironmentSSILQuality p_ssil_quality, bool p_invalidate_uniform_set, bool p_ssao_half_size, bool p_ssil_half_size, Size2i p_full_screen_size, const Projection &p_projection);
+	void downsample_depth(RID p_depth_buffer, const Vector<RID> &p_depth_mipmaps, bool p_invalidate_uniform_set, Size2i p_full_screen_size, const Projection &p_projection);
 
 	/* SSIL */
+	void ssil_set_quality(RS::EnvironmentSSILQuality p_quality, bool p_half_size, float p_adaptive_target, int p_blur_passes, float p_fadeout_from, float p_fadeout_to);
 
 	struct SSILRenderBuffers {
 		bool half_size = false;
@@ -96,13 +100,6 @@ public:
 		float sharpness = 0.98;
 		float normal_rejection = 1.0;
 
-		RS::EnvironmentSSILQuality quality = RS::ENV_SSIL_QUALITY_MEDIUM;
-		bool half_size = true;
-		float adaptive_target = 0.5;
-		int blur_passes = 4;
-		float fadeout_from = 50.0;
-		float fadeout_to = 300.0;
-
 		Size2i full_screen_size = Size2i();
 	};
 
@@ -111,6 +108,7 @@ public:
 	void ssil_free(SSILRenderBuffers &p_ssil_buffers);
 
 	/* SSAO */
+	void ssao_set_quality(RS::EnvironmentSSAOQuality p_quality, bool p_half_size, float p_adaptive_target, int p_blur_passes, float p_fadeout_from, float p_fadeout_to);
 
 	struct SSAORenderBuffers {
 		bool half_size = false;
@@ -139,13 +137,6 @@ public:
 		float horizon = 0.06;
 		float sharpness = 0.98;
 
-		RS::EnvironmentSSAOQuality quality = RS::ENV_SSAO_QUALITY_MEDIUM;
-		bool half_size = false;
-		float adaptive_target = 0.5;
-		int blur_passes = 2;
-		float fadeout_from = 50.0;
-		float fadeout_to = 300.0;
-
 		Size2i full_screen_size = Size2i();
 	};
 
@@ -154,8 +145,12 @@ public:
 	void ssao_free(SSAORenderBuffers &p_ssao_buffers);
 
 	/* Screen Space Reflection */
+	void ssr_set_roughness_quality(RS::EnvironmentSSRRoughnessQuality p_quality);
 
 	struct SSRRenderBuffers {
+		Size2i size;
+		RenderingServer::EnvironmentSSRRoughnessQuality roughness_quality = RenderingServer::ENV_SSR_ROUGHNESS_QUALITY_DISABLED;
+
 		RID normal_scaled;
 		RID depth_scaled;
 		RID blur_radius[2];
@@ -164,11 +159,40 @@ public:
 		RID output_slices[RendererSceneRender::MAX_RENDER_VIEWS];
 	};
 
-	void ssr_allocate_buffers(SSRRenderBuffers &p_ssr_buffers, const RenderingDevice::DataFormat p_color_format, RenderingServer::EnvironmentSSRRoughnessQuality p_roughness_quality, const Size2i &p_screen_size, const uint32_t p_view_count);
-	void screen_space_reflection(SSRRenderBuffers &p_ssr_buffers, const RID *p_diffuse_slices, const RID *p_normal_roughness_slices, RS::EnvironmentSSRRoughnessQuality p_roughness_quality, const RID *p_metallic_slices, const Color &p_metallic_mask, const RID *p_depth_slices, const Size2i &p_screen_size, int p_max_steps, float p_fade_in, float p_fade_out, float p_tolerance, const uint32_t p_view_count, const Projection *p_projections, const Vector3 *p_eye_offsets);
+	void ssr_allocate_buffers(SSRRenderBuffers &p_ssr_buffers, const RenderingDevice::DataFormat p_color_format, const Size2i &p_screen_size, const uint32_t p_view_count);
+	void screen_space_reflection(SSRRenderBuffers &p_ssr_buffers, const RID *p_diffuse_slices, const RID *p_normal_roughness_slices, const RID *p_metallic_slices, const RID *p_depth_slices, const Size2i &p_screen_size, int p_max_steps, float p_fade_in, float p_fade_out, float p_tolerance, const uint32_t p_view_count, const Projection *p_projections, const Vector3 *p_eye_offsets);
 	void ssr_free(SSRRenderBuffers &p_ssr_buffers);
 
+	/* subsurface scattering */
+	void sss_set_quality(RS::SubSurfaceScatteringQuality p_quality);
+	RS::SubSurfaceScatteringQuality sss_get_quality() const;
+	void sss_set_scale(float p_scale, float p_depth_scale);
+
+	void sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size);
+
 private:
+	/* Settings */
+
+	RS::EnvironmentSSAOQuality ssao_quality = RS::ENV_SSAO_QUALITY_MEDIUM;
+	bool ssao_half_size = false;
+	float ssao_adaptive_target = 0.5;
+	int ssao_blur_passes = 2;
+	float ssao_fadeout_from = 50.0;
+	float ssao_fadeout_to = 300.0;
+
+	RS::EnvironmentSSILQuality ssil_quality = RS::ENV_SSIL_QUALITY_MEDIUM;
+	bool ssil_half_size = false;
+	float ssil_adaptive_target = 0.5;
+	int ssil_blur_passes = 4;
+	float ssil_fadeout_from = 50.0;
+	float ssil_fadeout_to = 300.0;
+
+	RS::EnvironmentSSRRoughnessQuality ssr_roughness_quality = RS::ENV_SSR_ROUGHNESS_QUALITY_LOW;
+
+	RS::SubSurfaceScatteringQuality sss_quality = RS::SUB_SURFACE_SCATTERING_QUALITY_MEDIUM;
+	float sss_scale = 0.05;
+	float sss_depth_scale = 0.01;
+
 	/* SS Downsampler */
 
 	struct SSEffectsDownsamplePushConstant {
@@ -459,10 +483,7 @@ private:
 		uint32_t orthogonal; //  4 - 52
 		float filter_mipmap_levels; //  4 - 56
 		uint32_t use_half_res; //  4 - 60
-		uint8_t metallic_mask[4]; //  4 - 64
-
-		uint32_t view_index; //  4 - 68
-		uint32_t pad[3]; // 12 - 80
+		uint32_t view_index; //  4 - 64
 
 		// float projection[16];			// this is in our ScreenSpaceReflectionSceneData now
 	};
@@ -501,6 +522,29 @@ private:
 		RID shader_version;
 		RID pipelines[SSR_VARIATIONS][SCREEN_SPACE_REFLECTION_FILTER_MAX];
 	} ssr_filter;
+
+	/* Subsurface scattering */
+
+	struct SubSurfaceScatteringPushConstant {
+		int32_t screen_size[2];
+		float camera_z_far;
+		float camera_z_near;
+
+		uint32_t vertical;
+		uint32_t orthogonal;
+		float unit_size;
+		float scale;
+
+		float depth_scale;
+		uint32_t pad[3];
+	};
+
+	struct SubSurfaceScattering {
+		SubSurfaceScatteringPushConstant push_constant;
+		SubsurfaceScatteringShaderRD shader;
+		RID shader_version;
+		RID pipelines[3]; //3 quality levels
+	} sss;
 };
 
 } // namespace RendererRD

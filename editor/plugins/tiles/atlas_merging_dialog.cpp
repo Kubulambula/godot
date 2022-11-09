@@ -33,6 +33,7 @@
 #include "editor/editor_file_dialog.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
+#include "editor/editor_undo_redo_manager.h"
 
 #include "scene/gui/control.h"
 #include "scene/gui/split_container.h"
@@ -46,9 +47,7 @@ void AtlasMergingDialog::_generate_merged(Vector<Ref<TileSetAtlasSource>> p_atla
 	merged_mapping.clear();
 
 	if (p_atlas_sources.size() >= 2) {
-		Ref<Image> output_image;
-		output_image.instantiate();
-		output_image->create(1, 1, false, Image::FORMAT_RGBA8);
+		Ref<Image> output_image = Image::create_empty(1, 1, false, Image::FORMAT_RGBA8);
 
 		// Compute the new texture region size.
 		Vector2i new_texture_region_size;
@@ -268,7 +267,7 @@ AtlasMergingDialog::AtlasMergingDialog() {
 
 	// Atlas sources item list.
 	atlas_merging_atlases_list = memnew(ItemList);
-	atlas_merging_atlases_list->set_fixed_icon_size(Size2i(60, 60) * EDSCALE);
+	atlas_merging_atlases_list->set_fixed_icon_size(Size2(60, 60) * EDSCALE);
 	atlas_merging_atlases_list->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	atlas_merging_atlases_list->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	atlas_merging_atlases_list->set_texture_filter(CanvasItem::TEXTURE_FILTER_NEAREST);

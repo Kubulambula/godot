@@ -30,6 +30,8 @@
 
 #include "test_main.h"
 
+#include "tests/core/input/test_input_event_key.h"
+#include "tests/core/input/test_shortcut.h"
 #include "tests/core/io/test_config_file.h"
 #include "tests/core/io/test_file_access.h"
 #include "tests/core/io/test_image.h"
@@ -45,14 +47,20 @@
 #include "tests/core/math/test_expression.h"
 #include "tests/core/math/test_geometry_2d.h"
 #include "tests/core/math/test_geometry_3d.h"
+#include "tests/core/math/test_math_funcs.h"
 #include "tests/core/math/test_plane.h"
+#include "tests/core/math/test_quaternion.h"
 #include "tests/core/math/test_random_number_generator.h"
 #include "tests/core/math/test_rect2.h"
 #include "tests/core/math/test_rect2i.h"
+#include "tests/core/math/test_transform_2d.h"
+#include "tests/core/math/test_transform_3d.h"
 #include "tests/core/math/test_vector2.h"
 #include "tests/core/math/test_vector2i.h"
 #include "tests/core/math/test_vector3.h"
 #include "tests/core/math/test_vector3i.h"
+#include "tests/core/math/test_vector4.h"
+#include "tests/core/math/test_vector4i.h"
 #include "tests/core/object/test_class_db.h"
 #include "tests/core/object/test_method_bind.h"
 #include "tests/core/object/test_object.h"
@@ -67,6 +75,7 @@
 #include "tests/core/templates/test_local_vector.h"
 #include "tests/core/templates/test_lru.h"
 #include "tests/core/templates/test_paged_array.h"
+#include "tests/core/templates/test_rid.h"
 #include "tests/core/templates/test_vector.h"
 #include "tests/core/test_crypto.h"
 #include "tests/core/test_hashing_context.h"
@@ -76,10 +85,16 @@
 #include "tests/core/variant/test_dictionary.h"
 #include "tests/core/variant/test_variant.h"
 #include "tests/scene/test_animation.h"
+#include "tests/scene/test_arraymesh.h"
+#include "tests/scene/test_audio_stream_wav.h"
+#include "tests/scene/test_bit_map.h"
 #include "tests/scene/test_code_edit.h"
 #include "tests/scene/test_curve.h"
 #include "tests/scene/test_gradient.h"
+#include "tests/scene/test_path_2d.h"
 #include "tests/scene/test_path_3d.h"
+#include "tests/scene/test_primitives.h"
+#include "tests/scene/test_sprite_frames.h"
 #include "tests/scene/test_text_edit.h"
 #include "tests/scene/test_theme.h"
 #include "tests/servers/test_text_server.h"
@@ -89,7 +104,7 @@
 
 #include "tests/test_macros.h"
 
-#include "scene/resources/default_theme/default_theme.h"
+#include "scene/theme/theme_db.h"
 #include "servers/navigation_server_2d.h"
 #include "servers/navigation_server_3d.h"
 #include "servers/physics_server_2d.h"
@@ -105,7 +120,7 @@ int test_main(int argc, char *argv[]) {
 	for (int i = 0; i < argc; i++) {
 		args.push_back(String::utf8(argv[i]));
 	}
-	OS::get_singleton()->set_cmdline("", args);
+	OS::get_singleton()->set_cmdline("", args, List<String>());
 
 	// Run custom test tools.
 	if (test_commands) {
@@ -169,6 +184,7 @@ struct GodotTestCaseListener : public doctest::IReporter {
 	PhysicsServer2D *physics_server_2d = nullptr;
 	NavigationServer3D *navigation_server_3d = nullptr;
 	NavigationServer2D *navigation_server_2d = nullptr;
+	ThemeDB *theme_db = nullptr;
 
 	void test_case_start(const doctest::TestCaseData &p_in) override {
 		SignalWatcher::get_singleton()->_clear_signals();
@@ -176,10 +192,7 @@ struct GodotTestCaseListener : public doctest::IReporter {
 		String name = String(p_in.m_name);
 
 		if (name.find("[SceneTree]") != -1) {
-			GLOBAL_DEF("memory/limits/multithreaded_server/rid_pool_prealloc", 60);
 			memnew(MessageQueue);
-
-			GLOBAL_DEF("internationalization/rendering/force_right_to_left_layout_direction", false);
 
 			memnew(Input);
 
@@ -187,7 +200,7 @@ struct GodotTestCaseListener : public doctest::IReporter {
 			OS::get_singleton()->set_has_server_feature_callback(nullptr);
 			for (int i = 0; i < DisplayServer::get_create_function_count(); i++) {
 				if (String("headless") == DisplayServer::get_create_function_name(i)) {
-					DisplayServer::create(i, "", DisplayServer::WindowMode::WINDOW_MODE_MINIMIZED, DisplayServer::VSyncMode::VSYNC_ENABLED, 0, Vector2i(0, 0), err);
+					DisplayServer::create(i, "", DisplayServer::WindowMode::WINDOW_MODE_MINIMIZED, DisplayServer::VSyncMode::VSYNC_ENABLED, 0, nullptr, Vector2i(0, 0), err);
 					break;
 				}
 			}
@@ -195,10 +208,10 @@ struct GodotTestCaseListener : public doctest::IReporter {
 			RenderingServerDefault::get_singleton()->init();
 			RenderingServerDefault::get_singleton()->set_render_loop_enabled(false);
 
-			physics_server_3d = PhysicsServer3DManager::new_default_server();
+			physics_server_3d = PhysicsServer3DManager::get_singleton()->new_default_server();
 			physics_server_3d->init();
 
-			physics_server_2d = PhysicsServer2DManager::new_default_server();
+			physics_server_2d = PhysicsServer2DManager::get_singleton()->new_default_server();
 			physics_server_2d->init();
 
 			navigation_server_3d = NavigationServer3DManager::new_default_server();
@@ -207,10 +220,20 @@ struct GodotTestCaseListener : public doctest::IReporter {
 			memnew(InputMap);
 			InputMap::get_singleton()->load_default();
 
-			make_default_theme(1.0, Ref<Font>());
+			theme_db = memnew(ThemeDB);
+			theme_db->initialize_theme_noproject();
 
 			memnew(SceneTree);
 			SceneTree::get_singleton()->initialize();
+			return;
+		}
+
+		if (name.find("Audio") != -1) {
+			// The last driver index should always be the dummy driver.
+			int dummy_idx = AudioDriverManager::get_driver_count() - 1;
+			AudioDriverManager::initialize(dummy_idx);
+			AudioServer *audio_server = memnew(AudioServer);
+			audio_server->init();
 			return;
 		}
 	}
@@ -228,7 +251,10 @@ struct GodotTestCaseListener : public doctest::IReporter {
 			memdelete(SceneTree::get_singleton());
 		}
 
-		clear_default_theme();
+		if (theme_db) {
+			memdelete(theme_db);
+			theme_db = nullptr;
+		}
 
 		if (navigation_server_3d) {
 			memdelete(navigation_server_3d);
@@ -258,7 +284,7 @@ struct GodotTestCaseListener : public doctest::IReporter {
 
 		if (RenderingServer::get_singleton()) {
 			RenderingServer::get_singleton()->sync();
-			RenderingServer::get_singleton()->global_shader_uniforms_clear();
+			RenderingServer::get_singleton()->global_shader_parameters_clear();
 			RenderingServer::get_singleton()->finish();
 			memdelete(RenderingServer::get_singleton());
 		}
@@ -274,6 +300,11 @@ struct GodotTestCaseListener : public doctest::IReporter {
 		if (MessageQueue::get_singleton()) {
 			MessageQueue::get_singleton()->flush();
 			memdelete(MessageQueue::get_singleton());
+		}
+
+		if (AudioServer::get_singleton()) {
+			AudioServer::get_singleton()->finish();
+			memdelete(AudioServer::get_singleton());
 		}
 	}
 

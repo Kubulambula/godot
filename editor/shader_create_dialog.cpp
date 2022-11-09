@@ -37,6 +37,13 @@
 #include "scene/resources/visual_shader.h"
 #include "servers/rendering/shader_types.h"
 
+enum ShaderType {
+	SHADER_TYPE_TEXT,
+	SHADER_TYPE_VISUAL,
+	SHADER_TYPE_INC,
+	SHADER_TYPE_MAX,
+};
+
 void ShaderCreateDialog::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE: {
@@ -82,27 +89,27 @@ void ShaderCreateDialog::_update_theme() {
 	}
 
 	path_button->set_icon(get_theme_icon(SNAME("Folder"), SNAME("EditorIcons")));
-	status_panel->add_theme_style_override("panel", get_theme_stylebox(SNAME("bg"), SNAME("Tree")));
+	status_panel->add_theme_style_override("panel", get_theme_stylebox(SNAME("panel"), SNAME("Tree")));
 }
 
 void ShaderCreateDialog::_update_language_info() {
 	type_data.clear();
 
 	for (int i = 0; i < SHADER_TYPE_MAX; i++) {
-		ShaderTypeData data;
+		ShaderTypeData shader_type_data;
 		if (i == int(SHADER_TYPE_TEXT)) {
-			data.use_templates = true;
-			data.extensions.push_back("gdshader");
-			data.default_extension = "gdshader";
+			shader_type_data.use_templates = true;
+			shader_type_data.extensions.push_back("gdshader");
+			shader_type_data.default_extension = "gdshader";
 		} else if (i == int(SHADER_TYPE_INC)) {
-			data.extensions.push_back("gdshaderinc");
-			data.default_extension = "gdshaderinc";
+			shader_type_data.extensions.push_back("gdshaderinc");
+			shader_type_data.default_extension = "gdshaderinc";
 		} else {
-			data.default_extension = "tres";
+			shader_type_data.default_extension = "tres";
 		}
-		data.extensions.push_back("res");
-		data.extensions.push_back("tres");
-		type_data.push_back(data);
+		shader_type_data.extensions.push_back("res");
+		shader_type_data.extensions.push_back("tres");
+		type_data.push_back(shader_type_data);
 	}
 }
 
@@ -154,7 +161,7 @@ void ShaderCreateDialog::_create_new() {
 			shader = text_shader;
 
 			StringBuilder code;
-			code += vformat("shader_type %s;\n", mode_menu->get_text().replace(" ", "").camelcase_to_underscore());
+			code += vformat("shader_type %s;\n", mode_menu->get_text().to_snake_case());
 
 			if (current_template == 0) { // Default template.
 				code += "\n";
@@ -254,9 +261,9 @@ void ShaderCreateDialog::_load_exist() {
 
 void ShaderCreateDialog::_type_changed(int p_language) {
 	current_type = p_language;
-	ShaderTypeData data = type_data[p_language];
+	ShaderTypeData shader_type_data = type_data[p_language];
 
-	String selected_ext = "." + data.default_extension;
+	String selected_ext = "." + shader_type_data.default_extension;
 	String path = file_path->get_text();
 	String extension = "";
 
@@ -277,10 +284,10 @@ void ShaderCreateDialog::_type_changed(int p_language) {
 
 	type_menu->set_item_disabled(int(SHADER_TYPE_INC), load_enabled);
 	mode_menu->set_disabled(p_language == SHADER_TYPE_INC);
-	template_menu->set_disabled(!data.use_templates);
+	template_menu->set_disabled(!shader_type_data.use_templates);
 	template_menu->clear();
 
-	if (data.use_templates) {
+	if (shader_type_data.use_templates) {
 		int last_template = EditorSettings::get_singleton()->get_project_metadata("shader_setup", "last_selected_template", 0);
 
 		template_menu->add_item(TTR("Default"));
@@ -429,8 +436,6 @@ String ShaderCreateDialog::_validate_path(const String &p_path) {
 			}
 		}
 	}
-
-	ShaderTypeData data = type_data[type_menu->get_selected()];
 
 	bool found = false;
 	bool match = false;

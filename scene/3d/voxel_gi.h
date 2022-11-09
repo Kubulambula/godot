@@ -33,6 +33,8 @@
 
 #include "scene/3d/visual_instance_3d.h"
 
+class CameraAttributes;
+
 class VoxelGIData : public Resource {
 	GDCLASS(VoxelGIData, Resource);
 
@@ -49,9 +51,9 @@ class VoxelGIData : public Resource {
 	float energy = 1.0;
 	float bias = 1.5;
 	float normal_bias = 0.0;
-	float propagation = 0.7;
+	float propagation = 0.5;
 	bool interior = false;
-	bool use_two_bounces = false;
+	bool use_two_bounces = true;
 
 protected:
 	static void _bind_methods();
@@ -117,6 +119,7 @@ private:
 
 	Subdiv subdiv = SUBDIV_128;
 	Vector3 extents = Vector3(10, 10, 10);
+	Ref<CameraAttributes> camera_attributes;
 
 	struct PlotMesh {
 		Ref<Material> override_material;
@@ -144,13 +147,17 @@ public:
 
 	void set_extents(const Vector3 &p_extents);
 	Vector3 get_extents() const;
+
+	void set_camera_attributes(const Ref<CameraAttributes> &p_camera_attributes);
+	Ref<CameraAttributes> get_camera_attributes() const;
+
 	Vector3i get_estimated_cell_size() const;
 
 	void bake(Node *p_from_node = nullptr, bool p_create_visual_debug = false);
 
 	virtual AABB get_aabb() const override;
 
-	TypedArray<String> get_configuration_warnings() const override;
+	PackedStringArray get_configuration_warnings() const override;
 
 	VoxelGI();
 	~VoxelGI();

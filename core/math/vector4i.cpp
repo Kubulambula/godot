@@ -33,21 +33,11 @@
 #include "core/math/vector4.h"
 #include "core/string/ustring.h"
 
-void Vector4i::set_axis(const int p_axis, const int32_t p_value) {
-	ERR_FAIL_INDEX(p_axis, 4);
-	coord[p_axis] = p_value;
-}
-
-int32_t Vector4i::get_axis(const int p_axis) const {
-	ERR_FAIL_INDEX_V(p_axis, 4, 0);
-	return operator[](p_axis);
-}
-
 Vector4i::Axis Vector4i::min_axis_index() const {
 	uint32_t min_index = 0;
 	int32_t min_value = x;
 	for (uint32_t i = 1; i < 4; i++) {
-		if (operator[](i) < min_value) {
+		if (operator[](i) <= min_value) {
 			min_index = i;
 			min_value = operator[](i);
 		}
@@ -84,8 +74,10 @@ Vector4i::operator Vector4() const {
 }
 
 Vector4i::Vector4i(const Vector4 &p_vec4) {
-	x = p_vec4.x;
-	y = p_vec4.y;
-	z = p_vec4.z;
-	w = p_vec4.w;
+	x = (int32_t)p_vec4.x;
+	y = (int32_t)p_vec4.y;
+	z = (int32_t)p_vec4.z;
+	w = (int32_t)p_vec4.w;
 }
+
+static_assert(sizeof(Vector4i) == 4 * sizeof(int32_t));

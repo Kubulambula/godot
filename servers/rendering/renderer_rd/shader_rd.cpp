@@ -180,6 +180,7 @@ void ShaderRD::_build_variant_code(StringBuilder &builder, uint32_t p_variant, c
 #if defined(MACOS_ENABLED) || defined(IOS_ENABLED)
 				builder.append("#define MOLTENVK_USED\n");
 #endif
+				builder.append(String("#define RENDER_DRIVER_") + OS::get_singleton()->get_current_rendering_driver_name().to_upper() + "\n");
 			} break;
 			case StageTemplate::Chunk::TYPE_MATERIAL_UNIFORMS: {
 				builder.append(p_version->uniforms.get_data()); //uniforms (same for vertex and fragment)
@@ -380,7 +381,7 @@ static const uint32_t cache_file_version = 2;
 
 bool ShaderRD::_load_from_cache(Version *p_version) {
 	String sha1 = _version_get_sha1(p_version);
-	String path = shader_cache_dir.plus_file(name).plus_file(base_sha256).plus_file(sha1) + ".cache";
+	String path = shader_cache_dir.path_join(name).path_join(base_sha256).path_join(sha1) + ".cache";
 
 	Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
 	if (f.is_null()) {
@@ -443,7 +444,7 @@ bool ShaderRD::_load_from_cache(Version *p_version) {
 
 void ShaderRD::_save_to_cache(Version *p_version) {
 	String sha1 = _version_get_sha1(p_version);
-	String path = shader_cache_dir.plus_file(name).plus_file(base_sha256).plus_file(sha1) + ".cache";
+	String path = shader_cache_dir.path_join(name).path_join(base_sha256).path_join(sha1) + ".cache";
 
 	Ref<FileAccess> f = FileAccess::open(path, FileAccess::WRITE);
 	ERR_FAIL_COND(f.is_null());

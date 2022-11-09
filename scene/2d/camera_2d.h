@@ -63,10 +63,15 @@ protected:
 	Vector2 zoom = Vector2(1, 1);
 	Vector2 zoom_scale = Vector2(1, 1);
 	AnchorMode anchor_mode = ANCHOR_MODE_DRAG_CENTER;
-	bool rotating = false;
+	bool ignore_rotation = true;
 	bool current = false;
-	real_t smoothing = 5.0;
-	bool smoothing_enabled = false;
+	real_t position_smoothing_speed = 5.0;
+	bool follow_smoothing_enabled = false;
+
+	real_t camera_angle = 0.0;
+	real_t rotation_smoothing_speed = 5.0;
+	bool rotation_smoothing_enabled = false;
+
 	int limit[4];
 	bool limit_smoothing_enabled = false;
 
@@ -87,6 +92,8 @@ protected:
 
 	void _set_old_smoothing(real_t p_enable);
 
+	void _update_process_internal_for_smoothing();
+
 	bool screen_drawing_enabled = true;
 	bool limit_drawing_enabled = false;
 	bool margin_drawing_enabled = false;
@@ -100,7 +107,7 @@ protected:
 
 	void _notification(int p_what);
 	static void _bind_methods();
-	void _validate_property(PropertyInfo &property) const override;
+	void _validate_property(PropertyInfo &p_property) const;
 
 public:
 	void set_offset(const Vector2 &p_offset);
@@ -109,8 +116,8 @@ public:
 	void set_anchor_mode(AnchorMode p_anchor_mode);
 	AnchorMode get_anchor_mode() const;
 
-	void set_rotating(bool p_rotating);
-	bool is_rotating() const;
+	void set_ignore_rotation(bool p_ignore);
+	bool is_ignoring_rotation() const;
 
 	void set_limit(Side p_side, int p_limit);
 	int get_limit(Side p_side) const;
@@ -133,11 +140,17 @@ public:
 	void set_drag_vertical_offset(real_t p_offset);
 	real_t get_drag_vertical_offset() const;
 
-	void set_enable_follow_smoothing(bool p_enabled);
-	bool is_follow_smoothing_enabled() const;
+	void set_position_smoothing_enabled(bool p_enabled);
+	bool is_position_smoothing_enabled() const;
 
-	void set_follow_smoothing(real_t p_speed);
-	real_t get_follow_smoothing() const;
+	void set_position_smoothing_speed(real_t p_speed);
+	real_t get_position_smoothing_speed() const;
+
+	void set_rotation_smoothing_speed(real_t p_speed);
+	real_t get_rotation_smoothing_speed() const;
+
+	void set_rotation_smoothing_enabled(bool p_enabled);
+	bool is_rotation_smoothing_enabled() const;
 
 	void set_process_callback(Camera2DProcessCallback p_mode);
 	Camera2DProcessCallback get_process_callback() const;

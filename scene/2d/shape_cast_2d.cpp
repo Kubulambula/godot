@@ -40,7 +40,7 @@
 void ShapeCast2D::set_target_position(const Vector2 &p_point) {
 	target_position = p_point;
 	if (is_inside_tree() && (Engine::get_singleton()->is_editor_hint() || get_tree()->is_debugging_collisions_hint())) {
-		update();
+		queue_redraw();
 	}
 }
 
@@ -107,6 +107,11 @@ Object *ShapeCast2D::get_collider(int p_idx) const {
 	return ObjectDB::get_instance(result[p_idx].collider_id);
 }
 
+RID ShapeCast2D::get_collider_rid(int p_idx) const {
+	ERR_FAIL_INDEX_V_MSG(p_idx, result.size(), RID(), "No collider RID found.");
+	return result[p_idx].rid;
+}
+
 int ShapeCast2D::get_collider_shape(int p_idx) const {
 	ERR_FAIL_INDEX_V_MSG(p_idx, result.size(), -1, "No collider shape found.");
 	return result[p_idx].shape;
@@ -132,7 +137,7 @@ real_t ShapeCast2D::get_closest_collision_unsafe_fraction() const {
 
 void ShapeCast2D::set_enabled(bool p_enabled) {
 	enabled = p_enabled;
-	update();
+	queue_redraw();
 	if (is_inside_tree() && !Engine::get_singleton()->is_editor_hint()) {
 		set_physics_process_internal(p_enabled);
 	}
@@ -152,7 +157,7 @@ void ShapeCast2D::set_shape(const Ref<Shape2D> &p_shape) {
 		shape_rid = shape->get_rid();
 	}
 	update_configuration_warnings();
-	update();
+	queue_redraw();
 }
 
 Ref<Shape2D> ShapeCast2D::get_shape() const {
@@ -182,7 +187,7 @@ bool ShapeCast2D::get_exclude_parent_body() const {
 }
 
 void ShapeCast2D::_redraw_shape() {
-	update();
+	queue_redraw();
 }
 
 void ShapeCast2D::_notification(int p_what) {
@@ -217,7 +222,7 @@ void ShapeCast2D::_notification(int p_what) {
 			if (shape.is_null()) {
 				break;
 			}
-			Color draw_col = get_tree()->get_debug_collisions_color();
+			Color draw_col = collided ? Color(1.0, 0.01, 0) : get_tree()->get_debug_collisions_color();
 			if (!enabled) {
 				float g = draw_col.get_v();
 				draw_col.r = g;
@@ -235,18 +240,25 @@ void ShapeCast2D::_notification(int p_what) {
 
 			// Draw an arrow indicating where the ShapeCast is pointing to.
 			if (target_position != Vector2()) {
+				const real_t max_arrow_size = 6;
+				const real_t line_width = 1.4;
+				bool no_line = target_position.length() < line_width;
+				real_t arrow_size = CLAMP(target_position.length() * 2 / 3, line_width, max_arrow_size);
+
+				if (no_line) {
+					arrow_size = target_position.length();
+				} else {
+					draw_line(Vector2(), target_position - target_position.normalized() * arrow_size, draw_col, line_width);
+				}
+
 				Transform2D xf;
 				xf.rotate(target_position.angle());
-				xf.translate_local(Vector2(target_position.length(), 0));
-
-				draw_line(Vector2(), target_position, draw_col, 2);
-
-				float tsize = 8;
+				xf.translate_local(Vector2(no_line ? 0 : target_position.length() - arrow_size, 0));
 
 				Vector<Vector2> pts = {
-					xf.xform(Vector2(tsize, 0)),
-					xf.xform(Vector2(0, Math_SQRT12 * tsize)),
-					xf.xform(Vector2(0, -Math_SQRT12 * tsize))
+					xf.xform(Vector2(arrow_size, 0)),
+					xf.xform(Vector2(0, 0.5 * arrow_size)),
+					xf.xform(Vector2(0, -0.5 * arrow_size))
 				};
 
 				Vector<Color> cols = { draw_col, draw_col, draw_col };
@@ -291,6 +303,8 @@ void ShapeCast2D::_update_shapecast_state() {
 	collision_safe_fraction = 0.0;
 	collision_unsafe_fraction = 0.0;
 
+	bool prev_collision_state = collided;
+
 	if (target_position != Vector2()) {
 		dss->cast_motion(params, collision_safe_fraction, collision_unsafe_fraction);
 		if (collision_unsafe_fraction < 1.0) {
@@ -314,6 +328,10 @@ void ShapeCast2D::_update_shapecast_state() {
 		}
 	}
 	collided = !result.is_empty();
+
+	if (prev_collision_state != collided) {
+		queue_redraw();
+	}
 }
 
 void ShapeCast2D::force_shapecast_update() {
@@ -378,8 +396,8 @@ Array ShapeCast2D::_get_collision_result() const {
 	return ret;
 }
 
-TypedArray<String> ShapeCast2D::get_configuration_warnings() const {
-	TypedArray<String> warnings = Node2D::get_configuration_warnings();
+PackedStringArray ShapeCast2D::get_configuration_warnings() const {
+	PackedStringArray warnings = Node2D::get_configuration_warnings();
 
 	if (shape.is_null()) {
 		warnings.push_back(RTR("This node cannot interact with other objects unless a Shape2D is assigned."));
@@ -409,6 +427,7 @@ void ShapeCast2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("force_shapecast_update"), &ShapeCast2D::force_shapecast_update);
 
 	ClassDB::bind_method(D_METHOD("get_collider", "index"), &ShapeCast2D::get_collider);
+	ClassDB::bind_method(D_METHOD("get_collider_rid", "index"), &ShapeCast2D::get_collider_rid);
 	ClassDB::bind_method(D_METHOD("get_collider_shape", "index"), &ShapeCast2D::get_collider_shape);
 	ClassDB::bind_method(D_METHOD("get_collision_point", "index"), &ShapeCast2D::get_collision_point);
 	ClassDB::bind_method(D_METHOD("get_collision_normal", "index"), &ShapeCast2D::get_collision_normal);

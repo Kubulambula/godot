@@ -42,8 +42,25 @@ struct SingleSubstFormat1_3
     hb_codepoint_t d = deltaGlyphID;
     hb_codepoint_t mask = get_mask ();
 
+    /* Help fuzzer avoid this function as much. */
+    unsigned pop = (this+coverage).get_population ();
+    if (pop >= mask)
+      return;
+
     hb_set_t intersection;
     (this+coverage).intersect_set (c->parent_active_glyphs (), intersection);
+
+    /* In degenerate fuzzer-found fonts, but not real fonts,
+     * this table can keep adding new glyphs in each round of closure.
+     * Refuse to close-over, if it maps glyph range to overlapping range. */
+    hb_codepoint_t min_before = intersection.get_min ();
+    hb_codepoint_t max_before = intersection.get_max ();
+    hb_codepoint_t min_after = (min_before + d) & mask;
+    hb_codepoint_t max_after = (max_before + d) & mask;
+    if (pop >= max_before - min_before &&
+	((min_before <= min_after && min_after <= max_before) ||
+	 (min_before <= max_after && max_after <= max_before)))
+      return;
 
     + hb_iter (intersection)
     | hb_map ([d, mask] (hb_codepoint_t g) { return (g + d) & mask; })
@@ -82,7 +99,22 @@ struct SingleSubstFormat1_3
 
     glyph_id = (glyph_id + d) & mask;
 
+    if (HB_BUFFER_MESSAGE_MORE && c->buffer->messaging ())
+    {
+      c->buffer->sync_so_far ();
+      c->buffer->message (c->font,
+			  "replacing glyph at %d (single substitution)",
+			  c->buffer->idx);
+    }
+
     c->replace_glyph (glyph_id);
+
+    if (HB_BUFFER_MESSAGE_MORE && c->buffer->messaging ())
+    {
+      c->buffer->message (c->font,
+			  "replaced glyph at %d (single substitution)",
+			  c->buffer->idx - 1);
+    }
 
     return_trace (true);
   }

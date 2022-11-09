@@ -68,6 +68,11 @@ void XRInterface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_anchor_detection_is_enabled", "enable"), &XRInterface::set_anchor_detection_is_enabled);
 	ClassDB::bind_method(D_METHOD("get_camera_feed_id"), &XRInterface::get_camera_feed_id);
 
+	ClassDB::bind_method(D_METHOD("is_passthrough_supported"), &XRInterface::is_passthrough_supported);
+	ClassDB::bind_method(D_METHOD("is_passthrough_enabled"), &XRInterface::is_passthrough_enabled);
+	ClassDB::bind_method(D_METHOD("start_passthrough"), &XRInterface::start_passthrough);
+	ClassDB::bind_method(D_METHOD("stop_passthrough"), &XRInterface::stop_passthrough);
+
 	ADD_GROUP("AR", "ar_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "ar_is_anchor_detection_enabled"), "set_anchor_detection_is_enabled", "get_anchor_detection_is_enabled");
 
@@ -217,12 +222,7 @@ RID XRInterface::get_vrs_texture() {
 					data_ptr[d++] = density;
 				}
 			}
-
-			Ref<Image> image;
-			image.instantiate();
-			image->create_from_data(vrs_sizei.x, vrs_sizei.y, false, Image::FORMAT_R8, data);
-
-			images.push_back(image);
+			images.push_back(Image::create_from_data(vrs_sizei.x, vrs_sizei.y, false, Image::FORMAT_R8, data));
 		}
 
 		if (images.size() == 1) {
@@ -236,6 +236,19 @@ RID XRInterface::get_vrs_texture() {
 }
 
 /** these are optional, so we want dummies **/
+
+RID XRInterface::get_color_texture() {
+	return RID();
+}
+
+RID XRInterface::get_depth_texture() {
+	return RID();
+}
+
+RID XRInterface::get_velocity_texture() {
+	return RID();
+}
+
 PackedStringArray XRInterface::get_suggested_tracker_names() const {
 	PackedStringArray arr;
 

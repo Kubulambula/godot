@@ -50,7 +50,7 @@ private:
 	HScrollBar *h_scroll = nullptr;
 	VScrollBar *v_scroll = nullptr;
 
-	Size2 child_max_size;
+	mutable Size2 largest_child_min_size; // The largest one among the min sizes of all available child controls.
 
 	void update_scrollbars();
 
@@ -69,13 +69,18 @@ private:
 	int deadzone = 0;
 	bool follow_focus = false;
 
+	struct ThemeCache {
+		Ref<StyleBox> panel_style;
+	} theme_cache;
+
 	void _cancel_drag();
 
 protected:
+	virtual void _update_theme_item_cache() override;
 	Size2 get_minimum_size() const override;
 
 	void _gui_focus_changed(Control *p_control);
-	void _update_dimensions();
+	void _reposition_children();
 	void _notification(int p_what);
 
 	void _scroll_moved(float);
@@ -109,7 +114,7 @@ public:
 	VScrollBar *get_v_scroll_bar();
 	void ensure_control_visible(Control *p_control);
 
-	TypedArray<String> get_configuration_warnings() const override;
+	PackedStringArray get_configuration_warnings() const override;
 
 	ScrollContainer();
 };

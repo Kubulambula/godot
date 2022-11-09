@@ -120,8 +120,8 @@ bool GodotPhysicsDirectSpaceState3D::intersect_ray(const RayParameters &p_parame
 
 	bool collided = false;
 	Vector3 res_point, res_normal;
-	int res_shape;
-	const GodotCollisionObject3D *res_obj;
+	int res_shape = -1;
+	const GodotCollisionObject3D *res_obj = nullptr;
 	real_t min_d = 1e10;
 
 	for (int i = 0; i < amount; i++) {
@@ -185,6 +185,7 @@ bool GodotPhysicsDirectSpaceState3D::intersect_ray(const RayParameters &p_parame
 	if (!collided) {
 		return false;
 	}
+	ERR_FAIL_NULL_V(res_obj, false); // Shouldn't happen but silences warning.
 
 	r_result.collider_id = res_obj->get_instance_id();
 	if (r_result.collider_id.is_valid()) {
@@ -701,6 +702,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 		const int max_results = 32;
 		int recover_attempts = 4;
 		Vector3 sr[max_results * 2];
+		real_t priorities[max_results];
 
 		do {
 			GodotPhysicsServer3D::CollCbkData cbk;
@@ -710,6 +712,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 
 			GodotPhysicsServer3D::CollCbkData *cbkptr = &cbk;
 			GodotCollisionSolver3D::CallbackResult cbkres = GodotPhysicsServer3D::_shape_col_cbk;
+			int priority_amount = 0;
 
 			bool collided = false;
 
@@ -737,12 +740,22 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 					if (GodotCollisionSolver3D::solve_static(body_shape, body_shape_xform, col_obj->get_shape(shape_idx), col_obj->get_transform() * col_obj->get_shape_transform(shape_idx), cbkres, cbkptr, nullptr, margin)) {
 						collided = cbk.amount > 0;
 					}
+					while (cbk.amount > priority_amount) {
+						priorities[priority_amount] = col_obj->get_collision_priority();
+						priority_amount++;
+					}
 				}
 			}
 
 			if (!collided) {
 				break;
 			}
+
+			real_t inv_total_weight = 0.0;
+			for (int i = 0; i < cbk.amount; i++) {
+				inv_total_weight += priorities[i];
+			}
+			inv_total_weight = Math::is_zero_approx(inv_total_weight) ? 1.0 : (real_t)cbk.amount / inv_total_weight;
 
 			recovered = true;
 
@@ -759,7 +772,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 				real_t depth = n.dot(a + recover_motion) - d;
 				if (depth > min_contact_depth + CMP_EPSILON) {
 					// Only recover if there is penetration.
-					recover_motion -= n * (depth - min_contact_depth) * 0.4;
+					recover_motion -= n * (depth - min_contact_depth) * 0.4 * priorities[i] * inv_total_weight;
 				}
 			}
 
@@ -989,6 +1002,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 				r_result->collision_unsafe_fraction = unsafe;
 
 				r_result->collision_count = rcd.result_count;
+				r_result->collision_depth = rcd.best_result.len;
 			}
 
 			collided = true;
@@ -1002,6 +1016,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 
 		r_result->collision_safe_fraction = 1.0;
 		r_result->collision_unsafe_fraction = 1.0;
+		r_result->collision_depth = 0.0;
 	}
 
 	return collided;
@@ -1235,7 +1250,7 @@ GodotPhysicsDirectSpaceState3D *GodotSpace3D::get_direct_state() {
 
 GodotSpace3D::GodotSpace3D() {
 	body_linear_velocity_sleep_threshold = GLOBAL_DEF("physics/3d/sleep_threshold_linear", 0.1);
-	body_angular_velocity_sleep_threshold = GLOBAL_DEF("physics/3d/sleep_threshold_angular", Math::deg2rad(8.0));
+	body_angular_velocity_sleep_threshold = GLOBAL_DEF("physics/3d/sleep_threshold_angular", Math::deg_to_rad(8.0));
 	body_time_to_sleep = GLOBAL_DEF("physics/3d/time_before_sleep", 0.5);
 	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/time_before_sleep", PropertyInfo(Variant::FLOAT, "physics/3d/time_before_sleep", PROPERTY_HINT_RANGE, "0,5,0.01,or_greater"));
 
@@ -1243,7 +1258,7 @@ GodotSpace3D::GodotSpace3D() {
 	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/solver/solver_iterations", PropertyInfo(Variant::INT, "physics/3d/solver/solver_iterations", PROPERTY_HINT_RANGE, "1,32,1,or_greater"));
 
 	contact_recycle_radius = GLOBAL_DEF("physics/3d/solver/contact_recycle_radius", 0.01);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/solver/contact_recycle_radius", PropertyInfo(Variant::FLOAT, "physics/3d/solver/contact_max_separation", PROPERTY_HINT_RANGE, "0,0.1,0.01,or_greater"));
+	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/solver/contact_recycle_radius", PropertyInfo(Variant::FLOAT, "physics/3d/solver/contact_recycle_radius", PROPERTY_HINT_RANGE, "0,0.1,0.01,or_greater"));
 
 	contact_max_separation = GLOBAL_DEF("physics/3d/solver/contact_max_separation", 0.05);
 	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/solver/contact_max_separation", PropertyInfo(Variant::FLOAT, "physics/3d/solver/contact_max_separation", PROPERTY_HINT_RANGE, "0,0.1,0.01,or_greater"));

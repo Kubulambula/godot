@@ -14,10 +14,10 @@ concurrency:
 jobs:
   ios-template:
     runs-on: "macos-latest"
-    name: Template (target=release, tools=no)
+    name: Template (target=template_release)
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Godot build cache
         uses: ./.github/actions/godot-cache
@@ -26,13 +26,12 @@ jobs:
       - name: Setup python and scons
         uses: ./.github/actions/godot-deps
 
-      - name: Compilation (arm64v8)
+      - name: Compilation (arm64)
         uses: ./.github/actions/godot-build
         with:
           sconsflags: ${{ env.SCONSFLAGS }}
           platform: ios
-          target: release
-          tools: false
+          target: template_release
           tests: false
 
       - name: Upload artifact

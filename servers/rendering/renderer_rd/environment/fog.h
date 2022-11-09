@@ -38,12 +38,17 @@
 #include "servers/rendering/renderer_rd/environment/gi.h"
 #include "servers/rendering/renderer_rd/shaders/environment/volumetric_fog.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/environment/volumetric_fog_process.glsl.gen.h"
+#include "servers/rendering/renderer_rd/storage_rd/render_buffer_custom_data_rd.h"
 #include "servers/rendering/storage/utilities.h"
+
+#define RB_SCOPE_FOG SNAME("Fog")
 
 namespace RendererRD {
 
 class Fog : public RendererFog {
-public:
+private:
+	static Fog *singleton;
+
 	/* FOG VOLUMES */
 
 	struct FogVolume {
@@ -55,16 +60,14 @@ public:
 		Dependency dependency;
 	};
 
+	mutable RID_Owner<FogVolume, true> fog_volume_owner;
+
 	struct FogVolumeInstance {
 		RID volume;
 		Transform3D transform;
 		bool active = false;
 	};
 
-private:
-	static Fog *singleton;
-
-	mutable RID_Owner<FogVolume, true> fog_volume_owner;
 	mutable RID_Owner<FogVolumeInstance> fog_volume_instance_owner;
 
 	/* Volumetric Fog */
@@ -180,7 +183,7 @@ private:
 
 	Vector3i _point_get_position_in_froxel_volume(const Vector3 &p_point, float fog_end, const Vector2 &fog_near_size, const Vector2 &fog_far_size, float volumetric_fog_detail_spread, const Vector3 &fog_size, const Transform3D &p_cam_transform);
 
-	struct FogShaderData : public RendererRD::ShaderData {
+	struct FogShaderData : public RendererRD::MaterialStorage::ShaderData {
 		bool valid = false;
 		RID version;
 
@@ -199,10 +202,10 @@ private:
 
 		virtual void set_path_hint(const String &p_hint);
 		virtual void set_code(const String &p_Code);
-		virtual void set_default_texture_param(const StringName &p_name, RID p_texture, int p_index);
-		virtual void get_param_list(List<PropertyInfo> *p_param_list) const;
+		virtual void set_default_texture_parameter(const StringName &p_name, RID p_texture, int p_index);
+		virtual void get_shader_uniform_list(List<PropertyInfo> *p_param_list) const;
 		virtual void get_instance_param_list(List<RendererMaterialStorage::InstanceShaderParam> *p_param_list) const;
-		virtual bool is_param_texture(const StringName &p_param) const;
+		virtual bool is_parameter_texture(const StringName &p_param) const;
 		virtual bool is_animated() const;
 		virtual bool casts_shadows() const;
 		virtual Variant get_default_parameter(const StringName &p_parameter) const;
@@ -212,7 +215,7 @@ private:
 		virtual ~FogShaderData();
 	};
 
-	struct FogMaterialData : public RendererRD::MaterialData {
+	struct FogMaterialData : public RendererRD::MaterialStorage::MaterialData {
 		FogShaderData *shader_data = nullptr;
 		RID uniform_set;
 		bool uniform_set_updated;
@@ -223,11 +226,11 @@ private:
 		virtual ~FogMaterialData();
 	};
 
-	RendererRD::ShaderData *_create_fog_shader_func();
-	static RendererRD::ShaderData *_create_fog_shader_funcs();
+	RendererRD::MaterialStorage::ShaderData *_create_fog_shader_func();
+	static RendererRD::MaterialStorage::ShaderData *_create_fog_shader_funcs();
 
-	RendererRD::MaterialData *_create_fog_material_func(FogShaderData *p_shader);
-	static RendererRD::MaterialData *_create_fog_material_funcs(RendererRD::ShaderData *p_shader);
+	RendererRD::MaterialStorage::MaterialData *_create_fog_material_func(FogShaderData *p_shader);
+	static RendererRD::MaterialStorage::MaterialData *_create_fog_material_funcs(RendererRD::MaterialStorage::ShaderData *p_shader);
 
 public:
 	static Fog *get_singleton() { return singleton; }
@@ -237,12 +240,12 @@ public:
 
 	/* FOG VOLUMES */
 
-	FogVolume *get_fog_volume(RID p_rid) { return fog_volume_owner.get_or_null(p_rid); };
 	bool owns_fog_volume(RID p_rid) { return fog_volume_owner.owns(p_rid); };
 
 	virtual RID fog_volume_allocate() override;
 	virtual void fog_volume_initialize(RID p_rid) override;
-	virtual void fog_free(RID p_rid) override;
+	virtual void fog_volume_free(RID p_rid) override;
+	Dependency *fog_volume_get_dependency(RID p_fog_volume) const;
 
 	virtual void fog_volume_set_shape(RID p_fog_volume, RS::FogVolumeShape p_shape) override;
 	virtual void fog_volume_set_extents(RID p_fog_volume, const Vector3 &p_extents) override;
@@ -254,14 +257,40 @@ public:
 
 	/* FOG VOLUMES INSTANCE */
 
-	FogVolumeInstance *get_fog_volume_instance(RID p_rid) { return fog_volume_instance_owner.get_or_null(p_rid); };
 	bool owns_fog_volume_instance(RID p_rid) { return fog_volume_instance_owner.owns(p_rid); };
 
 	RID fog_volume_instance_create(RID p_fog_volume);
 	void fog_instance_free(RID p_rid);
 
+	void fog_volume_instance_set_transform(RID p_fog_volume_instance, const Transform3D &p_transform) {
+		Fog::FogVolumeInstance *fvi = fog_volume_instance_owner.get_or_null(p_fog_volume_instance);
+		ERR_FAIL_COND(!fvi);
+		fvi->transform = p_transform;
+	}
+
+	void fog_volume_instance_set_active(RID p_fog_volume_instance, bool p_active) {
+		Fog::FogVolumeInstance *fvi = fog_volume_instance_owner.get_or_null(p_fog_volume_instance);
+		ERR_FAIL_COND(!fvi);
+		fvi->active = p_active;
+	}
+
+	RID fog_volume_instance_get_volume(RID p_fog_volume_instance) const {
+		Fog::FogVolumeInstance *fvi = fog_volume_instance_owner.get_or_null(p_fog_volume_instance);
+		ERR_FAIL_COND_V(!fvi, RID());
+		return fvi->volume;
+	}
+
+	Vector3 fog_volume_instance_get_position(RID p_fog_volume_instance) const {
+		Fog::FogVolumeInstance *fvi = fog_volume_instance_owner.get_or_null(p_fog_volume_instance);
+		ERR_FAIL_COND_V(!fvi, Vector3());
+		return fvi->transform.get_origin();
+	}
+
 	/* Volumetric FOG */
-	struct VolumetricFog {
+	class VolumetricFog : public RenderBufferCustomDataRD {
+		GDCLASS(VolumetricFog, RenderBufferCustomDataRD)
+
+	public:
 		enum {
 			MAX_TEMPORAL_FRAMES = 16
 		};
@@ -290,7 +319,10 @@ public:
 
 		int last_shadow_filter = -1;
 
-		VolumetricFog(const Vector3i &fog_size, RID p_sky_shader);
+		virtual void configure(RenderSceneBuffersRD *p_render_buffers) override{};
+		virtual void free_data() override{};
+
+		void init(const Vector3i &fog_size, RID p_sky_shader);
 		~VolumetricFog();
 	};
 
@@ -304,7 +336,7 @@ public:
 		uint32_t max_cluster_elements;
 		bool volumetric_fog_filter_active;
 		RID shadow_sampler;
-		RID voxel_gl_buffer;
+		RID voxel_gi_buffer;
 		RID shadow_atlas_depth;
 		RID omni_light_buffer;
 		RID spot_light_buffer;
@@ -312,11 +344,11 @@ public:
 		RID directional_light_buffer;
 
 		// Objects related to our render buffer
-		VolumetricFog *vfog;
+		Ref<VolumetricFog> vfog;
 		ClusterBuilderRD *cluster_builder;
 		GI *gi;
-		GI::SDFGI *sdfgi;
-		GI::RenderBuffersGI *rbgi;
+		Ref<GI::SDFGI> sdfgi;
+		Ref<GI::RenderBuffersGI> rbgi;
 		RID env;
 		SkyRD *sky;
 	};

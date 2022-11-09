@@ -89,87 +89,68 @@ RS::InstanceType Utilities::get_base_type(RID p_rid) const {
 }
 
 bool Utilities::free(RID p_rid) {
-	if (RendererRD::TextureStorage::get_singleton()->owns_texture(p_rid)) {
-		RendererRD::TextureStorage::get_singleton()->texture_free(p_rid);
-	} else if (RendererRD::TextureStorage::get_singleton()->owns_canvas_texture(p_rid)) {
-		RendererRD::TextureStorage::get_singleton()->canvas_texture_free(p_rid);
-	} else if (RendererRD::MaterialStorage::get_singleton()->owns_shader(p_rid)) {
-		RendererRD::MaterialStorage::get_singleton()->shader_free(p_rid);
-	} else if (RendererRD::MaterialStorage::get_singleton()->owns_material(p_rid)) {
-		RendererRD::MaterialStorage::get_singleton()->material_free(p_rid);
-	} else if (RendererRD::MeshStorage::get_singleton()->owns_mesh(p_rid)) {
-		RendererRD::MeshStorage::get_singleton()->mesh_free(p_rid);
-	} else if (RendererRD::MeshStorage::get_singleton()->owns_mesh_instance(p_rid)) {
-		RendererRD::MeshStorage::get_singleton()->mesh_instance_free(p_rid);
-	} else if (RendererRD::MeshStorage::get_singleton()->owns_multimesh(p_rid)) {
-		RendererRD::MeshStorage::get_singleton()->multimesh_free(p_rid);
-	} else if (RendererRD::MeshStorage::get_singleton()->owns_skeleton(p_rid)) {
-		RendererRD::MeshStorage::get_singleton()->skeleton_free(p_rid);
-	} else if (RendererRD::LightStorage::get_singleton()->owns_reflection_probe(p_rid)) {
-		RendererRD::LightStorage::get_singleton()->reflection_probe_free(p_rid);
-	} else if (RendererRD::TextureStorage::get_singleton()->owns_decal(p_rid)) {
-		RendererRD::TextureStorage::get_singleton()->decal_free(p_rid);
+	if (RendererRD::LightStorage::get_singleton()->free(p_rid)) {
+		return true;
+	} else if (RendererRD::MaterialStorage::get_singleton()->free(p_rid)) {
+		return true;
+	} else if (RendererRD::MeshStorage::get_singleton()->free(p_rid)) {
+		return true;
+	} else if (RendererRD::ParticlesStorage::get_singleton()->free(p_rid)) {
+		return true;
+	} else if (RendererRD::TextureStorage::get_singleton()->free(p_rid)) {
+		return true;
 	} else if (RendererRD::GI::get_singleton()->owns_voxel_gi(p_rid)) {
 		RendererRD::GI::get_singleton()->voxel_gi_free(p_rid);
-	} else if (RendererRD::LightStorage::get_singleton()->owns_lightmap(p_rid)) {
-		RendererRD::LightStorage::get_singleton()->lightmap_free(p_rid);
-	} else if (RendererRD::LightStorage::get_singleton()->owns_light(p_rid)) {
-		RendererRD::LightStorage::get_singleton()->light_free(p_rid);
-	} else if (RendererRD::ParticlesStorage::get_singleton()->owns_particles(p_rid)) {
-		RendererRD::ParticlesStorage::get_singleton()->particles_free(p_rid);
-	} else if (RendererRD::ParticlesStorage::get_singleton()->owns_particles_collision(p_rid)) {
-		RendererRD::ParticlesStorage::get_singleton()->particles_collision_free(p_rid);
+		return true;
+	} else if (RendererRD::Fog::get_singleton()->owns_fog_volume(p_rid)) {
+		RendererRD::Fog::get_singleton()->fog_volume_free(p_rid);
+		return true;
 	} else if (owns_visibility_notifier(p_rid)) {
 		visibility_notifier_free(p_rid);
-	} else if (RendererRD::ParticlesStorage::get_singleton()->owns_particles_collision_instance(p_rid)) {
-		RendererRD::ParticlesStorage::get_singleton()->particles_collision_instance_free(p_rid);
-	} else if (RendererRD::Fog::get_singleton()->owns_fog_volume(p_rid)) {
-		RendererRD::Fog::get_singleton()->fog_free(p_rid);
-	} else if (RendererRD::TextureStorage::get_singleton()->owns_render_target(p_rid)) {
-		RendererRD::TextureStorage::get_singleton()->render_target_free(p_rid);
+		return true;
 	} else {
 		return false;
 	}
-
-	return true;
 }
 
 /* DEPENDENCIES */
 
 void Utilities::base_update_dependency(RID p_base, DependencyTracker *p_instance) {
 	if (MeshStorage::get_singleton()->owns_mesh(p_base)) {
-		Mesh *mesh = MeshStorage::get_singleton()->get_mesh(p_base);
-		p_instance->update_dependency(&mesh->dependency);
+		Dependency *dependency = MeshStorage::get_singleton()->mesh_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	} else if (MeshStorage::get_singleton()->owns_multimesh(p_base)) {
-		MultiMesh *multimesh = MeshStorage::get_singleton()->get_multimesh(p_base);
-		p_instance->update_dependency(&multimesh->dependency);
-		if (multimesh->mesh.is_valid()) {
-			base_update_dependency(multimesh->mesh, p_instance);
+		Dependency *dependency = MeshStorage::get_singleton()->multimesh_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
+
+		RID mesh = MeshStorage::get_singleton()->multimesh_get_mesh(p_base);
+		if (mesh.is_valid()) {
+			base_update_dependency(mesh, p_instance);
 		}
 	} else if (LightStorage::get_singleton()->owns_reflection_probe(p_base)) {
-		ReflectionProbe *rp = LightStorage::get_singleton()->get_reflection_probe(p_base);
-		p_instance->update_dependency(&rp->dependency);
+		Dependency *dependency = LightStorage::get_singleton()->reflection_probe_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	} else if (TextureStorage::get_singleton()->owns_decal(p_base)) {
-		Decal *decal = TextureStorage::get_singleton()->get_decal(p_base);
-		p_instance->update_dependency(&decal->dependency);
+		Dependency *dependency = TextureStorage::get_singleton()->decal_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	} else if (GI::get_singleton()->owns_voxel_gi(p_base)) {
-		GI::VoxelGI *gip = GI::get_singleton()->get_voxel_gi(p_base);
-		p_instance->update_dependency(&gip->dependency);
+		Dependency *dependency = GI::get_singleton()->voxel_gi_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	} else if (LightStorage::get_singleton()->owns_lightmap(p_base)) {
-		Lightmap *lm = LightStorage::get_singleton()->get_lightmap(p_base);
-		p_instance->update_dependency(&lm->dependency);
+		Dependency *dependency = LightStorage::get_singleton()->lightmap_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	} else if (LightStorage::get_singleton()->owns_light(p_base)) {
-		Light *l = LightStorage::get_singleton()->get_light(p_base);
-		p_instance->update_dependency(&l->dependency);
+		Dependency *dependency = LightStorage::get_singleton()->light_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	} else if (ParticlesStorage::get_singleton()->owns_particles(p_base)) {
-		Particles *p = ParticlesStorage::get_singleton()->get_particles(p_base);
-		p_instance->update_dependency(&p->dependency);
+		Dependency *dependency = ParticlesStorage::get_singleton()->particles_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	} else if (ParticlesStorage::get_singleton()->owns_particles_collision(p_base)) {
-		ParticlesCollision *pc = ParticlesStorage::get_singleton()->get_particles_collision(p_base);
-		p_instance->update_dependency(&pc->dependency);
+		Dependency *dependency = ParticlesStorage::get_singleton()->particles_collision_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	} else if (Fog::get_singleton()->owns_fog_volume(p_base)) {
-		Fog::FogVolume *fv = Fog::get_singleton()->get_fog_volume(p_base);
-		p_instance->update_dependency(&fv->dependency);
+		Dependency *dependency = Fog::get_singleton()->fog_volume_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	} else if (owns_visibility_notifier(p_base)) {
 		VisibilityNotifier *vn = get_visibility_notifier(p_base);
 		p_instance->update_dependency(&vn->dependency);
@@ -219,7 +200,7 @@ void Utilities::visibility_notifier_call(RID p_notifier, bool p_enter, bool p_de
 	if (p_enter) {
 		if (!vn->enter_callback.is_null()) {
 			if (p_deferred) {
-				vn->enter_callback.call_deferredp(nullptr, 0);
+				vn->enter_callback.call_deferred();
 			} else {
 				Variant r;
 				Callable::CallError ce;
@@ -229,7 +210,7 @@ void Utilities::visibility_notifier_call(RID p_notifier, bool p_enter, bool p_de
 	} else {
 		if (!vn->exit_callback.is_null()) {
 			if (p_deferred) {
-				vn->exit_callback.call_deferredp(nullptr, 0);
+				vn->exit_callback.call_deferred();
 			} else {
 				Variant r;
 				Callable::CallError ce;
@@ -288,9 +269,14 @@ bool Utilities::has_os_feature(const String &p_feature) const {
 		return true;
 	}
 
+#if !defined(ANDROID_ENABLED) && !defined(IOS_ENABLED)
+	// Some Android devices report support for S3TC but we don't expect that and don't export the textures.
+	// This could be fixed but so few devices support it that it doesn't seem useful (and makes bigger APKs).
+	// For good measure we do the same hack for iOS, just in case.
 	if (p_feature == "s3tc" && RD::get_singleton()->texture_is_format_supported_for_usage(RD::DATA_FORMAT_BC1_RGB_UNORM_BLOCK, RD::TEXTURE_USAGE_SAMPLING_BIT)) {
 		return true;
 	}
+#endif
 
 	if (p_feature == "bptc" && RD::get_singleton()->texture_is_format_supported_for_usage(RD::DATA_FORMAT_BC7_UNORM_BLOCK, RD::TEXTURE_USAGE_SAMPLING_BIT)) {
 		return true;
@@ -334,4 +320,12 @@ RenderingDevice::DeviceType Utilities::get_video_adapter_type() const {
 
 String Utilities::get_video_adapter_api_version() const {
 	return RenderingDevice::get_singleton()->get_device_api_version();
+}
+
+Size2i Utilities::get_maximum_viewport_size() const {
+	RenderingDevice *device = RenderingDevice::get_singleton();
+
+	int max_x = device->limit_get(RenderingDevice::LIMIT_MAX_VIEWPORT_DIMENSIONS_X);
+	int max_y = device->limit_get(RenderingDevice::LIMIT_MAX_VIEWPORT_DIMENSIONS_Y);
+	return Size2i(max_x, max_y);
 }

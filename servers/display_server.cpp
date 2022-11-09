@@ -44,40 +44,49 @@ DisplayServer::DisplayServerCreate DisplayServer::server_create_functions[Displa
 
 int DisplayServer::server_create_count = 1;
 
-void DisplayServer::global_menu_add_item(const String &p_menu_root, const String &p_label, const Callable &p_callback, const Variant &p_tag, Key p_accel, int p_index) {
+int DisplayServer::global_menu_add_item(const String &p_menu_root, const String &p_label, const Callable &p_callback, const Callable &p_key_callback, const Variant &p_tag, Key p_accel, int p_index) {
 	WARN_PRINT("Global menus not supported by this display server.");
+	return -1;
 }
 
-void DisplayServer::global_menu_add_check_item(const String &p_menu_root, const String &p_label, const Callable &p_callback, const Variant &p_tag, Key p_accel, int p_index) {
+int DisplayServer::global_menu_add_check_item(const String &p_menu_root, const String &p_label, const Callable &p_callback, const Callable &p_key_callback, const Variant &p_tag, Key p_accel, int p_index) {
 	WARN_PRINT("Global menus not supported by this display server.");
+	return -1;
 }
 
-void DisplayServer::global_menu_add_icon_item(const String &p_menu_root, const Ref<Texture2D> &p_icon, const String &p_label, const Callable &p_callback, const Variant &p_tag, Key p_accel, int p_index) {
+int DisplayServer::global_menu_add_icon_item(const String &p_menu_root, const Ref<Texture2D> &p_icon, const String &p_label, const Callable &p_callback, const Callable &p_key_callback, const Variant &p_tag, Key p_accel, int p_index) {
 	WARN_PRINT("Global menus not supported by this display server.");
+	return -1;
 }
 
-void DisplayServer::global_menu_add_icon_check_item(const String &p_menu_root, const Ref<Texture2D> &p_icon, const String &p_label, const Callable &p_callback, const Variant &p_tag, Key p_accel, int p_index) {
+int DisplayServer::global_menu_add_icon_check_item(const String &p_menu_root, const Ref<Texture2D> &p_icon, const String &p_label, const Callable &p_callback, const Callable &p_key_callback, const Variant &p_tag, Key p_accel, int p_index) {
 	WARN_PRINT("Global menus not supported by this display server.");
+	return -1;
 }
 
-void DisplayServer::global_menu_add_radio_check_item(const String &p_menu_root, const String &p_label, const Callable &p_callback, const Variant &p_tag, Key p_accel, int p_index) {
+int DisplayServer::global_menu_add_radio_check_item(const String &p_menu_root, const String &p_label, const Callable &p_callback, const Callable &p_key_callback, const Variant &p_tag, Key p_accel, int p_index) {
 	WARN_PRINT("Global menus not supported by this display server.");
+	return -1;
 }
 
-void DisplayServer::global_menu_add_icon_radio_check_item(const String &p_menu_root, const Ref<Texture2D> &p_icon, const String &p_label, const Callable &p_callback, const Variant &p_tag, Key p_accel, int p_index) {
+int DisplayServer::global_menu_add_icon_radio_check_item(const String &p_menu_root, const Ref<Texture2D> &p_icon, const String &p_label, const Callable &p_callback, const Callable &p_key_callback, const Variant &p_tag, Key p_accel, int p_index) {
 	WARN_PRINT("Global menus not supported by this display server.");
+	return -1;
 }
 
-void DisplayServer::global_menu_add_multistate_item(const String &p_menu_root, const String &p_label, int p_max_states, int p_default_state, const Callable &p_callback, const Variant &p_tag, Key p_accel, int p_index) {
+int DisplayServer::global_menu_add_multistate_item(const String &p_menu_root, const String &p_label, int p_max_states, int p_default_state, const Callable &p_callback, const Callable &p_key_callback, const Variant &p_tag, Key p_accel, int p_index) {
 	WARN_PRINT("Global menus not supported by this display server.");
+	return -1;
 }
 
-void DisplayServer::global_menu_add_submenu_item(const String &p_menu_root, const String &p_label, const String &p_submenu, int p_index) {
+int DisplayServer::global_menu_add_submenu_item(const String &p_menu_root, const String &p_label, const String &p_submenu, int p_index) {
 	WARN_PRINT("Global menus not supported by this display server.");
+	return -1;
 }
 
-void DisplayServer::global_menu_add_separator(const String &p_menu_root, int p_index) {
+int DisplayServer::global_menu_add_separator(const String &p_menu_root, int p_index) {
 	WARN_PRINT("Global menus not supported by this display server.");
+	return -1;
 }
 
 int DisplayServer::global_menu_get_item_index_from_text(const String &p_menu_root, const String &p_text) const {
@@ -91,6 +100,10 @@ int DisplayServer::global_menu_get_item_index_from_tag(const String &p_menu_root
 }
 
 void DisplayServer::global_menu_set_item_callback(const String &p_menu_root, int p_idx, const Callable &p_callback) {
+	WARN_PRINT("Global menus not supported by this display server.");
+}
+
+void DisplayServer::global_menu_set_item_key_callback(const String &p_menu_root, int p_idx, const Callable &p_key_callback) {
 	WARN_PRINT("Global menus not supported by this display server.");
 }
 
@@ -110,6 +123,11 @@ bool DisplayServer::global_menu_is_item_radio_checkable(const String &p_menu_roo
 }
 
 Callable DisplayServer::global_menu_get_item_callback(const String &p_menu_root, int p_idx) const {
+	WARN_PRINT("Global menus not supported by this display server.");
+	return Callable();
+}
+
+Callable DisplayServer::global_menu_get_item_key_callback(const String &p_menu_root, int p_idx) const {
 	WARN_PRINT("Global menus not supported by this display server.");
 	return Callable();
 }
@@ -157,6 +175,11 @@ int DisplayServer::global_menu_get_item_max_states(const String &p_menu_root, in
 Ref<Texture2D> DisplayServer::global_menu_get_item_icon(const String &p_menu_root, int p_idx) const {
 	WARN_PRINT("Global menus not supported by this display server.");
 	return Ref<Texture2D>();
+}
+
+int DisplayServer::global_menu_get_item_indentation_level(const String &p_menu_root, int p_idx) const {
+	WARN_PRINT("Global menus not supported by this display server.");
+	return 0;
 }
 
 void DisplayServer::global_menu_set_item_checked(const String &p_menu_root, int p_idx, bool p_checked) {
@@ -207,6 +230,10 @@ void DisplayServer::global_menu_set_item_icon(const String &p_menu_root, int p_i
 	WARN_PRINT("Global menus not supported by this display server.");
 }
 
+void DisplayServer::global_menu_set_item_indentation_level(const String &p_menu_root, int p_idx, int p_level) {
+	WARN_PRINT("Global menus not supported by this display server.");
+}
+
 int DisplayServer::global_menu_get_item_count(const String &p_menu_root) const {
 	WARN_PRINT("Global menus not supported by this display server.");
 	return 0;
@@ -238,14 +265,14 @@ void DisplayServer::tts_resume() {
 	WARN_PRINT("TTS is not supported by this display server.");
 }
 
-Array DisplayServer::tts_get_voices() const {
+TypedArray<Dictionary> DisplayServer::tts_get_voices() const {
 	WARN_PRINT("TTS is not supported by this display server.");
-	return Array();
+	return TypedArray<Dictionary>();
 }
 
 PackedStringArray DisplayServer::tts_get_voices_for_language(const String &p_language) const {
 	PackedStringArray ret;
-	Array voices = tts_get_voices();
+	TypedArray<Dictionary> voices = tts_get_voices();
 	for (int i = 0; i < voices.size(); i++) {
 		const Dictionary &voice = voices[i];
 		if (voice.has("id") && voice.has("language") && voice["language"].operator String().begins_with(p_language)) {
@@ -275,19 +302,12 @@ void DisplayServer::tts_post_utterance_event(TTSUtteranceEvent p_event, int p_id
 		case DisplayServer::TTS_UTTERANCE_ENDED:
 		case DisplayServer::TTS_UTTERANCE_CANCELED: {
 			if (utterance_callback[p_event].is_valid()) {
-				Variant args[1];
-				args[0] = p_id;
-				const Variant *argp[] = { &args[0] };
-				utterance_callback[p_event].call_deferredp(argp, 1); // Should be deferred, on some platforms utterance events can be called from different threads in a rapid succession.
+				utterance_callback[p_event].call_deferred(p_id); // Should be deferred, on some platforms utterance events can be called from different threads in a rapid succession.
 			}
 		} break;
 		case DisplayServer::TTS_UTTERANCE_BOUNDARY: {
 			if (utterance_callback[p_event].is_valid()) {
-				Variant args[2];
-				args[0] = p_pos;
-				args[1] = p_id;
-				const Variant *argp[] = { &args[0], &args[1] };
-				utterance_callback[p_event].call_deferredp(argp, 2); // Should be deferred, on some platforms utterance events can be called from different threads in a rapid succession.
+				utterance_callback[p_event].call_deferred(p_pos, p_id); // Should be deferred, on some platforms utterance events can be called from different threads in a rapid succession.
 			}
 		} break;
 		default:
@@ -400,7 +420,7 @@ String DisplayServer::ime_get_text() const {
 	ERR_FAIL_V_MSG(String(), "IME or NOTIFICATION_WM_IME_UPDATEnot supported by this display server.");
 }
 
-void DisplayServer::virtual_keyboard_show(const String &p_existing_text, const Rect2 &p_screen_rect, bool p_multiline, int p_max_length, int p_cursor_start, int p_cursor_end) {
+void DisplayServer::virtual_keyboard_show(const String &p_existing_text, const Rect2 &p_screen_rect, VirtualKeyboardType p_type, int p_max_length, int p_cursor_start, int p_cursor_end) {
 	WARN_PRINT("Virtual keyboard not supported by this display server.");
 }
 
@@ -494,11 +514,11 @@ int64_t DisplayServer::window_get_native_handle(HandleType p_handle_type, Window
 }
 
 void DisplayServer::window_set_vsync_mode(DisplayServer::VSyncMode p_vsync_mode, WindowID p_window) {
-	WARN_PRINT("Changing the VSync mode is not supported by this display server.");
+	WARN_PRINT("Changing the V-Sync mode is not supported by this display server.");
 }
 
 DisplayServer::VSyncMode DisplayServer::window_get_vsync_mode(WindowID p_window) const {
-	WARN_PRINT("Changing the VSync mode is not supported by this display server.");
+	WARN_PRINT("Changing the V-Sync mode is not supported by this display server.");
 	return VSyncMode::VSYNC_ENABLED;
 }
 
@@ -509,14 +529,14 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("has_feature", "feature"), &DisplayServer::has_feature);
 	ClassDB::bind_method(D_METHOD("get_name"), &DisplayServer::get_name);
 
-	ClassDB::bind_method(D_METHOD("global_menu_add_item", "menu_root", "label", "callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_item, DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
-	ClassDB::bind_method(D_METHOD("global_menu_add_check_item", "menu_root", "label", "callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_check_item, DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
-	ClassDB::bind_method(D_METHOD("global_menu_add_icon_item", "menu_root", "icon", "label", "callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_icon_item, DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
-	ClassDB::bind_method(D_METHOD("global_menu_add_icon_check_item", "menu_root", "icon", "label", "callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_icon_check_item, DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
-	ClassDB::bind_method(D_METHOD("global_menu_add_radio_check_item", "menu_root", "label", "callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_radio_check_item, DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
-	ClassDB::bind_method(D_METHOD("global_menu_add_icon_radio_check_item", "menu_root", "icon", "label", "callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_icon_radio_check_item, DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
-	ClassDB::bind_method(D_METHOD("global_menu_add_multistate_item", "menu_root", "labe", "max_states", "default_state", "callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_multistate_item, DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("global_menu_add_submenu_item", "menu_root", "label", "submenu", "index"), &DisplayServer::global_menu_add_submenu_item, DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("global_menu_add_item", "menu_root", "label", "callback", "key_callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_item, DEFVAL(Callable()), DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("global_menu_add_check_item", "menu_root", "label", "callback", "key_callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_check_item, DEFVAL(Callable()), DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("global_menu_add_icon_item", "menu_root", "icon", "label", "callback", "key_callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_icon_item, DEFVAL(Callable()), DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("global_menu_add_icon_check_item", "menu_root", "icon", "label", "callback", "key_callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_icon_check_item, DEFVAL(Callable()), DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("global_menu_add_radio_check_item", "menu_root", "label", "callback", "key_callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_radio_check_item, DEFVAL(Callable()), DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("global_menu_add_icon_radio_check_item", "menu_root", "icon", "label", "callback", "key_callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_icon_radio_check_item, DEFVAL(Callable()), DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("global_menu_add_multistate_item", "menu_root", "labe", "max_states", "default_state", "callback", "key_callback", "tag", "accelerator", "index"), &DisplayServer::global_menu_add_multistate_item, DEFVAL(Callable()), DEFVAL(Callable()), DEFVAL(Variant()), DEFVAL(Key::NONE), DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("global_menu_add_separator", "menu_root", "index"), &DisplayServer::global_menu_add_separator, DEFVAL(-1));
 
 	ClassDB::bind_method(D_METHOD("global_menu_get_item_index_from_text", "menu_root", "text"), &DisplayServer::global_menu_get_item_index_from_text);
@@ -526,6 +546,7 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("global_menu_is_item_checkable", "menu_root", "idx"), &DisplayServer::global_menu_is_item_checkable);
 	ClassDB::bind_method(D_METHOD("global_menu_is_item_radio_checkable", "menu_root", "idx"), &DisplayServer::global_menu_is_item_radio_checkable);
 	ClassDB::bind_method(D_METHOD("global_menu_get_item_callback", "menu_root", "idx"), &DisplayServer::global_menu_get_item_callback);
+	ClassDB::bind_method(D_METHOD("global_menu_get_item_key_callback", "menu_root", "idx"), &DisplayServer::global_menu_get_item_key_callback);
 	ClassDB::bind_method(D_METHOD("global_menu_get_item_tag", "menu_root", "idx"), &DisplayServer::global_menu_get_item_tag);
 	ClassDB::bind_method(D_METHOD("global_menu_get_item_text", "menu_root", "idx"), &DisplayServer::global_menu_get_item_text);
 	ClassDB::bind_method(D_METHOD("global_menu_get_item_submenu", "menu_root", "idx"), &DisplayServer::global_menu_get_item_submenu);
@@ -535,11 +556,13 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("global_menu_get_item_state", "menu_root", "idx"), &DisplayServer::global_menu_get_item_state);
 	ClassDB::bind_method(D_METHOD("global_menu_get_item_max_states", "menu_root", "idx"), &DisplayServer::global_menu_get_item_max_states);
 	ClassDB::bind_method(D_METHOD("global_menu_get_item_icon", "menu_root", "idx"), &DisplayServer::global_menu_get_item_icon);
+	ClassDB::bind_method(D_METHOD("global_menu_get_item_indentation_level", "menu_root", "idx"), &DisplayServer::global_menu_get_item_indentation_level);
 
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_checked", "menu_root", "idx", "checked"), &DisplayServer::global_menu_set_item_checked);
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_checkable", "menu_root", "idx", "checkable"), &DisplayServer::global_menu_set_item_checkable);
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_radio_checkable", "menu_root", "idx", "checkable"), &DisplayServer::global_menu_set_item_radio_checkable);
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_callback", "menu_root", "idx", "callback"), &DisplayServer::global_menu_set_item_callback);
+	ClassDB::bind_method(D_METHOD("global_menu_set_item_key_callback", "menu_root", "idx", "key_callback"), &DisplayServer::global_menu_set_item_key_callback);
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_tag", "menu_root", "idx", "tag"), &DisplayServer::global_menu_set_item_tag);
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_text", "menu_root", "idx", "text"), &DisplayServer::global_menu_set_item_text);
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_submenu", "menu_root", "idx", "submenu"), &DisplayServer::global_menu_set_item_submenu);
@@ -549,6 +572,9 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_state", "menu_root", "idx", "state"), &DisplayServer::global_menu_set_item_state);
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_max_states", "menu_root", "idx", "max_states"), &DisplayServer::global_menu_set_item_max_states);
 	ClassDB::bind_method(D_METHOD("global_menu_set_item_icon", "menu_root", "idx", "icon"), &DisplayServer::global_menu_set_item_icon);
+	ClassDB::bind_method(D_METHOD("global_menu_set_item_indentation_level", "menu_root", "idx", "level"), &DisplayServer::global_menu_set_item_indentation_level);
+
+	ClassDB::bind_method(D_METHOD("global_menu_get_item_count", "menu_root"), &DisplayServer::global_menu_get_item_count);
 
 	ClassDB::bind_method(D_METHOD("global_menu_remove_item", "menu_root", "idx"), &DisplayServer::global_menu_remove_item);
 	ClassDB::bind_method(D_METHOD("global_menu_clear", "menu_root"), &DisplayServer::global_menu_clear);
@@ -565,6 +591,10 @@ void DisplayServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("tts_set_utterance_callback", "event", "callable"), &DisplayServer::tts_set_utterance_callback);
 	ClassDB::bind_method(D_METHOD("_tts_post_utterance_event", "event", "id", "char_pos"), &DisplayServer::tts_post_utterance_event);
+
+	ClassDB::bind_method(D_METHOD("is_dark_mode_supported"), &DisplayServer::is_dark_mode_supported);
+	ClassDB::bind_method(D_METHOD("is_dark_mode"), &DisplayServer::is_dark_mode);
+	ClassDB::bind_method(D_METHOD("get_accent_color"), &DisplayServer::get_accent_color);
 
 	ClassDB::bind_method(D_METHOD("mouse_set_mode", "mouse_mode"), &DisplayServer::mouse_set_mode);
 	ClassDB::bind_method(D_METHOD("mouse_get_mode"), &DisplayServer::mouse_get_mode);
@@ -601,9 +631,6 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_window_list"), &DisplayServer::get_window_list);
 	ClassDB::bind_method(D_METHOD("get_window_at_screen_position", "position"), &DisplayServer::get_window_at_screen_position);
 
-	ClassDB::bind_method(D_METHOD("create_sub_window", "mode", "vsync_mode", "flags", "rect"), &DisplayServer::create_sub_window, DEFVAL(Rect2i()));
-	ClassDB::bind_method(D_METHOD("delete_sub_window", "window_id"), &DisplayServer::delete_sub_window);
-
 	ClassDB::bind_method(D_METHOD("window_get_native_handle", "handle_type", "window_id"), &DisplayServer::window_get_native_handle, DEFVAL(MAIN_WINDOW_ID));
 	ClassDB::bind_method(D_METHOD("window_get_active_popup"), &DisplayServer::window_get_active_popup);
 	ClassDB::bind_method(D_METHOD("window_set_popup_safe_rect", "window", "rect"), &DisplayServer::window_set_popup_safe_rect);
@@ -626,7 +653,6 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("window_set_input_text_callback", "callback", "window_id"), &DisplayServer::window_set_input_text_callback, DEFVAL(MAIN_WINDOW_ID));
 	ClassDB::bind_method(D_METHOD("window_set_drop_files_callback", "callback", "window_id"), &DisplayServer::window_set_drop_files_callback, DEFVAL(MAIN_WINDOW_ID));
 
-	ClassDB::bind_method(D_METHOD("window_attach_instance_id", "instance_id", "window_id"), &DisplayServer::window_attach_instance_id, DEFVAL(MAIN_WINDOW_ID));
 	ClassDB::bind_method(D_METHOD("window_get_attached_instance_id", "window_id"), &DisplayServer::window_get_attached_instance_id, DEFVAL(MAIN_WINDOW_ID));
 
 	ClassDB::bind_method(D_METHOD("window_get_max_size", "window_id"), &DisplayServer::window_get_max_size, DEFVAL(MAIN_WINDOW_ID));
@@ -643,6 +669,9 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("window_set_flag", "flag", "enabled", "window_id"), &DisplayServer::window_set_flag, DEFVAL(MAIN_WINDOW_ID));
 	ClassDB::bind_method(D_METHOD("window_get_flag", "flag", "window_id"), &DisplayServer::window_get_flag, DEFVAL(MAIN_WINDOW_ID));
 
+	ClassDB::bind_method(D_METHOD("window_set_window_buttons_offset", "offset", "window_id"), &DisplayServer::window_set_window_buttons_offset, DEFVAL(MAIN_WINDOW_ID));
+	ClassDB::bind_method(D_METHOD("window_get_safe_title_margins", "window_id"), &DisplayServer::window_get_safe_title_margins, DEFVAL(MAIN_WINDOW_ID));
+
 	ClassDB::bind_method(D_METHOD("window_request_attention", "window_id"), &DisplayServer::window_request_attention, DEFVAL(MAIN_WINDOW_ID));
 
 	ClassDB::bind_method(D_METHOD("window_move_to_foreground", "window_id"), &DisplayServer::window_move_to_foreground, DEFVAL(MAIN_WINDOW_ID));
@@ -657,10 +686,14 @@ void DisplayServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("window_set_vsync_mode", "vsync_mode", "window_id"), &DisplayServer::window_set_vsync_mode, DEFVAL(MAIN_WINDOW_ID));
 	ClassDB::bind_method(D_METHOD("window_get_vsync_mode", "window_id"), &DisplayServer::window_get_vsync_mode, DEFVAL(MAIN_WINDOW_ID));
 
+	ClassDB::bind_method(D_METHOD("window_is_maximize_allowed", "window_id"), &DisplayServer::window_is_maximize_allowed, DEFVAL(MAIN_WINDOW_ID));
+	ClassDB::bind_method(D_METHOD("window_maximize_on_title_dbl_click"), &DisplayServer::window_maximize_on_title_dbl_click);
+	ClassDB::bind_method(D_METHOD("window_minimize_on_title_dbl_click"), &DisplayServer::window_minimize_on_title_dbl_click);
+
 	ClassDB::bind_method(D_METHOD("ime_get_selection"), &DisplayServer::ime_get_selection);
 	ClassDB::bind_method(D_METHOD("ime_get_text"), &DisplayServer::ime_get_text);
 
-	ClassDB::bind_method(D_METHOD("virtual_keyboard_show", "existing_text", "position", "multiline", "max_length", "cursor_start", "cursor_end"), &DisplayServer::virtual_keyboard_show, DEFVAL(Rect2()), DEFVAL(false), DEFVAL(-1), DEFVAL(-1), DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("virtual_keyboard_show", "existing_text", "position", "type", "max_length", "cursor_start", "cursor_end"), &DisplayServer::virtual_keyboard_show, DEFVAL(Rect2()), DEFVAL(KEYBOARD_TYPE_DEFAULT), DEFVAL(-1), DEFVAL(-1), DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("virtual_keyboard_hide"), &DisplayServer::virtual_keyboard_hide);
 
 	ClassDB::bind_method(D_METHOD("virtual_keyboard_get_height"), &DisplayServer::virtual_keyboard_get_height);
@@ -713,6 +746,7 @@ void DisplayServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(FEATURE_SWAP_BUFFERS);
 	BIND_ENUM_CONSTANT(FEATURE_CLIPBOARD_PRIMARY);
 	BIND_ENUM_CONSTANT(FEATURE_TEXT_TO_SPEECH);
+	BIND_ENUM_CONSTANT(FEATURE_EXTEND_TO_TITLE);
 
 	BIND_ENUM_CONSTANT(MOUSE_MODE_VISIBLE);
 	BIND_ENUM_CONSTANT(MOUSE_MODE_HIDDEN);
@@ -731,6 +765,15 @@ void DisplayServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(SCREEN_SENSOR_LANDSCAPE);
 	BIND_ENUM_CONSTANT(SCREEN_SENSOR_PORTRAIT);
 	BIND_ENUM_CONSTANT(SCREEN_SENSOR);
+
+	BIND_ENUM_CONSTANT(KEYBOARD_TYPE_DEFAULT);
+	BIND_ENUM_CONSTANT(KEYBOARD_TYPE_MULTILINE);
+	BIND_ENUM_CONSTANT(KEYBOARD_TYPE_NUMBER);
+	BIND_ENUM_CONSTANT(KEYBOARD_TYPE_NUMBER_DECIMAL);
+	BIND_ENUM_CONSTANT(KEYBOARD_TYPE_PHONE);
+	BIND_ENUM_CONSTANT(KEYBOARD_TYPE_EMAIL_ADDRESS);
+	BIND_ENUM_CONSTANT(KEYBOARD_TYPE_PASSWORD);
+	BIND_ENUM_CONSTANT(KEYBOARD_TYPE_URL);
 
 	BIND_ENUM_CONSTANT(CURSOR_ARROW);
 	BIND_ENUM_CONSTANT(CURSOR_IBEAM);
@@ -763,6 +806,7 @@ void DisplayServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(WINDOW_FLAG_TRANSPARENT);
 	BIND_ENUM_CONSTANT(WINDOW_FLAG_NO_FOCUS);
 	BIND_ENUM_CONSTANT(WINDOW_FLAG_POPUP);
+	BIND_ENUM_CONSTANT(WINDOW_FLAG_EXTEND_TO_TITLE);
 	BIND_ENUM_CONSTANT(WINDOW_FLAG_MAX);
 
 	BIND_ENUM_CONSTANT(WINDOW_EVENT_MOUSE_ENTER);
@@ -772,6 +816,7 @@ void DisplayServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(WINDOW_EVENT_CLOSE_REQUEST);
 	BIND_ENUM_CONSTANT(WINDOW_EVENT_GO_BACK_REQUEST);
 	BIND_ENUM_CONSTANT(WINDOW_EVENT_DPI_CHANGE);
+	BIND_ENUM_CONSTANT(WINDOW_EVENT_TITLEBAR_CHANGE);
 
 	BIND_ENUM_CONSTANT(VSYNC_DISABLED);
 	BIND_ENUM_CONSTANT(VSYNC_ENABLED);
@@ -781,6 +826,7 @@ void DisplayServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(DISPLAY_HANDLE);
 	BIND_ENUM_CONSTANT(WINDOW_HANDLE);
 	BIND_ENUM_CONSTANT(WINDOW_VIEW);
+	BIND_ENUM_CONSTANT(OPENGL_CONTEXT);
 
 	BIND_ENUM_CONSTANT(TTS_UTTERANCE_STARTED);
 	BIND_ENUM_CONSTANT(TTS_UTTERANCE_ENDED);
@@ -812,9 +858,9 @@ Vector<String> DisplayServer::get_create_function_rendering_drivers(int p_index)
 	return server_create_functions[p_index].get_rendering_drivers_function();
 }
 
-DisplayServer *DisplayServer::create(int p_index, const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i &p_resolution, Error &r_error) {
+DisplayServer *DisplayServer::create(int p_index, const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, Error &r_error) {
 	ERR_FAIL_INDEX_V(p_index, server_create_count, nullptr);
-	return server_create_functions[p_index].create_function(p_rendering_driver, p_mode, p_vsync_mode, p_flags, p_resolution, r_error);
+	return server_create_functions[p_index].create_function(p_rendering_driver, p_mode, p_vsync_mode, p_flags, p_position, p_resolution, r_error);
 }
 
 void DisplayServer::_input_set_mouse_mode(Input::MouseMode p_mode) {

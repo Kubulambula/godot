@@ -35,9 +35,10 @@
 #include "core/io/marshalls.h"
 #include "core/math/geometry_2d.h"
 #include "core/os/os.h"
-#include "mesh.h"
 #include "scene/resources/bit_map.h"
+#include "scene/resources/mesh.h"
 #include "servers/camera/camera_feed.h"
+
 int Texture2D::get_width() const {
 	int ret;
 	if (GDVIRTUAL_REQUIRED_CALL(_get_width, ret)) {
@@ -59,20 +60,14 @@ Size2 Texture2D::get_size() const {
 }
 
 bool Texture2D::is_pixel_opaque(int p_x, int p_y) const {
-	bool ret;
-	if (GDVIRTUAL_CALL(_is_pixel_opaque, p_x, p_y, ret)) {
-		return ret;
-	}
-
-	return true;
+	bool ret = true;
+	GDVIRTUAL_CALL(_is_pixel_opaque, p_x, p_y, ret);
+	return ret;
 }
 bool Texture2D::has_alpha() const {
-	bool ret;
-	if (GDVIRTUAL_CALL(_has_alpha, ret)) {
-		return ret;
-	}
-
-	return true;
+	bool ret = true;
+	GDVIRTUAL_CALL(_has_alpha, ret);
+	return ret;
 }
 
 void Texture2D::draw(RID p_canvas_item, const Point2 &p_pos, const Color &p_modulate, bool p_transpose) const {
@@ -121,7 +116,7 @@ void Texture2D::_bind_methods() {
 
 	GDVIRTUAL_BIND(_draw, "to_canvas_item", "pos", "modulate", "transpose")
 	GDVIRTUAL_BIND(_draw_rect, "to_canvas_item", "rect", "tile", "modulate", "transpose")
-	GDVIRTUAL_BIND(_draw_rect_region, "tp_canvas_item", "rect", "src_rect", "modulate", "transpose", "clip_uv");
+	GDVIRTUAL_BIND(_draw_rect_region, "to_canvas_item", "rect", "src_rect", "modulate", "transpose", "clip_uv");
 }
 
 Texture2D::Texture2D() {
@@ -294,7 +289,7 @@ bool ImageTexture::is_pixel_opaque(int p_x, int p_y) const {
 		x = CLAMP(x, 0, aw);
 		y = CLAMP(y, 0, ah);
 
-		return alpha_cache->get_bit(Point2(x, y));
+		return alpha_cache->get_bit(x, y);
 	}
 
 	return true;
@@ -561,7 +556,7 @@ bool PortableCompressedTexture2D::is_pixel_opaque(int p_x, int p_y) const {
 		x = CLAMP(x, 0, aw);
 		y = CLAMP(y, 0, ah);
 
-		return alpha_cache->get_bit(Point2(x, y));
+		return alpha_cache->get_bit(x, y);
 	}
 
 	return true;
@@ -652,7 +647,7 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 	Image::Format format = Image::Format(f->get_32());
 
 	if (data_format == DATA_FORMAT_PNG || data_format == DATA_FORMAT_WEBP || data_format == DATA_FORMAT_BASIS_UNIVERSAL) {
-		//look for a PNG or WEBP file inside
+		//look for a PNG or WebP file inside
 
 		int sw = w;
 		int sh = h;
@@ -739,7 +734,7 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 				}
 			}
 
-			image->create(w, h, true, mipmap_images[0]->get_format(), img_data);
+			image->set_data(w, h, true, mipmap_images[0]->get_format(), img_data);
 			return image;
 		}
 
@@ -765,10 +760,7 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 				f->get_buffer(wr, data.size());
 			}
 
-			Ref<Image> image;
-			image.instantiate();
-
-			image->create(tw, th, mipmaps - i ? true : false, format, data);
+			Ref<Image> image = Image::create_from_data(tw, th, mipmaps - i ? true : false, format, data);
 
 			return image;
 		}
@@ -1017,7 +1009,7 @@ bool CompressedTexture2D::is_pixel_opaque(int p_x, int p_y) const {
 		x = CLAMP(x, 0, aw);
 		y = CLAMP(y, 0, ah);
 
-		return alpha_cache->get_bit(Point2(x, y));
+		return alpha_cache->get_bit(x, y);
 	}
 
 	return true;
@@ -1038,7 +1030,7 @@ void CompressedTexture2D::reload_from_file() {
 	load(path);
 }
 
-void CompressedTexture2D::_validate_property(PropertyInfo &property) const {
+void CompressedTexture2D::_validate_property(PropertyInfo &p_property) const {
 }
 
 void CompressedTexture2D::_bind_methods() {
@@ -1208,6 +1200,8 @@ Error ImageTexture3D::create(Image::Format p_format, int p_width, int p_height, 
 
 	if (texture.is_valid()) {
 		RenderingServer::get_singleton()->texture_replace(texture, tex);
+	} else {
+		texture = tex;
 	}
 
 	return OK;
@@ -1285,15 +1279,15 @@ Error CompressedTexture3D::_load_data(const String &p_path, Vector<Ref<Image>> &
 	f->get_32(); // ignored (data format)
 
 	f->get_32(); //ignored
-	int mipmaps = f->get_32();
+	int mipmap_count = f->get_32();
 	f->get_32(); //ignored
 	f->get_32(); //ignored
 
-	r_mipmaps = mipmaps != 0;
+	r_mipmaps = mipmap_count != 0;
 
 	r_data.clear();
 
-	for (int i = 0; i < (r_depth + mipmaps); i++) {
+	for (int i = 0; i < (r_depth + mipmap_count); i++) {
 		Ref<Image> image = CompressedTexture2D::load_image_from_file(f, 0);
 		ERR_FAIL_COND_V(image.is_null() || image->is_empty(), ERR_CANT_OPEN);
 		if (i == 0) {
@@ -1394,7 +1388,7 @@ void CompressedTexture3D::reload_from_file() {
 	load(path);
 }
 
-void CompressedTexture3D::_validate_property(PropertyInfo &property) const {
+void CompressedTexture3D::_validate_property(PropertyInfo &p_property) const {
 }
 
 void CompressedTexture3D::_bind_methods() {
@@ -1488,7 +1482,15 @@ void AtlasTexture::set_atlas(const Ref<Texture2D> &p_atlas) {
 	if (atlas == p_atlas) {
 		return;
 	}
+	// Support recursive AtlasTextures.
+	if (Ref<AtlasTexture>(atlas).is_valid()) {
+		atlas->disconnect(CoreStringNames::get_singleton()->changed, callable_mp((Resource *)this, &AtlasTexture::emit_changed));
+	}
 	atlas = p_atlas;
+	if (Ref<AtlasTexture>(atlas).is_valid()) {
+		atlas->connect(CoreStringNames::get_singleton()->changed, callable_mp((Resource *)this, &AtlasTexture::emit_changed));
+	}
+
 	emit_changed();
 }
 
@@ -1661,7 +1663,7 @@ Ref<Image> AtlasTexture::get_image() const {
 		return Ref<Image>();
 	}
 
-	return atlas->get_image()->get_rect(region);
+	return atlas->get_image()->get_region(region);
 }
 
 AtlasTexture::AtlasTexture() {}
@@ -1866,11 +1868,11 @@ void CurveTexture::_update() {
 			for (int i = 0; i < _width; ++i) {
 				float t = i / static_cast<float>(_width);
 				if (texture_mode == TEXTURE_MODE_RGB) {
-					wd[i * 3 + 0] = curve.interpolate_baked(t);
+					wd[i * 3 + 0] = curve.sample_baked(t);
 					wd[i * 3 + 1] = wd[i * 3 + 0];
 					wd[i * 3 + 2] = wd[i * 3 + 0];
 				} else {
-					wd[i] = curve.interpolate_baked(t);
+					wd[i] = curve.sample_baked(t);
 				}
 			}
 
@@ -2054,7 +2056,7 @@ void CurveXYZTexture::_update() {
 			Curve &curve_x = **_curve_x;
 			for (int i = 0; i < _width; ++i) {
 				float t = i / static_cast<float>(_width);
-				wd[i * 3 + 0] = curve_x.interpolate_baked(t);
+				wd[i * 3 + 0] = curve_x.sample_baked(t);
 			}
 
 		} else {
@@ -2067,7 +2069,7 @@ void CurveXYZTexture::_update() {
 			Curve &curve_y = **_curve_y;
 			for (int i = 0; i < _width; ++i) {
 				float t = i / static_cast<float>(_width);
-				wd[i * 3 + 1] = curve_y.interpolate_baked(t);
+				wd[i * 3 + 1] = curve_y.sample_baked(t);
 			}
 
 		} else {
@@ -2080,7 +2082,7 @@ void CurveXYZTexture::_update() {
 			Curve &curve_z = **_curve_z;
 			for (int i = 0; i < _width; ++i) {
 				float t = i / static_cast<float>(_width);
-				wd[i * 3 + 2] = curve_z.interpolate_baked(t);
+				wd[i * 3 + 2] = curve_z.sample_baked(t);
 			}
 
 		} else {
@@ -2325,11 +2327,11 @@ void GradientTexture2D::_update() {
 	image.instantiate();
 
 	if (gradient->get_points_count() <= 1) { // No need to interpolate.
-		image->create(width, height, false, (use_hdr) ? Image::FORMAT_RGBAF : Image::FORMAT_RGBA8);
+		image->initialize_data(width, height, false, (use_hdr) ? Image::FORMAT_RGBAF : Image::FORMAT_RGBA8);
 		image->fill((gradient->get_points_count() == 1) ? gradient->get_color(0) : Color(0, 0, 0, 1));
 	} else {
 		if (use_hdr) {
-			image->create(width, height, false, Image::FORMAT_RGBAF);
+			image->initialize_data(width, height, false, Image::FORMAT_RGBAF);
 			Gradient &g = **gradient;
 			// `create()` isn't available for non-uint8_t data, so fill in the data manually.
 			for (int y = 0; y < height; y++) {
@@ -2356,7 +2358,7 @@ void GradientTexture2D::_update() {
 					}
 				}
 			}
-			image->create(width, height, false, Image::FORMAT_RGBA8, data);
+			image->set_data(width, height, false, Image::FORMAT_RGBA8, data);
 		}
 	}
 
@@ -2537,13 +2539,6 @@ void GradientTexture2D::_bind_methods() {
 
 //////////////////////////////////////
 
-void ProxyTexture::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("set_base", "base"), &ProxyTexture::set_base);
-	ClassDB::bind_method(D_METHOD("get_base"), &ProxyTexture::get_base);
-
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "base", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_base", "get_base");
-}
-
 void ProxyTexture::set_base(const Ref<Texture2D> &p_texture) {
 	ERR_FAIL_COND(p_texture == this);
 
@@ -2624,25 +2619,29 @@ void AnimatedTexture::_update_proxy() {
 
 	time += delta;
 
-	float limit;
-
-	if (fps == 0) {
-		limit = 0;
-	} else {
-		limit = 1.0 / fps;
-	}
+	float speed = speed_scale == 0 ? 0 : abs(1.0 / speed_scale);
 
 	int iter_max = frame_count;
 	while (iter_max && !pause) {
-		float frame_limit = limit + frames[current_frame].delay_sec;
+		float frame_limit = frames[current_frame].duration * speed;
 
 		if (time > frame_limit) {
-			current_frame++;
+			if (speed_scale > 0.0) {
+				current_frame++;
+			} else {
+				current_frame--;
+			}
 			if (current_frame >= frame_count) {
-				if (oneshot) {
+				if (one_shot) {
 					current_frame = frame_count - 1;
 				} else {
 					current_frame = 0;
+				}
+			} else if (current_frame < 0) {
+				if (one_shot) {
+					current_frame = 0;
+				} else {
+					current_frame = frame_count - 1;
 				}
 			}
 			time -= frame_limit;
@@ -2691,13 +2690,13 @@ bool AnimatedTexture::get_pause() const {
 	return pause;
 }
 
-void AnimatedTexture::set_oneshot(bool p_oneshot) {
+void AnimatedTexture::set_one_shot(bool p_one_shot) {
 	RWLockWrite r(rw_lock);
-	oneshot = p_oneshot;
+	one_shot = p_one_shot;
 }
 
-bool AnimatedTexture::get_oneshot() const {
-	return oneshot;
+bool AnimatedTexture::get_one_shot() const {
+	return one_shot;
 }
 
 void AnimatedTexture::set_frame_texture(int p_frame, const Ref<Texture2D> &p_texture) {
@@ -2717,30 +2716,30 @@ Ref<Texture2D> AnimatedTexture::get_frame_texture(int p_frame) const {
 	return frames[p_frame].texture;
 }
 
-void AnimatedTexture::set_frame_delay(int p_frame, float p_delay_sec) {
+void AnimatedTexture::set_frame_duration(int p_frame, float p_duration) {
 	ERR_FAIL_INDEX(p_frame, MAX_FRAMES);
 
 	RWLockRead r(rw_lock);
 
-	frames[p_frame].delay_sec = p_delay_sec;
+	frames[p_frame].duration = p_duration;
 }
 
-float AnimatedTexture::get_frame_delay(int p_frame) const {
+float AnimatedTexture::get_frame_duration(int p_frame) const {
 	ERR_FAIL_INDEX_V(p_frame, MAX_FRAMES, 0);
 
 	RWLockRead r(rw_lock);
 
-	return frames[p_frame].delay_sec;
+	return frames[p_frame].duration;
 }
 
-void AnimatedTexture::set_fps(float p_fps) {
-	ERR_FAIL_COND(p_fps < 0 || p_fps >= 1000);
+void AnimatedTexture::set_speed_scale(float p_scale) {
+	ERR_FAIL_COND(p_scale < -1000 || p_scale >= 1000);
 
-	fps = p_fps;
+	speed_scale = p_scale;
 }
 
-float AnimatedTexture::get_fps() const {
-	return fps;
+float AnimatedTexture::get_speed_scale() const {
+	return speed_scale;
 }
 
 int AnimatedTexture::get_width() const {
@@ -2796,12 +2795,12 @@ bool AnimatedTexture::is_pixel_opaque(int p_x, int p_y) const {
 	return true;
 }
 
-void AnimatedTexture::_validate_property(PropertyInfo &property) const {
-	String prop = property.name;
+void AnimatedTexture::_validate_property(PropertyInfo &p_property) const {
+	String prop = p_property.name;
 	if (prop.begins_with("frame_")) {
 		int frame = prop.get_slicec('/', 0).get_slicec('_', 1).to_int();
 		if (frame >= frame_count) {
-			property.usage = PROPERTY_USAGE_NONE;
+			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 	}
 }
@@ -2816,27 +2815,27 @@ void AnimatedTexture::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_pause", "pause"), &AnimatedTexture::set_pause);
 	ClassDB::bind_method(D_METHOD("get_pause"), &AnimatedTexture::get_pause);
 
-	ClassDB::bind_method(D_METHOD("set_oneshot", "oneshot"), &AnimatedTexture::set_oneshot);
-	ClassDB::bind_method(D_METHOD("get_oneshot"), &AnimatedTexture::get_oneshot);
+	ClassDB::bind_method(D_METHOD("set_one_shot", "one_shot"), &AnimatedTexture::set_one_shot);
+	ClassDB::bind_method(D_METHOD("get_one_shot"), &AnimatedTexture::get_one_shot);
 
-	ClassDB::bind_method(D_METHOD("set_fps", "fps"), &AnimatedTexture::set_fps);
-	ClassDB::bind_method(D_METHOD("get_fps"), &AnimatedTexture::get_fps);
+	ClassDB::bind_method(D_METHOD("set_speed_scale", "scale"), &AnimatedTexture::set_speed_scale);
+	ClassDB::bind_method(D_METHOD("get_speed_scale"), &AnimatedTexture::get_speed_scale);
 
 	ClassDB::bind_method(D_METHOD("set_frame_texture", "frame", "texture"), &AnimatedTexture::set_frame_texture);
 	ClassDB::bind_method(D_METHOD("get_frame_texture", "frame"), &AnimatedTexture::get_frame_texture);
 
-	ClassDB::bind_method(D_METHOD("set_frame_delay", "frame", "delay"), &AnimatedTexture::set_frame_delay);
-	ClassDB::bind_method(D_METHOD("get_frame_delay", "frame"), &AnimatedTexture::get_frame_delay);
+	ClassDB::bind_method(D_METHOD("set_frame_duration", "frame", "duration"), &AnimatedTexture::set_frame_duration);
+	ClassDB::bind_method(D_METHOD("get_frame_duration", "frame"), &AnimatedTexture::get_frame_duration);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "frames", PROPERTY_HINT_RANGE, "1," + itos(MAX_FRAMES), PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), "set_frames", "get_frames");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "current_frame", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_current_frame", "get_current_frame");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "pause"), "set_pause", "get_pause");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "oneshot"), "set_oneshot", "get_oneshot");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fps", PROPERTY_HINT_RANGE, "0,1024,0.1"), "set_fps", "get_fps");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "one_shot"), "set_one_shot", "get_one_shot");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "speed_scale", PROPERTY_HINT_RANGE, "-60,60,0.1,or_greater,or_lesser"), "set_speed_scale", "get_speed_scale");
 
 	for (int i = 0; i < MAX_FRAMES; i++) {
 		ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "frame_" + itos(i) + "/texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_INTERNAL), "set_frame_texture", "get_frame_texture", i);
-		ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "frame_" + itos(i) + "/delay_sec", PROPERTY_HINT_RANGE, "0.0,16.0,0.01,suffix:s", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_INTERNAL), "set_frame_delay", "get_frame_delay", i);
+		ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "frame_" + itos(i) + "/duration", PROPERTY_HINT_RANGE, "0.0,16.0,0.01,or_greater,suffix:s", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_INTERNAL), "set_frame_duration", "get_frame_duration", i);
 	}
 
 	BIND_CONSTANT(MAX_FRAMES);
@@ -2962,7 +2961,7 @@ ImageTextureLayered::LayeredType ImageTextureLayered::get_layered_type() const {
 	return layered_type;
 }
 
-Error ImageTextureLayered::_create_from_images(const Array &p_images) {
+Error ImageTextureLayered::_create_from_images(const TypedArray<Image> &p_images) {
 	Vector<Ref<Image>> images;
 	for (int i = 0; i < p_images.size(); i++) {
 		Ref<Image> img = p_images[i];
@@ -2973,8 +2972,8 @@ Error ImageTextureLayered::_create_from_images(const Array &p_images) {
 	return create_from_images(images);
 }
 
-Array ImageTextureLayered::_get_images() const {
-	Array images;
+TypedArray<Image> ImageTextureLayered::_get_images() const {
+	TypedArray<Image> images;
 	for (int i = 0; i < layers; i++) {
 		images.push_back(get_layer_data(i));
 	}
@@ -3061,7 +3060,7 @@ void ImageTextureLayered::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("_get_images"), &ImageTextureLayered::_get_images);
 
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "_images", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_INTERNAL), "create_from_images", "_get_images");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "_images", PROPERTY_HINT_ARRAY_TYPE, "Image", PROPERTY_USAGE_INTERNAL), "create_from_images", "_get_images");
 }
 
 ImageTextureLayered::ImageTextureLayered(LayeredType p_layered_type) {
@@ -3108,7 +3107,7 @@ Error CompressedTextureLayered::_load_data(const String &p_path, Vector<Ref<Imag
 
 	uint32_t layer_count = f->get_32(); //layer count
 	uint32_t type = f->get_32(); //layer count
-	ERR_FAIL_COND_V(type != layered_type, ERR_INVALID_DATA);
+	ERR_FAIL_COND_V((int)type != layered_type, ERR_INVALID_DATA);
 
 	uint32_t df = f->get_32(); //data format
 	mipmap_limit = int(f->get_32());
@@ -3221,7 +3220,7 @@ void CompressedTextureLayered::reload_from_file() {
 	load(path);
 }
 
-void CompressedTextureLayered::_validate_property(PropertyInfo &property) const {
+void CompressedTextureLayered::_validate_property(PropertyInfo &p_property) const {
 }
 
 void CompressedTextureLayered::_bind_methods() {

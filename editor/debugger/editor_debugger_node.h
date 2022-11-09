@@ -41,6 +41,7 @@ class EditorDebuggerRemoteObject;
 class MenuButton;
 class ScriptEditorDebugger;
 class TabContainer;
+class UndoRedo;
 
 class EditorDebuggerNode : public MarginContainer {
 	GDCLASS(EditorDebuggerNode, MarginContainer);
@@ -128,6 +129,7 @@ protected:
 	void _debugger_wants_stop(int p_id);
 	void _debugger_changed(int p_tab);
 	void _remote_tree_updated(int p_debugger);
+	void _remote_tree_button_pressed(Object *p_item, int p_column, int p_id, MouseButton p_button);
 	void _remote_object_updated(ObjectID p_id, int p_debugger);
 	void _remote_object_property_updated(ObjectID p_id, const String &p_property, int p_debugger);
 	void _remote_object_requested(ObjectID p_id, int p_debugger);
@@ -152,6 +154,7 @@ protected:
 
 public:
 	static EditorDebuggerNode *get_singleton() { return singleton; }
+	void register_undo_redo(UndoRedo *p_undo_redo);
 
 	ScriptEditorDebugger *get_current_debugger() const;
 	ScriptEditorDebugger *get_default_debugger() const;

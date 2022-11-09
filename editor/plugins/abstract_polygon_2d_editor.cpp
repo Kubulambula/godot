@@ -35,6 +35,9 @@
 #include "core/os/keyboard.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
+#include "editor/editor_settings.h"
+#include "editor/editor_undo_redo_manager.h"
+#include "scene/gui/separator.h"
 
 bool AbstractPolygon2DEditor::Vertex::operator==(const AbstractPolygon2DEditor::Vertex &p_vertex) const {
 	return polygon == p_vertex.polygon && vertex == p_vertex.vertex;
@@ -88,6 +91,7 @@ void AbstractPolygon2DEditor::_set_polygon(int p_idx, const Variant &p_polygon) 
 
 void AbstractPolygon2DEditor::_action_set_polygon(int p_idx, const Variant &p_previous, const Variant &p_polygon) {
 	Node2D *node = _get_node();
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->add_do_method(node, "set_polygon", p_polygon);
 	undo_redo->add_undo_method(node, "set_polygon", p_previous);
 }
@@ -97,6 +101,7 @@ Vector2 AbstractPolygon2DEditor::_get_offset(int p_idx) const {
 }
 
 void AbstractPolygon2DEditor::_commit_action() {
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->add_do_method(canvas_item_editor, "update_viewport");
 	undo_redo->add_undo_method(canvas_item_editor, "update_viewport");
 	undo_redo->commit_action();
@@ -200,6 +205,7 @@ void AbstractPolygon2DEditor::_wip_close() {
 	if (_is_line()) {
 		_set_polygon(0, wip);
 	} else if (wip.size() >= (_is_line() ? 2 : 3)) {
+		Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 		undo_redo->create_action(TTR("Create Polygon"));
 		_action_add_polygon(wip);
 		if (_has_uv()) {
@@ -232,13 +238,13 @@ void AbstractPolygon2DEditor::disable_polygon_editing(bool p_disable, String p_r
 	button_delete->set_disabled(p_disable);
 
 	if (p_disable) {
-		button_create->set_tooltip(p_reason);
-		button_edit->set_tooltip(p_reason);
-		button_delete->set_tooltip(p_reason);
+		button_create->set_tooltip_text(p_reason);
+		button_edit->set_tooltip_text(p_reason);
+		button_delete->set_tooltip_text(p_reason);
 	} else {
-		button_create->set_tooltip(TTR("Create points."));
-		button_edit->set_tooltip(TTR("Edit points.\nLMB: Move Point\nRMB: Erase Point"));
-		button_delete->set_tooltip(TTR("Erase points."));
+		button_create->set_tooltip_text(TTR("Create points."));
+		button_edit->set_tooltip_text(TTR("Edit points.\nLMB: Move Point\nRMB: Erase Point"));
+		button_delete->set_tooltip_text(TTR("Erase points."));
 	}
 }
 
@@ -251,6 +257,7 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 		return false;
 	}
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	Ref<InputEventMouseButton> mb = p_event;
 
 	if (!_has_resource()) {
@@ -292,9 +299,9 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 							_commit_action();
 							return true;
 						} else {
-							pre_move_edit = vertices;
 							edited_point = PosVertex(insert.polygon, insert.vertex + 1, xform.affine_inverse().xform(insert.pos));
 							vertices.insert(edited_point.vertex, edited_point.pos);
+							pre_move_edit = vertices;
 							selected_point = Vertex(edited_point.polygon, edited_point.vertex);
 							edge_point = PosVertex();
 
@@ -558,8 +565,8 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 			const Vector2 p = (vertex == edited_point) ? edited_point.pos : (points[i] + offset);
 			const Vector2 point = xform.xform(p);
 
-			const Color modulate = vertex == active_point ? Color(0.5, 1, 2) : Color(1, 1, 1);
-			p_overlay->draw_texture(handle, point - handle->get_size() * 0.5, modulate);
+			const Color overlay_modulate = vertex == active_point ? Color(0.5, 1, 2) : Color(1, 1, 1);
+			p_overlay->draw_texture(handle, point - handle->get_size() * 0.5, overlay_modulate);
 
 			if (vertex == hover_point) {
 				Ref<Font> font = get_theme_font(SNAME("font"), SNAME("Label"));
@@ -608,6 +615,7 @@ void AbstractPolygon2DEditor::_bind_methods() {
 }
 
 void AbstractPolygon2DEditor::remove_point(const Vertex &p_vertex) {
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	Vector<Vector2> vertices = _get_polygon(p_vertex.polygon);
 
 	if (vertices.size() > (_is_line() ? 2 : 3)) {
@@ -703,8 +711,6 @@ AbstractPolygon2DEditor::PosVertex AbstractPolygon2DEditor::closest_edge_point(c
 }
 
 AbstractPolygon2DEditor::AbstractPolygon2DEditor(bool p_wip_destructive) {
-	undo_redo = EditorNode::get_undo_redo();
-
 	edited_point = PosVertex();
 	wip_destructive = p_wip_destructive;
 

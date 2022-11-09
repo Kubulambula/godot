@@ -41,14 +41,14 @@ class DebuggerEditorPlugin : public EditorPlugin {
 	GDCLASS(DebuggerEditorPlugin, EditorPlugin);
 
 private:
-	MenuButton *debug_menu = nullptr;
+	PopupMenu *debug_menu = nullptr;
 	EditorFileServer *file_server = nullptr;
 	PopupMenu *instances_menu = nullptr;
 
 	enum MenuOptions {
 		RUN_FILE_SERVER,
 		RUN_LIVE_DEBUG,
-		RUN_DEBUG_COLLISONS,
+		RUN_DEBUG_COLLISIONS,
 		RUN_DEBUG_PATHS,
 		RUN_DEBUG_NAVIGATION,
 		RUN_DEPLOY_REMOTE_DEBUG,
@@ -64,7 +64,7 @@ public:
 	virtual String get_name() const override { return "Debugger"; }
 	bool has_main_screen() const override { return false; }
 
-	DebuggerEditorPlugin(MenuButton *p_menu);
+	DebuggerEditorPlugin(PopupMenu *p_menu);
 	~DebuggerEditorPlugin();
 };
 

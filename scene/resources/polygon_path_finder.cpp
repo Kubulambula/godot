@@ -441,9 +441,9 @@ Dictionary PolygonPathFinder::_get_data() const {
 	Dictionary d;
 	Vector<Vector2> p;
 	Vector<int> ind;
-	Array connections;
+	Array path_connections;
 	p.resize(MAX(0, points.size() - 2));
-	connections.resize(MAX(0, points.size() - 2));
+	path_connections.resize(MAX(0, points.size() - 2));
 	ind.resize(edges.size() * 2);
 	Vector<real_t> penalties;
 	penalties.resize(MAX(0, points.size() - 2));
@@ -463,7 +463,7 @@ Dictionary PolygonPathFinder::_get_data() const {
 					cw[idx++] = E;
 				}
 			}
-			connections[i] = c;
+			path_connections[i] = c;
 		}
 	}
 	{
@@ -478,7 +478,7 @@ Dictionary PolygonPathFinder::_get_data() const {
 	d["bounds"] = bounds;
 	d["points"] = p;
 	d["penalties"] = penalties;
-	d["connections"] = connections;
+	d["connections"] = path_connections;
 	d["segments"] = ind;
 
 	return d;
@@ -553,7 +553,7 @@ void PolygonPathFinder::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_point_penalty", "idx"), &PolygonPathFinder::get_point_penalty);
 
 	ClassDB::bind_method(D_METHOD("get_bounds"), &PolygonPathFinder::get_bounds);
-	ClassDB::bind_method(D_METHOD("_set_data"), &PolygonPathFinder::_set_data);
+	ClassDB::bind_method(D_METHOD("_set_data", "data"), &PolygonPathFinder::_set_data);
 	ClassDB::bind_method(D_METHOD("_get_data"), &PolygonPathFinder::_get_data);
 
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR | PROPERTY_USAGE_INTERNAL), "_set_data", "_get_data");

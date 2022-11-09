@@ -30,7 +30,12 @@ VERSION HISTORY
 #ifndef SPIRV_REFLECT_H
 #define SPIRV_REFLECT_H
 
+#if defined(SPIRV_REFLECT_USE_SYSTEM_SPIRV_H)
+#include <spirv/unified1/spirv.h>
+#else
 #include "./include/spirv/unified1/spirv.h"
+#endif
+
 
 #include <stdint.h>
 #include <string.h>
@@ -139,6 +144,7 @@ typedef enum SpvReflectDecorationFlagBits {
   SPV_REFLECT_DECORATION_FLAT                   = 0x00000040,
   SPV_REFLECT_DECORATION_NON_WRITABLE           = 0x00000080,
   SPV_REFLECT_DECORATION_RELAXED_PRECISION      = 0x00000100,
+  SPV_REFLECT_DECORATION_NON_READABLE           = 0x00000200,
 } SpvReflectDecorationFlagBits;
 
 typedef uint32_t SpvReflectDecorationFlags;
@@ -422,6 +428,8 @@ typedef struct SpvReflectDescriptorBinding {
     uint32_t                          binding;
     uint32_t                          set;
   } word_offset;
+
+  SpvReflectDecorationFlags           decoration_flags;
 } SpvReflectDescriptorBinding;
 
 /*! @struct SpvReflectDescriptorSet
@@ -458,6 +466,9 @@ typedef struct SpvReflectEntryPoint {
   uint32_t                          used_push_constant_count;
   uint32_t*                         used_push_constants;
 
+  uint32_t                          execution_mode_count;
+  SpvExecutionMode*                 execution_modes;
+
   struct LocalSize {
     uint32_t                        x;
     uint32_t                        y;
@@ -466,6 +477,14 @@ typedef struct SpvReflectEntryPoint {
   uint32_t                          invocations; // valid for geometry
   uint32_t                          output_vertices; // valid for geometry, tesselation
 } SpvReflectEntryPoint;
+
+/*! @struct SpvReflectCapability
+
+*/
+typedef struct SpvReflectCapability {
+  SpvCapability                     value;
+  uint32_t                          word_offset;
+} SpvReflectCapability;
 
 /*! @struct SpvReflectShaderModule
 
@@ -480,6 +499,8 @@ typedef struct SpvReflectShaderModule {
   uint32_t                          source_language_version;
   const char*                       source_file;
   const char*                       source_source;
+  uint32_t                          capability_count;
+  SpvReflectCapability*             capabilities;
   SpvExecutionModel                 spirv_execution_model;                            // Uses value(s) from first entry point
   SpvReflectShaderStageFlagBits     shader_stage;                                     // Uses value(s) from first entry point
   uint32_t                          descriptor_binding_count;                         // Uses value(s) from first entry point

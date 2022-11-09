@@ -214,6 +214,7 @@ private:
 	Vector<ScriptLanguage::CodeCompletionOption> code_completion_options;
 	int code_completion_line_ofs = 0;
 	int code_completion_current_selected = 0;
+	int code_completion_force_item_center = -1;
 	int code_completion_longest_line = 0;
 	Rect2i code_completion_rect;
 	Rect2i code_completion_scroll_rect;
@@ -261,12 +262,12 @@ protected:
 	/* Text manipulation */
 
 	// Overridable actions
-	virtual void _handle_unicode_input_internal(const uint32_t p_unicode) override;
-	virtual void _backspace_internal() override;
+	virtual void _handle_unicode_input_internal(const uint32_t p_unicode, int p_caret) override;
+	virtual void _backspace_internal(int p_caret) override;
 
 	GDVIRTUAL1(_confirm_code_completion, bool)
 	GDVIRTUAL1(_request_code_completion, bool)
-	GDVIRTUAL1RC(Array, _filter_code_completion_candidates, TypedArray<Dictionary>)
+	GDVIRTUAL1RC(TypedArray<Dictionary>, _filter_code_completion_candidates, TypedArray<Dictionary>)
 
 public:
 	/* General overrides */
@@ -322,19 +323,19 @@ public:
 	void set_line_as_breakpoint(int p_line, bool p_breakpointed);
 	bool is_line_breakpointed(int p_line) const;
 	void clear_breakpointed_lines();
-	Array get_breakpointed_lines() const;
+	PackedInt32Array get_breakpointed_lines() const;
 
 	// bookmarks
 	void set_line_as_bookmarked(int p_line, bool p_bookmarked);
 	bool is_line_bookmarked(int p_line) const;
 	void clear_bookmarked_lines();
-	Array get_bookmarked_lines() const;
+	PackedInt32Array get_bookmarked_lines() const;
 
 	// executing lines
 	void set_line_as_executing(int p_line, bool p_executing);
 	bool is_line_executing(int p_line) const;
 	void clear_executing_lines();
-	Array get_executing_lines() const;
+	PackedInt32Array get_executing_lines() const;
 
 	/* Line numbers */
 	void set_draw_line_numbers(bool p_draw);

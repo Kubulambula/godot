@@ -87,6 +87,7 @@ class ProjectManager : public Control {
 	ConfirmationDialog *multi_open_ask = nullptr;
 	ConfirmationDialog *multi_run_ask = nullptr;
 	ConfirmationDialog *multi_scan_ask = nullptr;
+	ConfirmationDialog *ask_full_convert_dialog = nullptr;
 	ConfirmationDialog *ask_update_settings = nullptr;
 	ConfirmationDialog *open_templates = nullptr;
 	EditorAbout *about = nullptr;
@@ -97,6 +98,7 @@ class ProjectManager : public Control {
 	AcceptDialog *dialog_error = nullptr;
 	ProjectDialog *npdialog = nullptr;
 
+	Button *full_convert_button = nullptr;
 	OptionButton *language_btn = nullptr;
 	LinkButton *version_btn = nullptr;
 
@@ -106,6 +108,8 @@ class ProjectManager : public Control {
 	void _run_project_confirm();
 	void _open_selected_projects();
 	void _open_selected_projects_ask();
+	void _full_convert_button_pressed();
+	void _perform_full_project_conversion();
 	void _import_project();
 	void _new_project();
 	void _rename_project();
@@ -125,7 +129,7 @@ class ProjectManager : public Control {
 	void _on_projects_updated();
 	void _scan_multiple_folders(PackedStringArray p_files);
 	void _scan_begin(const String &p_base);
-	void _scan_dir(const String &path, List<String> *r_projects);
+	void _scan_dir(const String &path);
 
 	void _install_project(const String &p_zip_path, const String &p_title);
 

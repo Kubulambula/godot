@@ -111,7 +111,7 @@ protected:
 
 	static void _bind_methods();
 
-	void _validate_property(PropertyInfo &property) const override;
+	void _validate_property(PropertyInfo &p_property) const;
 
 	GDVIRTUAL0RC(Dictionary, _get_child_nodes)
 	GDVIRTUAL0RC(Array, _get_parameter_list)
@@ -233,6 +233,7 @@ private:
 		Variant init_value;
 		Variant value;
 		Vector<StringName> subpath;
+		bool is_using_angle = false;
 		TrackCacheValue() { type = Animation::TYPE_VALUE; }
 	};
 
@@ -281,6 +282,8 @@ private:
 	bool cache_valid = false;
 	void _node_removed(Node *p_node);
 
+	void _setup_animation_player();
+	void _animation_player_changed();
 	void _clear_caches();
 	bool _update_caches(AnimationPlayer *player);
 	void _process_graph(double p_delta);
@@ -339,7 +342,7 @@ public:
 	void set_advance_expression_base_node(const NodePath &p_advance_expression_base_node);
 	NodePath get_advance_expression_base_node() const;
 
-	TypedArray<String> get_configuration_warnings() const override;
+	PackedStringArray get_configuration_warnings() const override;
 
 	bool is_state_invalid() const;
 	String get_invalid_state_reason() const;
@@ -350,7 +353,7 @@ public:
 	Transform3D get_root_motion_transform() const;
 
 	real_t get_connection_activity(const StringName &p_path, int p_connection) const;
-	void advance(real_t p_time);
+	void advance(double p_time);
 
 	void rename_parameter(const String &p_base, const String &p_new_base);
 

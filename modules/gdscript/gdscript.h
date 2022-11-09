@@ -222,6 +222,7 @@ public:
 
 	virtual Error reload(bool p_keep_state = false) override;
 
+	virtual void set_path(const String &p_path, bool p_take_over = false) override;
 	void set_script_path(const String &p_path) { path = p_path; } //because subclasses need a path too...
 	Error load_source_code(const String &p_path);
 	Error load_byte_code(const String &p_path);
@@ -287,6 +288,9 @@ public:
 	virtual void get_property_list(List<PropertyInfo> *p_properties) const;
 	virtual Variant::Type get_property_type(const StringName &p_name, bool *r_is_valid = nullptr) const;
 
+	virtual bool property_can_revert(const StringName &p_name) const;
+	virtual bool property_get_revert(const StringName &p_name, Variant &r_ret) const;
+
 	virtual void get_method_list(List<MethodInfo> *p_list) const;
 	virtual bool has_method(const StringName &p_method) const;
 	virtual Variant callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error);
@@ -339,7 +343,7 @@ class GDScriptLanguage : public ScriptLanguage {
 
 	friend class GDScriptInstance;
 
-	Mutex lock;
+	Mutex mutex;
 
 	friend class GDScript;
 
@@ -423,6 +427,8 @@ public:
 		StringName _set;
 		StringName _get;
 		StringName _get_property_list;
+		StringName _property_can_revert;
+		StringName _property_get_revert;
 		StringName _script_source;
 
 	} strings;

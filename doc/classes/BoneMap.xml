@@ -8,30 +8,31 @@
 		By assigning the actual [Skeleton3D] bone name as the key value, it maps the [Skeleton3D] to the [SkeletonProfile].
 	</description>
 	<tutorials>
+		<link title="Retargeting 3D Skeletons">$DOCS_URL/tutorials/assets_pipeline/retargeting_3d_skeletons.html</link>
 	</tutorials>
 	<methods>
 		<method name="find_profile_bone_name" qualifiers="const">
 			<return type="StringName" />
-			<argument index="0" name="skeleton_bone_name" type="StringName" />
+			<param index="0" name="skeleton_bone_name" type="StringName" />
 			<description>
-				Returns a profile bone name having [code]skeleton_bone_name[/code]. If not found, an empty [StringName] will be returned.
+				Returns a profile bone name having [param skeleton_bone_name]. If not found, an empty [StringName] will be returned.
 				In the retargeting process, the returned bone name is the bone name of the target skeleton.
 			</description>
 		</method>
 		<method name="get_skeleton_bone_name" qualifiers="const">
 			<return type="StringName" />
-			<argument index="0" name="profile_bone_name" type="StringName" />
+			<param index="0" name="profile_bone_name" type="StringName" />
 			<description>
-				Returns a skeleton bone name is mapped to [code]profile_bone_name[/code].
+				Returns a skeleton bone name is mapped to [param profile_bone_name].
 				In the retargeting process, the returned bone name is the bone name of the source skeleton.
 			</description>
 		</method>
 		<method name="set_skeleton_bone_name">
 			<return type="void" />
-			<argument index="0" name="profile_bone_name" type="StringName" />
-			<argument index="1" name="skeleton_bone_name" type="StringName" />
+			<param index="0" name="profile_bone_name" type="StringName" />
+			<param index="1" name="skeleton_bone_name" type="StringName" />
 			<description>
-				Maps a skeleton bone name to [code]profile_bone_name[/code].
+				Maps a skeleton bone name to [param profile_bone_name].
 				In the retargeting process, the setting bone name is the bone name of the source skeleton.
 			</description>
 		</method>

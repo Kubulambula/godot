@@ -38,6 +38,7 @@
 #include "core/os/os.h"
 #include "core/string/print_string.h"
 #include "core/string/translation.h"
+#include "core/variant/typed_array.h"
 
 #ifdef DEBUG_ENABLED
 
@@ -102,8 +103,8 @@ PropertyInfo PropertyInfo::from_dict(const Dictionary &p_dict) {
 	return pi;
 }
 
-Array convert_property_list(const List<PropertyInfo> *p_list) {
-	Array va;
+TypedArray<Dictionary> convert_property_list(const List<PropertyInfo> *p_list) {
+	TypedArray<Dictionary> va;
 	for (const List<PropertyInfo>::Element *E = p_list->front(); E; E = E->next()) {
 		va.push_back(Dictionary(E->get()));
 	}
@@ -472,7 +473,6 @@ Variant Object::get_indexed(const Vector<StringName> &p_names, bool *r_valid) co
 
 void Object::get_property_list(List<PropertyInfo> *p_list, bool p_reversed) const {
 	if (script_instance && p_reversed) {
-		p_list->push_back(PropertyInfo(Variant::NIL, "Script Variables", PROPERTY_HINT_NONE, String(), PROPERTY_USAGE_CATEGORY));
 		script_instance->get_property_list(p_list);
 	}
 
@@ -503,7 +503,6 @@ void Object::get_property_list(List<PropertyInfo> *p_list, bool p_reversed) cons
 	}
 
 	if (script_instance && !p_reversed) {
-		p_list->push_back(PropertyInfo(Variant::NIL, "Script Variables", PROPERTY_HINT_NONE, String(), PROPERTY_USAGE_CATEGORY));
 		script_instance->get_property_list(p_list);
 	}
 
@@ -517,7 +516,61 @@ void Object::get_property_list(List<PropertyInfo> *p_list, bool p_reversed) cons
 	}
 }
 
-void Object::_validate_property(PropertyInfo &property) const {
+void Object::validate_property(PropertyInfo &p_property) const {
+	_validate_propertyv(p_property);
+}
+
+bool Object::property_can_revert(const StringName &p_name) const {
+	if (script_instance) {
+		if (script_instance->property_can_revert(p_name)) {
+			return true;
+		}
+	}
+
+// C style pointer casts should never trigger a compiler warning because the risk is assumed by the user, so GCC should keep quiet about it.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-qualifiers"
+#endif
+	if (_extension && _extension->property_can_revert) {
+		if (_extension->property_can_revert(_extension_instance, (const GDNativeStringNamePtr)&p_name)) {
+			return true;
+		}
+	}
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+	return _property_can_revertv(p_name);
+}
+
+Variant Object::property_get_revert(const StringName &p_name) const {
+	Variant ret;
+
+	if (script_instance) {
+		if (script_instance->property_get_revert(p_name, ret)) {
+			return ret;
+		}
+	}
+
+// C style pointer casts should never trigger a compiler warning because the risk is assumed by the user, so GCC should keep quiet about it.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-qualifiers"
+#endif
+	if (_extension && _extension->property_get_revert) {
+		if (_extension->property_get_revert(_extension_instance, (const GDNativeStringNamePtr)&p_name, (GDNativeVariantPtr)&ret)) {
+			return ret;
+		}
+	}
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+	if (_property_get_revertv(p_name, ret)) {
+		return ret;
+	}
+	return Variant();
 }
 
 void Object::get_method_list(List<MethodInfo> *p_list) const {
@@ -755,10 +808,11 @@ String Object::to_string() {
 	}
 	if (_extension && _extension->to_string) {
 		String ret;
-		_extension->to_string(_extension_instance, &ret);
+		GDNativeBool is_valid;
+		_extension->to_string(_extension_instance, &is_valid, &ret);
 		return ret;
 	}
-	return "[" + get_class() + ":" + itos(get_instance_id()) + "]";
+	return "<" + get_class() + "#" + itos(get_instance_id()) + ">";
 }
 
 void Object::set_script_and_instance(const Variant &p_script, ScriptInstance *p_instance) {
@@ -860,16 +914,16 @@ void Object::remove_meta(const StringName &p_name) {
 	set_meta(p_name, Variant());
 }
 
-Array Object::_get_property_list_bind() const {
+TypedArray<Dictionary> Object::_get_property_list_bind() const {
 	List<PropertyInfo> lpi;
 	get_property_list(&lpi);
 	return convert_property_list(&lpi);
 }
 
-Array Object::_get_method_list_bind() const {
+TypedArray<Dictionary> Object::_get_method_list_bind() const {
 	List<MethodInfo> ml;
 	get_method_list(&ml);
-	Array ret;
+	TypedArray<Dictionary> ret;
 
 	for (List<MethodInfo>::Element *E = ml.front(); E; E = E->next()) {
 		Dictionary d = E->get();
@@ -1007,7 +1061,7 @@ Error Object::emit_signalp(const StringName &p_name, const Variant **p_args, int
 			}
 		}
 
-		bool disconnect = c.flags & CONNECT_ONESHOT;
+		bool disconnect = c.flags & CONNECT_ONE_SHOT;
 #ifdef TOOLS_ENABLED
 		if (disconnect && (c.flags & CONNECT_PERSIST) && Engine::get_singleton()->is_editor_hint()) {
 			//this signal was connected from the editor, and is being edited. just don't disconnect for now
@@ -1057,11 +1111,11 @@ void Object::_add_user_signal(const String &p_name, const Array &p_args) {
 	add_user_signal(mi);
 }
 
-Array Object::_get_signal_list() const {
+TypedArray<Dictionary> Object::_get_signal_list() const {
 	List<MethodInfo> signal_list;
 	get_signal_list(&signal_list);
 
-	Array ret;
+	TypedArray<Dictionary> ret;
 	for (const MethodInfo &E : signal_list) {
 		ret.push_back(Dictionary(E));
 	}
@@ -1069,11 +1123,11 @@ Array Object::_get_signal_list() const {
 	return ret;
 }
 
-Array Object::_get_signal_connection_list(const StringName &p_signal) const {
+TypedArray<Dictionary> Object::_get_signal_connection_list(const StringName &p_signal) const {
 	List<Connection> conns;
 	get_all_signal_connections(&conns);
 
-	Array ret;
+	TypedArray<Dictionary> ret;
 
 	for (const Connection &c : conns) {
 		if (c.signal.get_name() == p_signal) {
@@ -1084,8 +1138,8 @@ Array Object::_get_signal_connection_list(const StringName &p_signal) const {
 	return ret;
 }
 
-Array Object::_get_incoming_connections() const {
-	Array ret;
+TypedArray<Dictionary> Object::_get_incoming_connections() const {
+	TypedArray<Dictionary> ret;
 	int connections_amount = connections.size();
 	for (int idx_conn = 0; idx_conn < connections_amount; idx_conn++) {
 		ret.push_back(connections[idx_conn]);
@@ -1415,8 +1469,8 @@ void Object::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_class", "class"), &Object::is_class);
 	ClassDB::bind_method(D_METHOD("set", "property", "value"), &Object::_set_bind);
 	ClassDB::bind_method(D_METHOD("get", "property"), &Object::_get_bind);
-	ClassDB::bind_method(D_METHOD("set_indexed", "property", "value"), &Object::_set_indexed_bind);
-	ClassDB::bind_method(D_METHOD("get_indexed", "property"), &Object::_get_indexed_bind);
+	ClassDB::bind_method(D_METHOD("set_indexed", "property_path", "value"), &Object::_set_indexed_bind);
+	ClassDB::bind_method(D_METHOD("get_indexed", "property_path"), &Object::_get_indexed_bind);
 	ClassDB::bind_method(D_METHOD("get_property_list"), &Object::_get_property_list_bind);
 	ClassDB::bind_method(D_METHOD("get_method_list"), &Object::_get_method_list_bind);
 	ClassDB::bind_method(D_METHOD("notification", "what", "reversed"), &Object::notification, DEFVAL(false));
@@ -1502,9 +1556,16 @@ void Object::_bind_methods() {
 	BIND_OBJ_CORE_METHOD(miget);
 
 	MethodInfo plget("_get_property_list");
-
 	plget.return_val.type = Variant::ARRAY;
+	plget.return_val.hint = PROPERTY_HINT_ARRAY_TYPE;
+	plget.return_val.hint_string = "Dictionary";
 	BIND_OBJ_CORE_METHOD(plget);
+
+	BIND_OBJ_CORE_METHOD(MethodInfo(Variant::BOOL, "_property_can_revert", PropertyInfo(Variant::STRING_NAME, "property")));
+	MethodInfo mipgr("_property_get_revert", PropertyInfo(Variant::STRING_NAME, "property"));
+	mipgr.return_val.name = "Variant";
+	mipgr.return_val.usage |= PROPERTY_USAGE_NIL_IS_VARIANT;
+	BIND_OBJ_CORE_METHOD(mipgr);
 
 #endif
 	BIND_OBJ_CORE_METHOD(MethodInfo("_init"));
@@ -1515,7 +1576,7 @@ void Object::_bind_methods() {
 
 	BIND_ENUM_CONSTANT(CONNECT_DEFERRED);
 	BIND_ENUM_CONSTANT(CONNECT_PERSIST);
-	BIND_ENUM_CONSTANT(CONNECT_ONESHOT);
+	BIND_ENUM_CONSTANT(CONNECT_ONE_SHOT);
 	BIND_ENUM_CONSTANT(CONNECT_REFERENCE_COUNTED);
 }
 
@@ -1796,6 +1857,46 @@ void ObjectDB::debug_objects(DebugFunc p_func) {
 }
 
 void Object::get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const {
+	if (p_idx == 0) {
+		if (p_function == "connect" || p_function == "is_connected" || p_function == "disconnect" || p_function == "emit_signal" || p_function == "has_signal") {
+			List<MethodInfo> signals;
+			get_signal_list(&signals);
+			for (const MethodInfo &E : signals) {
+				r_options->push_back(E.name.quote());
+			}
+		} else if (p_function == "call" || p_function == "call_deferred" || p_function == "callv" || p_function == "has_method") {
+			List<MethodInfo> methods;
+			get_method_list(&methods);
+			for (const MethodInfo &E : methods) {
+				if (E.name.begins_with("_") && !(E.flags & METHOD_FLAG_VIRTUAL)) {
+					continue;
+				}
+				r_options->push_back(E.name.quote());
+			}
+		} else if (p_function == "set" || p_function == "set_deferred" || p_function == "get") {
+			List<PropertyInfo> properties;
+			get_property_list(&properties);
+			for (const PropertyInfo &E : properties) {
+				if (E.usage & PROPERTY_USAGE_DEFAULT && !(E.usage & PROPERTY_USAGE_INTERNAL)) {
+					r_options->push_back(E.name.quote());
+				}
+			}
+		} else if (p_function == "set_meta" || p_function == "get_meta" || p_function == "has_meta" || p_function == "remove_meta") {
+			for (const KeyValue<StringName, Variant> &K : metadata) {
+				r_options->push_back(String(K.key).quote());
+			}
+		}
+	} else if (p_idx == 2) {
+		if (p_function == "connect") {
+			// Ideally, the constants should be inferred by the parameter.
+			// But a parameter's PropertyInfo does not store the enum they come from, so this will do for now.
+			List<StringName> constants;
+			ClassDB::get_enum_constants("Object", "ConnectFlags", &constants);
+			for (const StringName &E : constants) {
+				r_options->push_back(String(E));
+			}
+		}
+	}
 }
 
 SpinLock ObjectDB::spin_lock;

@@ -49,9 +49,11 @@ private:
 	MouseButton button_mask = MouseButton::MASK_LEFT;
 	bool toggle_mode = false;
 	bool shortcut_in_tooltip = true;
+	bool was_mouse_pressed = false;
 	bool keep_pressed_outside = false;
 	Ref<Shortcut> shortcut;
 	ObjectID shortcut_context;
+	bool shortcut_feedback = true;
 
 	ActionMode action_mode = ACTION_MODE_BUTTON_RELEASE;
 	struct Status {
@@ -59,6 +61,7 @@ private:
 		bool hovering = false;
 		bool press_attempt = false;
 		bool pressing_inside = false;
+		bool shortcut_press = false;
 
 		bool disabled = false;
 
@@ -80,7 +83,7 @@ protected:
 	virtual void shortcut_input(const Ref<InputEvent> &p_event) override;
 	void _notification(int p_what);
 
-	bool _is_focus_owner_in_shortcut_context() const;
+	bool _was_pressed_by_mouse() const;
 
 	GDVIRTUAL0(_pressed)
 	GDVIRTUAL1(_toggled, bool)
@@ -130,8 +133,8 @@ public:
 	void set_button_group(const Ref<ButtonGroup> &p_group);
 	Ref<ButtonGroup> get_button_group() const;
 
-	void set_shortcut_context(Node *p_node);
-	Node *get_shortcut_context() const;
+	void set_shortcut_feedback(bool p_feedback);
+	bool is_shortcut_feedback() const;
 
 	BaseButton();
 	~BaseButton();
@@ -151,7 +154,7 @@ protected:
 public:
 	BaseButton *get_pressed_button();
 	void get_buttons(List<BaseButton *> *r_buttons);
-	Array _get_buttons();
+	TypedArray<BaseButton> _get_buttons();
 	ButtonGroup();
 };
 

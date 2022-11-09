@@ -119,6 +119,7 @@ class DependencyRemoveDialog : public ConfirmationDialog {
 
 	void _find_files_in_removed_folder(EditorFileSystemDirectory *efsd, const String &p_folder);
 	void _find_all_removed_dependencies(EditorFileSystemDirectory *efsd, Vector<RemovedDependency> &p_removed);
+	void _find_localization_remaps_of_removed_files(Vector<RemovedDependency> &p_removed);
 	void _build_removed_dependency_tree(const Vector<RemovedDependency> &p_removed);
 
 	void ok_pressed() override;
@@ -164,7 +165,7 @@ class OrphanResourcesDialog : public ConfirmationDialog {
 	bool _fill_owners(EditorFileSystemDirectory *efsd, HashMap<String, int> &refs, TreeItem *p_parent);
 
 	List<String> paths;
-	void _find_to_delete(TreeItem *p_item, List<String> &paths);
+	void _find_to_delete(TreeItem *p_item, List<String> &r_paths);
 	void _delete_confirm();
 	void _button_pressed(Object *p_item, int p_column, int p_id, MouseButton p_button);
 

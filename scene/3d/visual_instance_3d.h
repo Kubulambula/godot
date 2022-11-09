@@ -60,8 +60,6 @@ public:
 	RID get_instance() const;
 	virtual AABB get_aabb() const;
 
-	virtual AABB get_transformed_aabb() const; // helper
-
 	void set_base(const RID &p_base);
 	RID get_base() const;
 
@@ -142,7 +140,7 @@ public:
 	void set_cast_shadows_setting(ShadowCastingSetting p_shadow_casting_setting);
 	ShadowCastingSetting get_cast_shadows_setting() const;
 
-	void set_transparecy(float p_transparency);
+	void set_transparency(float p_transparency);
 	float get_transparency() const;
 
 	void set_visibility_range_begin(float p_dist);
@@ -178,15 +176,15 @@ public:
 	void set_lightmap_scale(LightmapScale p_scale);
 	LightmapScale get_lightmap_scale() const;
 
-	void set_shader_instance_uniform(const StringName &p_uniform, const Variant &p_value);
-	Variant get_shader_instance_uniform(const StringName &p_uniform) const;
+	void set_instance_shader_parameter(const StringName &p_name, const Variant &p_value);
+	Variant get_instance_shader_parameter(const StringName &p_name) const;
 
 	void set_custom_aabb(AABB aabb);
 
 	void set_ignore_occlusion_culling(bool p_enabled);
 	bool is_ignoring_occlusion_culling();
 
-	TypedArray<String> get_configuration_warnings() const override;
+	PackedStringArray get_configuration_warnings() const override;
 	GeometryInstance3D();
 	virtual ~GeometryInstance3D();
 };

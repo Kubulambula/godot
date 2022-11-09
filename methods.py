@@ -1,19 +1,11 @@
 import os
+import sys
 import re
 import glob
 import subprocess
 from collections import OrderedDict
 from collections.abc import Mapping
 from typing import Iterator
-
-# We need to define our own `Action` method to control the verbosity of output
-# and whenever we need to run those commands in a subprocess on some platforms.
-from SCons import Node
-from SCons.Script import Action
-from SCons.Script import ARGUMENTS
-from SCons.Script import Glob
-from SCons.Variables.BoolVariable import _text2bool
-from platform_methods import run_in_subprocess
 
 
 def add_source_files(self, sources, files):
@@ -48,72 +40,65 @@ def disable_warnings(self):
     if self.msvc:
         # We have to remove existing warning level defines before appending /w,
         # otherwise we get: "warning D9025 : overriding '/W3' with '/w'"
-        warn_flags = ["/Wall", "/W4", "/W3", "/W2", "/W1", "/WX"]
-        self.Append(CCFLAGS=["/w"])
-        self.Append(CFLAGS=["/w"])
-        self.Append(CXXFLAGS=["/w"])
-        self["CCFLAGS"] = [x for x in self["CCFLAGS"] if not x in warn_flags]
-        self["CFLAGS"] = [x for x in self["CFLAGS"] if not x in warn_flags]
-        self["CXXFLAGS"] = [x for x in self["CXXFLAGS"] if not x in warn_flags]
+        self["CCFLAGS"] = [x for x in self["CCFLAGS"] if not (x.startswith("/W") or x.startswith("/w"))]
+        self["CFLAGS"] = [x for x in self["CFLAGS"] if not (x.startswith("/W") or x.startswith("/w"))]
+        self["CXXFLAGS"] = [x for x in self["CXXFLAGS"] if not (x.startswith("/W") or x.startswith("/w"))]
+        self.AppendUnique(CCFLAGS=["/w"])
     else:
-        self.Append(CCFLAGS=["-w"])
-        self.Append(CFLAGS=["-w"])
-        self.Append(CXXFLAGS=["-w"])
+        self.AppendUnique(CCFLAGS=["-w"])
 
 
 def force_optimization_on_debug(self):
     # 'self' is the environment
-    if self["target"] != "debug":
+    if self["target"] != "template-release":
         return
 
     if self.msvc:
-        self.Append(CCFLAGS=["/O2"])
+        # We have to remove existing optimization level defines before appending /O2,
+        # otherwise we get: "warning D9025 : overriding '/0d' with '/02'"
+        self["CCFLAGS"] = [x for x in self["CCFLAGS"] if not x.startswith("/O")]
+        self["CFLAGS"] = [x for x in self["CFLAGS"] if not x.startswith("/O")]
+        self["CXXFLAGS"] = [x for x in self["CXXFLAGS"] if not x.startswith("/O")]
+        self.AppendUnique(CCFLAGS=["/O2"])
     else:
-        self.Append(CCFLAGS=["-O3"])
+        self.AppendUnique(CCFLAGS=["-O3"])
 
 
 def add_module_version_string(self, s):
     self.module_version_string += "." + s
 
 
-def update_version(module_version_string=""):
+def get_version_info(module_version_string="", silent=False):
     build_name = "custom_build"
     if os.getenv("BUILD_NAME") != None:
         build_name = str(os.getenv("BUILD_NAME"))
-        print("Using custom build name: " + build_name)
+        if not silent:
+            print(f"Using custom build name: '{build_name}'.")
 
     import version
 
-    # NOTE: It is safe to generate this file here, since this is still executed serially
-    f = open("core/version_generated.gen.h", "w")
-    f.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
-    f.write("#ifndef VERSION_GENERATED_GEN_H\n")
-    f.write("#define VERSION_GENERATED_GEN_H\n")
-    f.write('#define VERSION_SHORT_NAME "' + str(version.short_name) + '"\n')
-    f.write('#define VERSION_NAME "' + str(version.name) + '"\n')
-    f.write("#define VERSION_MAJOR " + str(version.major) + "\n")
-    f.write("#define VERSION_MINOR " + str(version.minor) + "\n")
-    f.write("#define VERSION_PATCH " + str(version.patch) + "\n")
+    version_info = {
+        "short_name": str(version.short_name),
+        "name": str(version.name),
+        "major": int(version.major),
+        "minor": int(version.minor),
+        "patch": int(version.patch),
+        "status": str(version.status),
+        "build": str(build_name),
+        "module_config": str(version.module_config) + module_version_string,
+        "year": int(version.year),
+        "website": str(version.website),
+        "docs_branch": str(version.docs),
+    }
+
     # For dev snapshots (alpha, beta, RC, etc.) we do not commit status change to Git,
     # so this define provides a way to override it without having to modify the source.
-    godot_status = str(version.status)
     if os.getenv("GODOT_VERSION_STATUS") != None:
-        godot_status = str(os.getenv("GODOT_VERSION_STATUS"))
-        print("Using version status '{}', overriding the original '{}'.".format(godot_status, str(version.status)))
-    f.write('#define VERSION_STATUS "' + godot_status + '"\n')
-    f.write('#define VERSION_BUILD "' + str(build_name) + '"\n')
-    f.write('#define VERSION_MODULE_CONFIG "' + str(version.module_config) + module_version_string + '"\n')
-    f.write("#define VERSION_YEAR " + str(version.year) + "\n")
-    f.write('#define VERSION_WEBSITE "' + str(version.website) + '"\n')
-    f.write('#define VERSION_DOCS_BRANCH "' + str(version.docs) + '"\n')
-    f.write('#define VERSION_DOCS_URL "https://docs.godotengine.org/en/" VERSION_DOCS_BRANCH\n')
-    f.write("#endif // VERSION_GENERATED_GEN_H\n")
-    f.close()
+        version_info["status"] = str(os.getenv("GODOT_VERSION_STATUS"))
+        if not silent:
+            print(f"Using version status '{version_info['status']}', overriding the original '{version.status}'.")
 
-    # NOTE: It is safe to generate this file here, since this is still executed serially
-    fhash = open("core/version_hash.gen.cpp", "w")
-    fhash.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
-    fhash.write('#include "core/version.h"\n')
+    # Parse Git hash if we're in a Git repo.
     githash = ""
     gitfolder = ".git"
 
@@ -143,7 +128,49 @@ def update_version(module_version_string=""):
         else:
             githash = head
 
-    fhash.write('const char *const VERSION_HASH = "' + githash + '";\n')
+    version_info["git_hash"] = githash
+
+    return version_info
+
+
+def generate_version_header(module_version_string=""):
+    version_info = get_version_info(module_version_string)
+
+    # NOTE: It is safe to generate these files here, since this is still executed serially.
+
+    f = open("core/version_generated.gen.h", "w")
+    f.write(
+        """/* THIS FILE IS GENERATED DO NOT EDIT */
+#ifndef VERSION_GENERATED_GEN_H
+#define VERSION_GENERATED_GEN_H
+#define VERSION_SHORT_NAME "{short_name}"
+#define VERSION_NAME "{name}"
+#define VERSION_MAJOR {major}
+#define VERSION_MINOR {minor}
+#define VERSION_PATCH {patch}
+#define VERSION_STATUS "{status}"
+#define VERSION_BUILD "{build}"
+#define VERSION_MODULE_CONFIG "{module_config}"
+#define VERSION_YEAR {year}
+#define VERSION_WEBSITE "{website}"
+#define VERSION_DOCS_BRANCH "{docs_branch}"
+#define VERSION_DOCS_URL "https://docs.godotengine.org/en/" VERSION_DOCS_BRANCH
+#endif // VERSION_GENERATED_GEN_H
+""".format(
+            **version_info
+        )
+    )
+    f.close()
+
+    fhash = open("core/version_hash.gen.cpp", "w")
+    fhash.write(
+        """/* THIS FILE IS GENERATED DO NOT EDIT */
+#include "core/version.h"
+const char *const VERSION_HASH = "{git_hash}";
+""".format(
+            **version_info
+        )
+    )
     fhash.close()
 
 
@@ -184,6 +211,9 @@ def get_cmdline_bool(option, default):
     """We use `ARGUMENTS.get()` to check if options were manually overridden on the command line,
     and SCons' _text2bool helper to convert them to booleans, otherwise they're handled as strings.
     """
+    from SCons.Script import ARGUMENTS
+    from SCons.Variables.BoolVariable import _text2bool
+
     cmdline_val = ARGUMENTS.get(option)
     if cmdline_val is not None:
         return _text2bool(cmdline_val)
@@ -336,7 +366,20 @@ def disable_module(self):
     self.disabled_modules.append(self.current_module)
 
 
-def module_check_dependencies(self, module, dependencies, silent=False):
+def module_add_dependencies(self, module, dependencies, optional=False):
+    """
+    Adds dependencies for a given module.
+    Meant to be used in module `can_build` methods.
+    """
+    if module not in self.module_dependencies:
+        self.module_dependencies[module] = [[], []]
+    if optional:
+        self.module_dependencies[module][1].extend(dependencies)
+    else:
+        self.module_dependencies[module][0].extend(dependencies)
+
+
+def module_check_dependencies(self, module):
     """
     Checks if module dependencies are enabled for a given module,
     and prints a warning if they aren't.
@@ -344,21 +387,39 @@ def module_check_dependencies(self, module, dependencies, silent=False):
     Returns a boolean (True if dependencies are satisfied).
     """
     missing_deps = []
-    for dep in dependencies:
+    required_deps = self.module_dependencies[module][0] if module in self.module_dependencies else []
+    for dep in required_deps:
         opt = "module_{}_enabled".format(dep)
         if not opt in self or not self[opt]:
             missing_deps.append(dep)
 
     if missing_deps != []:
-        if not silent:
-            print(
-                "Disabling '{}' module as the following dependencies are not satisfied: {}".format(
-                    module, ", ".join(missing_deps)
-                )
+        print(
+            "Disabling '{}' module as the following dependencies are not satisfied: {}".format(
+                module, ", ".join(missing_deps)
             )
+        )
         return False
     else:
         return True
+
+
+def sort_module_list(env):
+    out = OrderedDict()
+    deps = {k: v[0] + list(filter(lambda x: x in env.module_list, v[1])) for k, v in env.module_dependencies.items()}
+
+    frontier = list(env.module_list.keys())
+    explored = []
+    while len(frontier):
+        cur = frontier.pop()
+        deps_list = deps[cur] if cur in deps else []
+        if len(deps_list) and any([d not in explored for d in deps_list]):
+            # Will explore later, after its dependencies
+            frontier.insert(0, cur)
+            continue
+        explored.append(cur)
+    for k in explored:
+        env.module_list.move_to_end(k)
 
 
 def use_windows_spawn_fix(self, platform=None):
@@ -380,15 +441,17 @@ def use_windows_spawn_fix(self, platform=None):
 
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        proc = subprocess.Popen(
-            cmdline,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            startupinfo=startupinfo,
-            shell=False,
-            env=env,
-        )
+        popen_args = {
+            "stdin": subprocess.PIPE,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "startupinfo": startupinfo,
+            "shell": False,
+            "env": env,
+        }
+        if sys.version_info >= (3, 7, 0):
+            popen_args["text"] = True
+        proc = subprocess.Popen(cmdline, **popen_args)
         _, err = proc.communicate()
         rv = proc.wait()
         if rv:
@@ -507,7 +570,7 @@ def detect_visual_c_compiler_version(tools_env):
     # and not scons setup environment (env)... so make sure you call the right environment on it or it will fail to detect
     # the proper vc version that will be called
 
-    # There is no flag to give to visual c compilers to set the architecture, i.e. scons bits argument (32,64,ARM etc)
+    # There is no flag to give to visual c compilers to set the architecture, i.e. scons arch argument (x86_32, x86_64, arm64, etc.).
     # There are many different cl.exe files that are run, and each one compiles & links to a different architecture
     # As far as I know, the only way to figure out what compiler will be run when Scons calls cl.exe via Program()
     # is to check the PATH variable and figure out which one will be called first. Code below does that and returns:
@@ -594,7 +657,6 @@ def detect_visual_c_compiler_version(tools_env):
         if vc_x86_amd64_compiler_detection_index > -1 and (
             vc_chosen_compiler_index == -1 or vc_chosen_compiler_index > vc_x86_amd64_compiler_detection_index
         ):
-            vc_chosen_compiler_index = vc_x86_amd64_compiler_detection_index
             vc_chosen_compiler_str = "x86_amd64"
 
     return vc_chosen_compiler_str
@@ -607,8 +669,18 @@ def find_visual_c_batch_file(env):
         find_batch_file,
     )
 
+    # Syntax changed in SCons 4.4.0.
+    from SCons import __version__ as scons_raw_version
+
+    scons_ver = env._get_major_minor_revision(scons_raw_version)
+
     version = get_default_version(env)
-    (host_platform, target_platform, _) = get_host_target(env)
+
+    if scons_ver >= (4, 4, 0):
+        (host_platform, target_platform, _) = get_host_target(env, version)
+    else:
+        (host_platform, target_platform, _) = get_host_target(env)
+
     return find_batch_file(env, version, host_platform, target_platform)[0]
 
 
@@ -625,6 +697,9 @@ def generate_cpp_hint_file(filename):
 
 
 def glob_recursive(pattern, node="."):
+    from SCons import Node
+    from SCons.Script import Glob
+
     results = []
     for f in Glob(str(node) + "/*", source=True):
         if type(f) is Node.FS.Dir:
@@ -658,20 +733,19 @@ def generate_vs_project(env, num_jobs):
     if batch_file:
 
         class ModuleConfigs(Mapping):
-            # This version information (Win32, x64, Debug, Release, Release_Debug seems to be
+            # This version information (Win32, x64, Debug, Release) seems to be
             # required for Visual Studio to understand that it needs to generate an NMAKE
             # project. Do not modify without knowing what you are doing.
             PLATFORMS = ["Win32", "x64"]
-            PLATFORM_IDS = ["32", "64"]
-            CONFIGURATIONS = ["debug", "release", "release_debug"]
-            CONFIGURATION_IDS = ["tools", "opt", "opt.tools"]
+            PLATFORM_IDS = ["x86_32", "x86_64"]
+            CONFIGURATIONS = ["editor", "template_release", "template_debug"]
+            DEV_SUFFIX = ".dev" if env["dev_build"] else ""
 
             @staticmethod
             def for_every_variant(value):
                 return [value for _ in range(len(ModuleConfigs.CONFIGURATIONS) * len(ModuleConfigs.PLATFORMS))]
 
             def __init__(self):
-
                 shared_targets_array = []
                 self.names = []
                 self.arg_dict = {
@@ -700,8 +774,8 @@ def generate_vs_project(env, num_jobs):
                     for platform in ModuleConfigs.PLATFORMS
                 ]
                 self.arg_dict["runfile"] += [
-                    f'bin\\godot.windows.{config_id}.{plat_id}{f".{name}" if name else ""}.exe'
-                    for config_id in ModuleConfigs.CONFIGURATION_IDS
+                    f'bin\\godot.windows.{config}{ModuleConfigs.DEV_SUFFIX}{".double" if env["float"] == "64" else ""}.{plat_id}{f".{name}" if name else ""}.exe'
+                    for config in ModuleConfigs.CONFIGURATIONS
                     for plat_id in ModuleConfigs.PLATFORM_IDS
                 ]
                 self.arg_dict["cpppaths"] += ModuleConfigs.for_every_variant(env["CPPPATH"] + [includes])
@@ -709,7 +783,6 @@ def generate_vs_project(env, num_jobs):
                 self.arg_dict["cmdargs"] += ModuleConfigs.for_every_variant(cli_args)
 
             def build_commandline(self, commands):
-
                 configuration_getter = (
                     "$(Configuration"
                     + "".join([f'.Replace("{name}", "")' for name in self.names[1:]])
@@ -720,8 +793,6 @@ def generate_vs_project(env, num_jobs):
                 common_build_prefix = [
                     'cmd /V /C set "plat=$(PlatformTarget)"',
                     '(if "$(PlatformTarget)"=="x64" (set "plat=x86_amd64"))',
-                    'set "tools=%s"' % env["tools"],
-                    f'(if "{configuration_getter}"=="release" (set "tools=no"))',
                     'call "' + batch_file + '" !plat!',
                 ]
 
@@ -734,15 +805,23 @@ def generate_vs_project(env, num_jobs):
                     "platform=windows",
                     f"target={configuration_getter}",
                     "progress=no",
-                    "tools=!tools!",
                     "-j%s" % num_jobs,
                 ]
 
-                if env["tests"]:
+                if env["dev_build"]:
+                    common_build_postfix.append("dev_build=yes")
+
+                if env["dev_mode"]:
+                    common_build_postfix.append("dev_mode=yes")
+
+                elif env["tests"]:
                     common_build_postfix.append("tests=yes")
 
                 if env["custom_modules"]:
                     common_build_postfix.append("custom_modules=%s" % env["custom_modules"])
+
+                if env["float"] == "64":
+                    common_build_postfix.append("float=64")
 
                 result = " ^& ".join(common_build_prefix + [" ".join([commands] + common_build_postfix)])
                 return result
@@ -767,7 +846,8 @@ def generate_vs_project(env, num_jobs):
         add_to_vs_project(env, env.servers_sources)
         if env["tests"]:
             add_to_vs_project(env, env.tests_sources)
-        add_to_vs_project(env, env.editor_sources)
+        if env.editor_build:
+            add_to_vs_project(env, env.editor_sources)
 
         for header in glob_recursive("**/*.h"):
             env.vs_incs.append(str(header))
@@ -775,18 +855,12 @@ def generate_vs_project(env, num_jobs):
         module_configs = ModuleConfigs()
 
         if env.get("module_mono_enabled"):
-            import modules.mono.build_scripts.mono_reg_utils as mono_reg
-
-            mono_root = env.get("mono_prefix") or mono_reg.find_mono_root_dir(env["bits"])
-            if mono_root:
-                module_configs.add_mode(
-                    "mono",
-                    includes=os.path.join(mono_root, "include", "mono-2.0"),
-                    cli_args="module_mono_enabled=yes mono_glue=yes",
-                    defines=[("MONO_GLUE_ENABLED",)],
-                )
-            else:
-                print("Mono installation directory not found. Generated project will not have build variants for Mono.")
+            mono_defines = [("GD_MONO_HOT_RELOAD",)] if env.editor_build else []
+            module_configs.add_mode(
+                "mono",
+                cli_args="module_mono_enabled=yes",
+                defines=mono_defines,
+            )
 
         env["MSVSBUILDCOM"] = module_configs.build_commandline("scons")
         env["MSVSREBUILDCOM"] = module_configs.build_commandline("scons vsproj=yes")
@@ -836,6 +910,9 @@ def CommandNoCache(env, target, sources, command, **args):
 
 
 def Run(env, function, short_message, subprocess=True):
+    from SCons.Script import Action
+    from platform_methods import run_in_subprocess
+
     output_print = short_message if not env["verbose"] else ""
     if not subprocess:
         return Action(function, output_print)

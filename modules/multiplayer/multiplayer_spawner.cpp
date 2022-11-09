@@ -86,23 +86,41 @@ void MultiplayerSpawner::_get_property_list(List<PropertyInfo> *p_list) const {
 	}
 }
 #endif
+
+PackedStringArray MultiplayerSpawner::get_configuration_warnings() const {
+	PackedStringArray warnings = Node::get_configuration_warnings();
+
+	if (spawn_path.is_empty() || !has_node(spawn_path)) {
+		warnings.push_back(RTR("A valid NodePath must be set in the \"Spawn Path\" property in order for MultiplayerSpawner to be able to spawn Nodes."));
+	}
+	bool has_scenes = get_spawnable_scene_count() > 0;
+	// Can't check if method is overridden in placeholder scripts.
+	bool has_placeholder_script = get_script_instance() && get_script_instance()->is_placeholder();
+	if (!has_scenes && !GDVIRTUAL_IS_OVERRIDDEN(_spawn_custom) && !has_placeholder_script) {
+		warnings.push_back(RTR("A list of PackedScenes must be set in the \"Auto Spawn List\" property in order for MultiplayerSpawner to automatically spawn them remotely when added as child of \"spawn_path\"."));
+		warnings.push_back(RTR("Alternatively, a Script implementing the function \"_spawn_custom\" must be set for this MultiplayerSpawner, and \"spawn\" must be called explicitly in code."));
+	}
+	return warnings;
+}
+
 void MultiplayerSpawner::add_spawnable_scene(const String &p_path) {
 	SpawnableScene sc;
 	sc.path = p_path;
 	if (Engine::get_singleton()->is_editor_hint()) {
 		ERR_FAIL_COND(!FileAccess::exists(p_path));
-	} else {
-		sc.cache = ResourceLoader::load(p_path);
-		ERR_FAIL_COND_MSG(sc.cache.is_null(), "Invalid spawnable scene: " + p_path);
 	}
 	spawnable_scenes.push_back(sc);
 }
+
 int MultiplayerSpawner::get_spawnable_scene_count() const {
 	return spawnable_scenes.size();
 }
+
 String MultiplayerSpawner::get_spawnable_scene(int p_idx) const {
+	ERR_FAIL_INDEX_V(p_idx, (int)spawnable_scenes.size(), "");
 	return spawnable_scenes[p_idx].path;
 }
+
 void MultiplayerSpawner::clear_spawnable_scenes() {
 	spawnable_scenes.clear();
 }
@@ -126,7 +144,7 @@ void MultiplayerSpawner::_set_spawnable_scenes(const Vector<String> &p_scenes) {
 void MultiplayerSpawner::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_spawnable_scene", "path"), &MultiplayerSpawner::add_spawnable_scene);
 	ClassDB::bind_method(D_METHOD("get_spawnable_scene_count"), &MultiplayerSpawner::get_spawnable_scene_count);
-	ClassDB::bind_method(D_METHOD("get_spawnable_scene", "path"), &MultiplayerSpawner::get_spawnable_scene);
+	ClassDB::bind_method(D_METHOD("get_spawnable_scene", "index"), &MultiplayerSpawner::get_spawnable_scene);
 	ClassDB::bind_method(D_METHOD("clear_spawnable_scenes"), &MultiplayerSpawner::clear_spawnable_scenes);
 
 	ClassDB::bind_method(D_METHOD("_get_spawnable_scenes"), &MultiplayerSpawner::_get_spawnable_scenes);
@@ -146,8 +164,8 @@ void MultiplayerSpawner::_bind_methods() {
 
 	GDVIRTUAL_BIND(_spawn_custom, "data");
 
-	ADD_SIGNAL(MethodInfo("despawned", PropertyInfo(Variant::INT, "scene_id"), PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
-	ADD_SIGNAL(MethodInfo("spawned", PropertyInfo(Variant::INT, "scene_id"), PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
+	ADD_SIGNAL(MethodInfo("despawned", PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
+	ADD_SIGNAL(MethodInfo("spawned", PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
 }
 
 void MultiplayerSpawner::_update_spawn_node() {
@@ -230,8 +248,8 @@ void MultiplayerSpawner::_track(Node *p_node, const Variant &p_argument, int p_s
 	ObjectID oid = p_node->get_instance_id();
 	if (!tracked_nodes.has(oid)) {
 		tracked_nodes[oid] = SpawnInfo(p_argument.duplicate(true), p_scene_id);
-		p_node->connect(SceneStringNames::get_singleton()->tree_exiting, callable_mp(this, &MultiplayerSpawner::_node_exit).bind(p_node->get_instance_id()), CONNECT_ONESHOT);
-		p_node->connect(SceneStringNames::get_singleton()->ready, callable_mp(this, &MultiplayerSpawner::_node_ready).bind(p_node->get_instance_id()), CONNECT_ONESHOT);
+		p_node->connect(SceneStringNames::get_singleton()->tree_exiting, callable_mp(this, &MultiplayerSpawner::_node_exit).bind(p_node->get_instance_id()), CONNECT_ONE_SHOT);
+		p_node->connect(SceneStringNames::get_singleton()->ready, callable_mp(this, &MultiplayerSpawner::_node_ready).bind(p_node->get_instance_id()), CONNECT_ONE_SHOT);
 	}
 }
 
@@ -270,19 +288,21 @@ const Variant MultiplayerSpawner::get_spawn_argument(const ObjectID &p_id) const
 Node *MultiplayerSpawner::instantiate_scene(int p_id) {
 	ERR_FAIL_COND_V_MSG(spawn_limit && spawn_limit <= tracked_nodes.size(), nullptr, "Spawn limit reached!");
 	ERR_FAIL_UNSIGNED_INDEX_V((uint32_t)p_id, spawnable_scenes.size(), nullptr);
-	Ref<PackedScene> scene = spawnable_scenes[p_id].cache;
-	ERR_FAIL_COND_V(scene.is_null(), nullptr);
-	return scene->instantiate();
+	SpawnableScene &sc = spawnable_scenes[p_id];
+	if (sc.cache.is_null()) {
+		sc.cache = ResourceLoader::load(sc.path);
+	}
+	ERR_FAIL_COND_V_MSG(sc.cache.is_null(), nullptr, "Invalid spawnable scene: " + sc.path);
+	return sc.cache->instantiate();
 }
 
 Node *MultiplayerSpawner::instantiate_custom(const Variant &p_data) {
 	ERR_FAIL_COND_V_MSG(spawn_limit && spawn_limit <= tracked_nodes.size(), nullptr, "Spawn limit reached!");
-	Object *obj = nullptr;
 	Node *node = nullptr;
-	if (GDVIRTUAL_CALL(_spawn_custom, p_data, obj)) {
-		node = Object::cast_to<Node>(obj);
+	if (GDVIRTUAL_CALL(_spawn_custom, p_data, node)) {
+		return node;
 	}
-	return node;
+	ERR_FAIL_V_MSG(nullptr, "Method '_spawn_custom' is not implemented on this peer.");
 }
 
 Node *MultiplayerSpawner::spawn(const Variant &p_data) {

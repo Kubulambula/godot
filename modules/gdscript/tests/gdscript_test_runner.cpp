@@ -36,6 +36,7 @@
 #include "../gdscript_parser.h"
 
 #include "core/config/project_settings.h"
+#include "core/core_globals.h"
 #include "core/core_string_names.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access_pack.h"
@@ -142,8 +143,8 @@ GDScriptTestRunner::GDScriptTestRunner(const String &p_source_dir, bool p_init_l
 #endif
 
 	// Enable printing to show results
-	_print_line_enabled = true;
-	_print_error_enabled = true;
+	CoreGlobals::print_line_enabled = true;
+	CoreGlobals::print_error_enabled = true;
 }
 
 GDScriptTestRunner::~GDScriptTestRunner() {
@@ -246,7 +247,7 @@ bool GDScriptTestRunner::make_tests_for_dir(const String &p_dir) {
 				next = dir->get_next();
 				continue;
 			}
-			if (!make_tests_for_dir(current_dir.plus_file(next))) {
+			if (!make_tests_for_dir(current_dir.path_join(next))) {
 				return false;
 			}
 		} else {
@@ -254,7 +255,7 @@ bool GDScriptTestRunner::make_tests_for_dir(const String &p_dir) {
 #ifndef DEBUG_ENABLED
 				// On release builds, skip tests marked as debug only.
 				Error open_err = OK;
-				Ref<FileAccess> script_file(FileAccess::open(current_dir.plus_file(next), FileAccess::READ, &open_err));
+				Ref<FileAccess> script_file(FileAccess::open(current_dir.path_join(next), FileAccess::READ, &open_err));
 				if (open_err != OK) {
 					ERR_PRINT(vformat(R"(Couldn't open test file "%s".)", next));
 					next = dir->get_next();
@@ -271,7 +272,7 @@ bool GDScriptTestRunner::make_tests_for_dir(const String &p_dir) {
 				if (!is_generating && !dir->file_exists(out_file)) {
 					ERR_FAIL_V_MSG(false, "Could not find output file for " + next);
 				}
-				GDScriptTest test(current_dir.plus_file(next), current_dir.plus_file(out_file), source_dir);
+				GDScriptTest test(current_dir.path_join(next), current_dir.path_join(out_file), source_dir);
 				tests.push_back(test);
 			}
 		}
@@ -478,9 +479,9 @@ GDScriptTest::TestResult GDScriptTest::execute_test_code(bool p_is_generating) {
 		result.output = get_text_for_status(result.status) + "\n";
 
 		const List<GDScriptParser::ParserError> &errors = parser.get_errors();
-		for (const GDScriptParser::ParserError &E : errors) {
-			result.output += E.message + "\n"; // TODO: line, column?
-			break; // Only the first error since the following might be cascading.
+		if (!errors.is_empty()) {
+			// Only the first error since the following might be cascading.
+			result.output += errors[0].message + "\n"; // TODO: line, column?
 		}
 		if (!p_is_generating) {
 			result.passed = check_output(result.output);
@@ -497,9 +498,9 @@ GDScriptTest::TestResult GDScriptTest::execute_test_code(bool p_is_generating) {
 		result.output = get_text_for_status(result.status) + "\n";
 
 		const List<GDScriptParser::ParserError> &errors = parser.get_errors();
-		for (const GDScriptParser::ParserError &E : errors) {
-			result.output += E.message + "\n"; // TODO: line, column?
-			break; // Only the first error since the following might be cascading.
+		if (!errors.is_empty()) {
+			// Only the first error since the following might be cascading.
+			result.output += errors[0].message + "\n"; // TODO: line, column?
 		}
 		if (!p_is_generating) {
 			result.passed = check_output(result.output);

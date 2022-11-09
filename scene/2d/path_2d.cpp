@@ -47,7 +47,7 @@ Rect2 Path2D::_edit_get_rect() const {
 	for (int i = 0; i < curve->get_point_count(); i++) {
 		for (int j = 0; j <= 8; j++) {
 			real_t frac = j / 8.0;
-			Vector2 p = curve->interpolate(i, frac);
+			Vector2 p = curve->sample(i, frac);
 			aabb.expand_to(p);
 		}
 	}
@@ -70,7 +70,7 @@ bool Path2D::_edit_is_selected_on_click(const Point2 &p_point, double p_toleranc
 
 		for (int j = 1; j <= 8; j++) {
 			real_t frac = j / 8.0;
-			s[1] = curve->interpolate(i, frac);
+			s[1] = curve->sample(i, frac);
 
 			Vector2 p = Geometry2D::get_closest_point_to_segment(p_point, s);
 			if (p.distance_to(p_point) <= p_tolerance) {
@@ -112,7 +112,7 @@ void Path2D::_notification(int p_what) {
 			for (int i = 0; i < curve->get_point_count(); i++) {
 				for (int j = 0; j < 8; j++) {
 					real_t frac = j * (1.0 / 8.0);
-					Vector2 p = curve->interpolate(i, frac);
+					Vector2 p = curve->sample(i, frac);
 					_cached_draw_pts.set(count++, p);
 				}
 			}
@@ -131,7 +131,7 @@ void Path2D::_curve_changed() {
 		return;
 	}
 
-	update();
+	queue_redraw();
 }
 
 void Path2D::set_curve(const Ref<Curve2D> &p_curve) {
@@ -175,51 +175,18 @@ void PathFollow2D::_update_transform() {
 	if (path_length == 0) {
 		return;
 	}
-	Vector2 pos = c->interpolate_baked(offset, cubic);
 
 	if (rotates) {
-		real_t ahead = offset + lookahead;
-
-		if (loop && ahead >= path_length) {
-			// If our lookahead will loop, we need to check if the path is closed.
-			int point_count = c->get_point_count();
-			if (point_count > 0) {
-				Vector2 start_point = c->get_point_position(0);
-				Vector2 end_point = c->get_point_position(point_count - 1);
-				if (start_point == end_point) {
-					// Since the path is closed we want to 'smooth off'
-					// the corner at the start/end.
-					// So we wrap the lookahead back round.
-					ahead = Math::fmod(ahead, path_length);
-				}
-			}
-		}
-
-		Vector2 ahead_pos = c->interpolate_baked(ahead, cubic);
-
-		Vector2 tangent_to_curve;
-		if (ahead_pos == pos) {
-			// This will happen at the end of non-looping or non-closed paths.
-			// We'll try a look behind instead, in order to get a meaningful angle.
-			tangent_to_curve =
-					(pos - c->interpolate_baked(offset - lookahead, cubic)).normalized();
-		} else {
-			tangent_to_curve = (ahead_pos - pos).normalized();
-		}
-
-		Vector2 normal_of_curve = -tangent_to_curve.orthogonal();
-
-		pos += tangent_to_curve * h_offset;
-		pos += normal_of_curve * v_offset;
-
-		set_rotation(tangent_to_curve.angle());
-
+		Transform2D xform = c->sample_baked_with_rotation(progress, cubic, loop, lookahead);
+		xform.translate_local(v_offset, h_offset);
+		set_rotation(xform[1].angle());
+		set_position(xform[2]);
 	} else {
+		Vector2 pos = c->sample_baked(progress, cubic);
 		pos.x += h_offset;
 		pos.y += v_offset;
+		set_position(pos);
 	}
-
-	set_position(pos);
 }
 
 void PathFollow2D::_notification(int p_what) {
@@ -245,19 +212,19 @@ bool PathFollow2D::get_cubic_interpolation() const {
 	return cubic;
 }
 
-void PathFollow2D::_validate_property(PropertyInfo &property) const {
-	if (property.name == "offset") {
+void PathFollow2D::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name == "offset") {
 		real_t max = 10000.0;
 		if (path && path->get_curve().is_valid()) {
 			max = path->get_curve()->get_baked_length();
 		}
 
-		property.hint_string = "0," + rtos(max) + ",0.01,or_lesser,or_greater";
+		p_property.hint_string = "0," + rtos(max) + ",0.01,or_less,or_greater";
 	}
 }
 
-TypedArray<String> PathFollow2D::get_configuration_warnings() const {
-	TypedArray<String> warnings = Node::get_configuration_warnings();
+PackedStringArray PathFollow2D::get_configuration_warnings() const {
+	PackedStringArray warnings = Node::get_configuration_warnings();
 
 	if (is_visible_in_tree() && is_inside_tree()) {
 		if (!Object::cast_to<Path2D>(get_parent())) {
@@ -269,8 +236,8 @@ TypedArray<String> PathFollow2D::get_configuration_warnings() const {
 }
 
 void PathFollow2D::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("set_offset", "offset"), &PathFollow2D::set_offset);
-	ClassDB::bind_method(D_METHOD("get_offset"), &PathFollow2D::get_offset);
+	ClassDB::bind_method(D_METHOD("set_progress", "progress"), &PathFollow2D::set_progress);
+	ClassDB::bind_method(D_METHOD("get_progress"), &PathFollow2D::get_progress);
 
 	ClassDB::bind_method(D_METHOD("set_h_offset", "h_offset"), &PathFollow2D::set_h_offset);
 	ClassDB::bind_method(D_METHOD("get_h_offset"), &PathFollow2D::get_h_offset);
@@ -278,8 +245,8 @@ void PathFollow2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_v_offset", "v_offset"), &PathFollow2D::set_v_offset);
 	ClassDB::bind_method(D_METHOD("get_v_offset"), &PathFollow2D::get_v_offset);
 
-	ClassDB::bind_method(D_METHOD("set_unit_offset", "unit_offset"), &PathFollow2D::set_unit_offset);
-	ClassDB::bind_method(D_METHOD("get_unit_offset"), &PathFollow2D::get_unit_offset);
+	ClassDB::bind_method(D_METHOD("set_progress_ratio", "ratio"), &PathFollow2D::set_progress_ratio);
+	ClassDB::bind_method(D_METHOD("get_progress_ratio"), &PathFollow2D::get_progress_ratio);
 
 	ClassDB::bind_method(D_METHOD("set_rotates", "enable"), &PathFollow2D::set_rotates);
 	ClassDB::bind_method(D_METHOD("is_rotating"), &PathFollow2D::is_rotating);
@@ -293,8 +260,8 @@ void PathFollow2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_lookahead", "lookahead"), &PathFollow2D::set_lookahead);
 	ClassDB::bind_method(D_METHOD("get_lookahead"), &PathFollow2D::get_lookahead);
 
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "offset", PROPERTY_HINT_RANGE, "0,10000,0.01,or_lesser,or_greater,suffix:px"), "set_offset", "get_offset");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "unit_offset", PROPERTY_HINT_RANGE, "0,1,0.0001,or_lesser,or_greater", PROPERTY_USAGE_EDITOR), "set_unit_offset", "get_unit_offset");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "progress", PROPERTY_HINT_RANGE, "0,10000,0.01,or_less,or_greater,suffix:px"), "set_progress", "get_progress");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "progress_ratio", PROPERTY_HINT_RANGE, "0,1,0.0001,or_less,or_greater", PROPERTY_USAGE_EDITOR), "set_progress_ratio", "get_progress_ratio");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "h_offset"), "set_h_offset", "get_h_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "v_offset"), "set_v_offset", "get_v_offset");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "rotates"), "set_rotates", "is_rotating");
@@ -303,20 +270,20 @@ void PathFollow2D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lookahead", PROPERTY_HINT_RANGE, "0.001,1024.0,0.001"), "set_lookahead", "get_lookahead");
 }
 
-void PathFollow2D::set_offset(real_t p_offset) {
-	ERR_FAIL_COND(!isfinite(p_offset));
-	offset = p_offset;
+void PathFollow2D::set_progress(real_t p_progress) {
+	ERR_FAIL_COND(!isfinite(p_progress));
+	progress = p_progress;
 	if (path) {
 		if (path->get_curve().is_valid()) {
 			real_t path_length = path->get_curve()->get_baked_length();
 
 			if (loop && path_length) {
-				offset = Math::fposmod(offset, path_length);
-				if (!Math::is_zero_approx(p_offset) && Math::is_zero_approx(offset)) {
-					offset = path_length;
+				progress = Math::fposmod(progress, path_length);
+				if (!Math::is_zero_approx(p_progress) && Math::is_zero_approx(progress)) {
+					progress = path_length;
 				}
 			} else {
-				offset = CLAMP(offset, 0, path_length);
+				progress = CLAMP(progress, 0, path_length);
 			}
 		}
 
@@ -346,19 +313,19 @@ real_t PathFollow2D::get_v_offset() const {
 	return v_offset;
 }
 
-real_t PathFollow2D::get_offset() const {
-	return offset;
+real_t PathFollow2D::get_progress() const {
+	return progress;
 }
 
-void PathFollow2D::set_unit_offset(real_t p_unit_offset) {
+void PathFollow2D::set_progress_ratio(real_t p_ratio) {
 	if (path && path->get_curve().is_valid() && path->get_curve()->get_baked_length()) {
-		set_offset(p_unit_offset * path->get_curve()->get_baked_length());
+		set_progress(p_ratio * path->get_curve()->get_baked_length());
 	}
 }
 
-real_t PathFollow2D::get_unit_offset() const {
+real_t PathFollow2D::get_progress_ratio() const {
 	if (path && path->get_curve().is_valid() && path->get_curve()->get_baked_length()) {
-		return get_offset() / path->get_curve()->get_baked_length();
+		return get_progress() / path->get_curve()->get_baked_length();
 	} else {
 		return 0;
 	}

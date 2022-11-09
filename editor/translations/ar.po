@@ -67,14 +67,15 @@
 # Jhon Smith <jhonsmaith3@gmail.com>, 2022.
 # Oo mohab oO <mohab9225@gmail.com>, 2022.
 # عبد الرحمن أبو سعدة ||Abd Alrahman abo saada <abdalrahmanabs2005@gmail.com>, 2022.
+# xX-Void-Xx <arandomdude75@gmail.com>, 2022.
+# أحمد النور <ahmed2699@gmail.com>, 2022.
 msgid ""
 msgstr ""
 "Project-Id-Version: Godot Engine editor\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2022-07-23 03:57+0000\n"
-"Last-Translator: عبد الرحمن أبو سعدة ||Abd Alrahman abo saada "
-"<abdalrahmanabs2005@gmail.com>\n"
+"PO-Revision-Date: 2022-09-08 07:39+0000\n"
+"Last-Translator: أحمد النور <ahmed2699@gmail.com>\n"
 "Language-Team: Arabic <https://hosted.weblate.org/projects/godot-engine/"
 "godot/ar/>\n"
 "Language: ar\n"
@@ -83,7 +84,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
 "&& n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
-"X-Generator: Weblate 4.14-dev\n"
+"X-Generator: Weblate 4.14.1-dev\n"
 
 #: core/bind/core_bind.cpp main/main.cpp
 msgid "Tablet Driver"
@@ -452,9 +453,8 @@ msgid "Command"
 msgstr "مفتاح Command"
 
 #: core/os/input_event.cpp
-#, fuzzy
 msgid "Physical"
-msgstr "(فيزيائي)"
+msgstr "فيزيائي"
 
 #: core/os/input_event.cpp scene/2d/touch_screen_button.cpp
 #: scene/gui/base_button.cpp scene/gui/texture_button.cpp
@@ -508,7 +508,7 @@ msgstr "الضغط"
 
 #: core/os/input_event.cpp
 msgid "Pen Inverted"
-msgstr ""
+msgstr "قُلب القلم"
 
 #: core/os/input_event.cpp
 msgid "Relative"
@@ -1199,7 +1199,7 @@ msgstr "خطوة الدوران:"
 #: editor/animation_track_editor.cpp editor/script_editor_debugger.cpp
 #: modules/visual_script/visual_script_nodes.cpp scene/gui/range.cpp
 msgid "Value"
-msgstr "القيمة"
+msgstr "قيمة"
 
 #: editor/animation_track_editor.cpp
 #, fuzzy
@@ -2820,7 +2820,7 @@ msgstr "تصدير المشروع لمنصة:"
 
 #: editor/editor_export.cpp
 #, fuzzy
-msgid "Completed with errors."
+msgid "Completed with warnings."
 msgstr "نسخ مسار العُقدة"
 
 #: editor/editor_export.cpp
@@ -4575,6 +4575,7 @@ msgstr "أدوات مشروع أو مشهد متنوعة."
 
 #: editor/editor_node.cpp editor/project_manager.cpp
 #: editor/script_create_dialog.cpp modules/mono/editor/csharp_project.cpp
+#: modules/mono/godotsharp_dirs.cpp
 msgid "Project"
 msgstr "مشروع"
 
@@ -5402,9 +5403,8 @@ msgid "Icon And Font Color"
 msgstr "لون الأيقونة والخط"
 
 #: editor/editor_settings.cpp
-#, fuzzy
 msgid "Base Color"
-msgstr "الألوان"
+msgstr "اللون الاساسي"
 
 #: editor/editor_settings.cpp
 #, fuzzy
@@ -5434,9 +5434,8 @@ msgid "Use Graph Node Headers"
 msgstr "استخدم رؤوس وحدات الرسم البياني"
 
 #: editor/editor_settings.cpp
-#, fuzzy
 msgid "Additional Spacing"
-msgstr "تكرار الرسوم المتحركة"
+msgstr "مساحة اضافية"
 
 #: editor/editor_settings.cpp
 #, fuzzy
@@ -5444,9 +5443,8 @@ msgid "Custom Theme"
 msgstr "مظهر المحرر/برنامج-جودوه"
 
 #: editor/editor_settings.cpp
-#, fuzzy
 msgid "Show Script Button"
-msgstr "زر العجلة يميناً"
+msgstr "اضهار زر السكربت"
 
 #: editor/editor_settings.cpp
 #, fuzzy
@@ -5464,9 +5462,8 @@ msgid "Default Project Path"
 msgstr "مسار المشروع:"
 
 #: editor/editor_settings.cpp
-#, fuzzy
 msgid "On Save"
-msgstr "حفظ"
+msgstr "عند الحفظ"
 
 #: editor/editor_settings.cpp
 #, fuzzy
@@ -5501,9 +5498,8 @@ msgid "Start Create Dialog Fully Expanded"
 msgstr "بدء نافذة حوار الإنشاء موسعة بالكامل"
 
 #: editor/editor_settings.cpp
-#, fuzzy
 msgid "Always Show Folders"
-msgstr "إظهار الشبكة دوماً"
+msgstr "إظهار الملفات دوماً"
 
 #: editor/editor_settings.cpp
 #, fuzzy
@@ -5567,14 +5563,12 @@ msgid "Convert Indent On Save"
 msgstr "تحويل المسافة البادئة إلى مسافات"
 
 #: editor/editor_settings.cpp scene/gui/text_edit.cpp
-#, fuzzy
 msgid "Draw Tabs"
-msgstr "استدعاءات الرسم:"
+msgstr "رسم فراغات زر التاب"
 
 #: editor/editor_settings.cpp scene/gui/text_edit.cpp
-#, fuzzy
 msgid "Draw Spaces"
-msgstr "استدعاءات الرسم:"
+msgstr "رسم فراغات زر السبايس"
 
 #: editor/editor_settings.cpp editor/plugins/spatial_editor_plugin.cpp
 #: editor/plugins/tile_set_editor_plugin.cpp scene/2d/tile_map.cpp
@@ -5592,9 +5586,8 @@ msgid "V Scroll Speed"
 msgstr "سرعة التمرير العمودي"
 
 #: editor/editor_settings.cpp
-#, fuzzy
 msgid "Show Minimap"
-msgstr "إظهار المركز"
+msgstr "إظهار الخريطة"
 
 #: editor/editor_settings.cpp
 msgid "Minimap Width"
@@ -5618,9 +5611,8 @@ msgid "Appearance"
 msgstr "المظهر"
 
 #: editor/editor_settings.cpp scene/gui/text_edit.cpp
-#, fuzzy
 msgid "Show Line Numbers"
-msgstr "رقم الخط:"
+msgstr "اضهار رقم الخط"
 
 #: editor/editor_settings.cpp
 #, fuzzy
@@ -5661,9 +5653,8 @@ msgid "Line Length Guideline Hard Column"
 msgstr "عمود غامق لتوجيه طول السطر"
 
 #: editor/editor_settings.cpp editor/plugins/script_editor_plugin.cpp
-#, fuzzy
 msgid "Script List"
-msgstr "محرر النص البرمجي"
+msgstr "لائحة السكربتات"
 
 #: editor/editor_settings.cpp
 msgid "Show Members Overview"
@@ -5725,16 +5716,14 @@ msgid "Caret Blink Speed"
 msgstr "سرعة وميض علامة الإقحام"
 
 #: editor/editor_settings.cpp
-#, fuzzy
 msgid "Right Click Moves Caret"
-msgstr "اضغط بالزر الأيمن لإضافة نقطة"
+msgstr "اضغط بالزر الأيمن لإضافة علامة الإقحام"
 
 #: editor/editor_settings.cpp modules/gdscript/gdscript.cpp
 #: modules/gdscript/gdscript_editor.cpp
 #: scene/resources/default_theme/default_theme.cpp
-#, fuzzy
 msgid "Completion"
-msgstr "نسخ المُحدد"
+msgstr "تكملة"
 
 #: editor/editor_settings.cpp
 msgid "Idle Parse Delay"
@@ -5793,14 +5782,12 @@ msgid "Grid Map"
 msgstr "خريطة الشبكة"
 
 #: editor/editor_settings.cpp modules/gridmap/grid_map_editor_plugin.cpp
-#, fuzzy
 msgid "Pick Distance"
-msgstr "اختر المسافة:"
+msgstr "اختر المسافة"
 
 #: editor/editor_settings.cpp editor/plugins/tile_map_editor_plugin.cpp
-#, fuzzy
 msgid "Preview Size"
-msgstr "عرض"
+msgstr "حجم العرض"
 
 #: editor/editor_settings.cpp
 msgid "Primary Grid Color"
@@ -7500,7 +7487,8 @@ msgid "8 Bit"
 msgstr "8 بت"
 
 #: editor/import/resource_importer_wav.cpp main/main.cpp
-#: modules/mono/editor/csharp_project.cpp modules/mono/mono_gd/gd_mono.cpp
+#: modules/mono/editor/csharp_project.cpp modules/mono/godotsharp_dirs.cpp
+#: modules/mono/mono_gd/gd_mono.cpp
 msgid "Mono"
 msgstr "احاديه"
 
@@ -15550,18 +15538,19 @@ msgstr ""
 msgid "Make Local"
 msgstr "اجعله محلياً"
 
-#: editor/scene_tree_dock.cpp editor/scene_tree_editor.cpp
-msgid "Another node already uses this unique name in the scene."
-msgstr ""
+#: editor/scene_tree_dock.cpp
+#, fuzzy
+msgid "Enable Scene Unique Name(s)"
+msgstr "إسم العقدة:"
 
 #: editor/scene_tree_dock.cpp
 #, fuzzy
-msgid "Enable Scene Unique Name"
-msgstr "إسم العقدة:"
+msgid "Unique names already used by another node in the scene:"
+msgstr "لقد تم استخدام هذا الاسم في وظيفة برمجية/ مُتغيّر/ إشارة، من قبل:"
 
-#: editor/scene_tree_dock.cpp editor/scene_tree_editor.cpp
+#: editor/scene_tree_dock.cpp
 #, fuzzy
-msgid "Disable Scene Unique Name"
+msgid "Disable Scene Unique Name(s)"
 msgstr "إسم العقدة:"
 
 #: editor/scene_tree_dock.cpp
@@ -15761,6 +15750,11 @@ msgid "Button Group"
 msgstr "مجموعة الأزرار"
 
 #: editor/scene_tree_editor.cpp
+#, fuzzy
+msgid "Disable Scene Unique Name"
+msgstr "إسم العقدة:"
+
+#: editor/scene_tree_editor.cpp
 msgid "(Connecting From)"
 msgstr "(الإتصال من)"
 
@@ -15834,6 +15828,10 @@ msgstr ""
 #: editor/scene_tree_editor.cpp
 msgid "Invalid node name, the following characters are not allowed:"
 msgstr "اسم عُقدة غير صالح، إن الأحرف التالية غير مسموحة:"
+
+#: editor/scene_tree_editor.cpp
+msgid "Another node already uses this unique name in the scene."
+msgstr ""
 
 #: editor/scene_tree_editor.cpp
 msgid "Rename Node"
@@ -17272,7 +17270,7 @@ msgstr ""
 #: modules/gltf/gltf_node.cpp scene/3d/spatial.cpp
 #, fuzzy
 msgid "Translation"
-msgstr "الترجمات"
+msgstr "الترجمة"
 
 #: modules/gltf/gltf_node.cpp
 #, fuzzy
@@ -17705,6 +17703,21 @@ msgstr ""
 #: modules/mono/editor/csharp_project.cpp
 msgid "Auto Update Project"
 msgstr "تحديث المشروع تلقائيًا"
+
+#: modules/mono/godotsharp_dirs.cpp
+#, fuzzy
+msgid "Assembly Name"
+msgstr "إظهار الكل"
+
+#: modules/mono/godotsharp_dirs.cpp
+#, fuzzy
+msgid "Solution Directory"
+msgstr "حدد الوجهة"
+
+#: modules/mono/godotsharp_dirs.cpp
+#, fuzzy
+msgid "C# Project Directory"
+msgstr "حدد الوجهة"
 
 #: modules/mono/mono_gd/gd_mono_utils.cpp
 msgid "End of inner exception stack trace"
@@ -19575,6 +19588,11 @@ msgstr "قص العُقد"
 msgid "Custom BG Color"
 msgstr "قص العُقد"
 
+#: platform/iphone/export/export.cpp
+#, fuzzy
+msgid "Export Icons"
+msgstr "توسيع الكل"
+
 #: platform/iphone/export/export.cpp platform/javascript/export/export.cpp
 #: platform/osx/export/export.cpp
 #, fuzzy
@@ -20432,6 +20450,12 @@ msgid "Show Name On Square 310 X 310"
 msgstr ""
 
 #: platform/uwp/export/export.cpp
+msgid ""
+"Godot's Mono version does not support the UWP platform. Use the standard "
+"build (no C# support) if you wish to target UWP."
+msgstr ""
+
+#: platform/uwp/export/export.cpp
 msgid "Invalid package short name."
 msgstr "اسم الرُزمة القصير غير صالح."
 
@@ -20570,15 +20594,15 @@ msgstr "لا يمكن العثور على مفتاح المتجر، لا يمك�
 
 #: platform/windows/export/export.cpp
 msgid ""
-"Could not start rcedit executable, configure rcedit path in the Editor "
-"Settings (Export > Windows > Rcedit)."
+"Could not start rcedit executable. Configure rcedit path in the Editor "
+"Settings (Export > Windows > Rcedit), or disable \"Application > Modify "
+"Resources\" in the export preset."
 msgstr ""
 
 #: platform/windows/export/export.cpp
-msgid ""
-"rcedit failed to modify executable:\n"
-"%s"
-msgstr ""
+#, fuzzy
+msgid "rcedit failed to modify executable: %s."
+msgstr "صيغة غير صالحة."
 
 #: platform/windows/export/export.cpp
 #, fuzzy
@@ -20602,15 +20626,15 @@ msgstr "اسم غير صالح."
 
 #: platform/windows/export/export.cpp
 msgid ""
-"Could not start signtool executable, configure signtool path in the Editor "
-"Settings (Export > Windows > Signtool)."
+"Could not start signtool executable. Configure signtool path in the Editor "
+"Settings (Export > Windows > Signtool), or disable \"Codesign\" in the "
+"export preset."
 msgstr ""
 
 #: platform/windows/export/export.cpp
-msgid ""
-"Signtool failed to sign executable:\n"
-"%s"
-msgstr ""
+#, fuzzy
+msgid "Signtool failed to sign executable: %s."
+msgstr "صيغة غير صالحة."
 
 #: platform/windows/export/export.cpp
 #, fuzzy

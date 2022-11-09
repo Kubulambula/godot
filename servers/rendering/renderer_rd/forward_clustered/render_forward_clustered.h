@@ -32,12 +32,24 @@
 #define RENDER_FORWARD_CLUSTERED_H
 
 #include "core/templates/paged_allocator.h"
+#include "servers/rendering/renderer_rd/cluster_builder_rd.h"
 #include "servers/rendering/renderer_rd/effects/resolve.h"
+#include "servers/rendering/renderer_rd/effects/ss_effects.h"
+#include "servers/rendering/renderer_rd/effects/taa.h"
 #include "servers/rendering/renderer_rd/forward_clustered/scene_shader_forward_clustered.h"
 #include "servers/rendering/renderer_rd/pipeline_cache_rd.h"
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
-#include "servers/rendering/renderer_rd/shaders/scene_forward_clustered.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/forward_clustered/scene_forward_clustered.glsl.gen.h"
 #include "servers/rendering/renderer_rd/storage_rd/utilities.h"
+
+#define RB_SCOPE_FORWARD_CLUSTERED SNAME("forward_clustered")
+
+#define RB_TEX_SPECULAR SNAME("specular")
+#define RB_TEX_SPECULAR_MSAA SNAME("specular_msaa")
+#define RB_TEX_ROUGHNESS SNAME("normal_roughnesss")
+#define RB_TEX_ROUGHNESS_MSAA SNAME("normal_roughnesss_msaa")
+#define RB_TEX_VOXEL_GI SNAME("voxel_gi")
+#define RB_TEX_VOXEL_GI_MSAA SNAME("voxel_gi_msaa")
 
 namespace RendererSceneRenderImplementation {
 
@@ -81,73 +93,80 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 
 	/* Framebuffer */
 
-	struct RenderBufferDataForwardClustered : public RenderBufferData {
-		//for rendering, may be MSAAd
+	class RenderBufferDataForwardClustered : public RenderBufferCustomDataRD {
+		GDCLASS(RenderBufferDataForwardClustered, RenderBufferCustomDataRD)
 
-		RID color;
-		RID depth;
-		RID specular;
-		RID normal_roughness_buffer;
-		RID voxelgi_buffer;
-		RID velocity_buffer;
+	private:
+		RenderSceneBuffersRD *render_buffers = nullptr;
+		RD::TextureSamples texture_samples = RD::TEXTURE_SAMPLES_1;
 
-		RS::ViewportMSAA msaa;
-		RD::TextureSamples texture_samples;
-		bool use_taa;
+	public:
+		ClusterBuilderRD *cluster_builder = nullptr;
 
-		RID color_msaa;
-		RID depth_msaa;
-		RID specular_msaa;
-		RID normal_roughness_buffer_msaa;
-		RID voxelgi_buffer_msaa;
-		RID velocity_buffer_msaa;
+		struct SSEffectsData {
+			RID linear_depth;
+			Vector<RID> linear_depth_slices;
 
-		RID depth_fb;
-		RID depth_normal_roughness_fb;
-		RID depth_normal_roughness_voxelgi_fb;
-		RID color_only_fb;
-		RID specular_only_fb;
+			RID downsample_uniform_set;
 
-		RID vrs;
+			Projection last_frame_projection;
+			Transform3D last_frame_transform;
 
-		int width, height;
-		HashMap<uint32_t, RID> color_framebuffers;
+			RendererRD::SSEffects::SSAORenderBuffers ssao;
+			RendererRD::SSEffects::SSILRenderBuffers ssil;
+			RendererRD::SSEffects::SSRRenderBuffers ssr;
+		} ss_effects_data;
 
-		// for multiview
-		uint32_t view_count = 1;
-		RID color_views[RendererSceneRender::MAX_RENDER_VIEWS]; // we should rewrite this so we get access to the existing views in our renderer, something we can address when we reorg this
-		RID depth_views[RendererSceneRender::MAX_RENDER_VIEWS]; // we should rewrite this so we get access to the existing views in our renderer, something we can address when we reorg this
-		RID specular_views[RendererSceneRender::MAX_RENDER_VIEWS];
-		RID specular_msaa_views[RendererSceneRender::MAX_RENDER_VIEWS];
-		RID color_msaa_views[RendererSceneRender::MAX_RENDER_VIEWS];
-		RID depth_msaa_views[RendererSceneRender::MAX_RENDER_VIEWS];
-		RID normal_roughness_views[RendererSceneRender::MAX_RENDER_VIEWS];
-		RID normal_roughness_msaa_views[RendererSceneRender::MAX_RENDER_VIEWS];
-		RID voxelgi_views[RendererSceneRender::MAX_RENDER_VIEWS];
-		RID voxelgi_msaa_views[RendererSceneRender::MAX_RENDER_VIEWS];
-		RID vrs_views[RendererSceneRender::MAX_RENDER_VIEWS];
+		enum DepthFrameBufferType {
+			DEPTH_FB,
+			DEPTH_FB_ROUGHNESS,
+			DEPTH_FB_ROUGHNESS_VOXELGI
+		};
 
 		RID render_sdfgi_uniform_set;
-		void ensure_specular();
-		void ensure_voxelgi();
-		void ensure_velocity();
-		void clear();
-		virtual void configure(RID p_color_buffer, RID p_depth_buffer, RID p_target_buffer, int p_width, int p_height, RS::ViewportMSAA p_msaa, bool p_use_taa, uint32_t p_view_count, RID p_vrs_texture);
-		RID get_color_pass_fb(uint32_t p_color_pass_flags);
 
-		~RenderBufferDataForwardClustered();
+		RID get_color_msaa() const { return render_buffers->get_texture(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_COLOR_MSAA); }
+		RID get_color_msaa(uint32_t p_layer) { return render_buffers->get_texture_slice(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_COLOR_MSAA, p_layer, 0); }
+
+		RID get_depth_msaa() const { return render_buffers->get_texture(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_DEPTH_MSAA); }
+		RID get_depth_msaa(uint32_t p_layer) { return render_buffers->get_texture_slice(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_DEPTH_MSAA, p_layer, 0); }
+
+		void ensure_specular();
+		bool has_specular() const { return render_buffers->has_texture(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_SPECULAR); }
+		RID get_specular() const { return render_buffers->get_texture(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_SPECULAR); }
+		RID get_specular(uint32_t p_layer) { return render_buffers->get_texture_slice(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_SPECULAR, p_layer, 0); }
+		RID get_specular_msaa(uint32_t p_layer) { return render_buffers->get_texture_slice(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_SPECULAR_MSAA, p_layer, 0); }
+
+		void ensure_normal_roughness_texture();
+		bool has_normal_roughness() const { return render_buffers->has_texture(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_ROUGHNESS); }
+		RID get_normal_roughness() const { return render_buffers->get_texture(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_ROUGHNESS); }
+		RID get_normal_roughness(uint32_t p_layer) { return render_buffers->get_texture_slice(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_ROUGHNESS, p_layer, 0); }
+		RID get_normal_roughness_msaa() const { return render_buffers->get_texture(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_ROUGHNESS_MSAA); }
+		RID get_normal_roughness_msaa(uint32_t p_layer) { return render_buffers->get_texture_slice(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_ROUGHNESS_MSAA, p_layer, 0); }
+
+		void ensure_voxelgi();
+		bool has_voxelgi() const { return render_buffers->has_texture(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_VOXEL_GI); }
+		RID get_voxelgi() const { return render_buffers->get_texture(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_VOXEL_GI); }
+		RID get_voxelgi(uint32_t p_layer) { return render_buffers->get_texture_slice(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_VOXEL_GI, p_layer, 0); }
+		RID get_voxelgi_msaa(uint32_t p_layer) { return render_buffers->get_texture_slice(RB_SCOPE_FORWARD_CLUSTERED, RB_TEX_VOXEL_GI_MSAA, p_layer, 0); }
+
+		RID get_color_only_fb();
+		RID get_color_pass_fb(uint32_t p_color_pass_flags);
+		RID get_depth_fb(DepthFrameBufferType p_type = DEPTH_FB);
+		RID get_specular_only_fb();
+
+		RID get_ao_texture() const { return ss_effects_data.ssao.ao_final; }
+		RID get_ssil_texture() const { return ss_effects_data.ssil.ssil_final; }
+
+		virtual void configure(RenderSceneBuffersRD *p_render_buffers) override;
+		virtual void free_data() override;
 	};
 
-	virtual RenderBufferData *_create_render_buffer_data() override;
-	void _allocate_normal_roughness_texture(RenderBufferDataForwardClustered *rb);
+	virtual void setup_render_buffer_data(Ref<RenderSceneBuffersRD> p_render_buffers) override;
 
 	RID render_base_uniform_set;
 
 	uint64_t lightmap_texture_array_version = 0xFFFFFFFF;
-
-	virtual void _base_uniforms_changed() override;
-	virtual RID _render_buffers_get_normal_texture(RID p_render_buffers) override;
-	virtual RID _render_buffers_get_velocity_texture(RID p_render_buffers) override;
 
 	bool base_uniform_set_updated = false;
 	void _update_render_base_uniform_set();
@@ -187,7 +206,6 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 		RID render_pass_uniform_set;
 		bool force_wireframe = false;
 		Vector2 uv_offset;
-		Plane lod_plane;
 		float lod_distance_multiplier = 0.0;
 		float screen_mesh_lod_threshold = 0.0;
 		RD::FramebufferFormatID framebuffer_format = 0;
@@ -195,7 +213,7 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 		uint32_t barrier = RD::BARRIER_MASK_ALL;
 		bool use_directional_soft_shadow = false;
 
-		RenderListParameters(GeometryInstanceSurfaceDataCache **p_elements, RenderElementInfo *p_element_info, int p_element_count, bool p_reverse_cull, PassMode p_pass_mode, uint32_t p_color_pass_flags, bool p_no_gi, bool p_use_directional_soft_shadows, RID p_render_pass_uniform_set, bool p_force_wireframe = false, const Vector2 &p_uv_offset = Vector2(), const Plane &p_lod_plane = Plane(), float p_lod_distance_multiplier = 0.0, float p_screen_mesh_lod_threshold = 0.0, uint32_t p_view_count = 1, uint32_t p_element_offset = 0, uint32_t p_barrier = RD::BARRIER_MASK_ALL) {
+		RenderListParameters(GeometryInstanceSurfaceDataCache **p_elements, RenderElementInfo *p_element_info, int p_element_count, bool p_reverse_cull, PassMode p_pass_mode, uint32_t p_color_pass_flags, bool p_no_gi, bool p_use_directional_soft_shadows, RID p_render_pass_uniform_set, bool p_force_wireframe = false, const Vector2 &p_uv_offset = Vector2(), float p_lod_distance_multiplier = 0.0, float p_screen_mesh_lod_threshold = 0.0, uint32_t p_view_count = 1, uint32_t p_element_offset = 0, uint32_t p_barrier = RD::BARRIER_MASK_ALL) {
 			elements = p_elements;
 			element_info = p_element_info;
 			element_count = p_element_count;
@@ -207,7 +225,6 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 			render_pass_uniform_set = p_render_pass_uniform_set;
 			force_wireframe = p_force_wireframe;
 			uv_offset = p_uv_offset;
-			lod_plane = p_lod_plane;
 			lod_distance_multiplier = p_lod_distance_multiplier;
 			screen_mesh_lod_threshold = p_screen_mesh_lod_threshold;
 			element_offset = p_element_offset;
@@ -218,20 +235,24 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 
 	struct LightmapData {
 		float normal_xform[12];
+		float pad[3];
+		float exposure_normalization;
 	};
 
 	struct LightmapCaptureData {
 		float sh[9 * 4];
 	};
 
+	// When changing any of these enums, remember to change the corresponding enums in the shader files as well.
 	enum {
-		INSTANCE_DATA_FLAGS_NON_UNIFORM_SCALE = 1 << 5,
-		INSTANCE_DATA_FLAG_USE_GI_BUFFERS = 1 << 6,
-		INSTANCE_DATA_FLAG_USE_SDFGI = 1 << 7,
-		INSTANCE_DATA_FLAG_USE_LIGHTMAP_CAPTURE = 1 << 8,
-		INSTANCE_DATA_FLAG_USE_LIGHTMAP = 1 << 9,
-		INSTANCE_DATA_FLAG_USE_SH_LIGHTMAP = 1 << 10,
-		INSTANCE_DATA_FLAG_USE_VOXEL_GI = 1 << 11,
+		INSTANCE_DATA_FLAGS_NON_UNIFORM_SCALE = 1 << 4,
+		INSTANCE_DATA_FLAG_USE_GI_BUFFERS = 1 << 5,
+		INSTANCE_DATA_FLAG_USE_SDFGI = 1 << 6,
+		INSTANCE_DATA_FLAG_USE_LIGHTMAP_CAPTURE = 1 << 7,
+		INSTANCE_DATA_FLAG_USE_LIGHTMAP = 1 << 8,
+		INSTANCE_DATA_FLAG_USE_SH_LIGHTMAP = 1 << 9,
+		INSTANCE_DATA_FLAG_USE_VOXEL_GI = 1 << 10,
+		INSTANCE_DATA_FLAG_PARTICLES = 1 << 11,
 		INSTANCE_DATA_FLAG_MULTIMESH = 1 << 12,
 		INSTANCE_DATA_FLAG_MULTIMESH_FORMAT_2D = 1 << 13,
 		INSTANCE_DATA_FLAG_MULTIMESH_HAS_COLOR = 1 << 14,
@@ -243,61 +264,22 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 	};
 
 	struct SceneState {
-		// This struct is loaded into Set 1 - Binding 0, populated at start of rendering a frame, must match with shader code
+		// This struct is loaded into Set 1 - Binding 1, populated at start of rendering a frame, must match with shader code
 		struct UBO {
-			float projection_matrix[16];
-			float inv_projection_matrix[16];
-			float inv_view_matrix[16];
-			float view_matrix[16];
-
-			float projection_matrix_view[RendererSceneRender::MAX_RENDER_VIEWS][16];
-			float inv_projection_matrix_view[RendererSceneRender::MAX_RENDER_VIEWS][16];
-			float eye_offset[RendererSceneRender::MAX_RENDER_VIEWS][4];
-
-			float viewport_size[2];
-			float screen_pixel_size[2];
-
 			uint32_t cluster_shift;
 			uint32_t cluster_width;
 			uint32_t cluster_type_size;
 			uint32_t max_cluster_element_count_div_32;
 
-			float directional_penumbra_shadow_kernel[128]; //32 vec4s
-			float directional_soft_shadow_kernel[128];
-			float penumbra_shadow_kernel[128];
-			float soft_shadow_kernel[128];
-
-			float ambient_light_color_energy[4];
-
-			float ambient_color_sky_mix;
-			uint32_t use_ambient_light;
-			uint32_t use_ambient_cubemap;
-			uint32_t use_reflection_cubemap;
-
-			float radiance_inverse_xform[12];
-
-			float shadow_atlas_pixel_size[2];
-			float directional_shadow_pixel_size[2];
-
-			uint32_t directional_light_count;
-			float dual_paraboloid_side;
-			float z_far;
-			float z_near;
-
 			uint32_t ss_effects_flags;
 			float ssao_light_affect;
 			float ssao_ao_affect;
-			uint32_t roughness_limiter_enabled;
-
-			float roughness_limiter_amount;
-			float roughness_limiter_limit;
-			float opaque_prepass_threshold;
-			uint32_t roughness_limiter_pad;
+			uint32_t pad1;
 
 			float sdf_to_bounds[16];
 
 			int32_t sdf_offset[3];
-			uint32_t material_uv2_mode;
+			uint32_t pad2;
 
 			int32_t sdf_size[3];
 			uint32_t gi_upscale_for_msaa;
@@ -306,31 +288,13 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 			float volumetric_fog_inv_length;
 			float volumetric_fog_detail_spread;
 			uint32_t volumetric_fog_pad;
-
-			// Fog
-			uint32_t fog_enabled;
-			float fog_density;
-			float fog_height;
-			float fog_height_density;
-
-			float fog_light_color[3];
-			float fog_sun_scatter;
-
-			float fog_aerial_perspective;
-
-			float time;
-			float reflection_multiplier;
-
-			uint32_t pancake_shadows;
-
-			float taa_jitter[2];
-			uint32_t pad[2];
 		};
 
 		struct PushConstant {
 			uint32_t base_index; //
 			uint32_t uv_offset; //packed
-			uint32_t pad[2];
+			uint32_t multimesh_motion_vectors_current_offset;
+			uint32_t multimesh_motion_vectors_previous_offset;
 		};
 
 		struct InstanceData {
@@ -343,11 +307,10 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 			float lightmap_uv_scale[4];
 		};
 
-		UBO ubo_data[2];
-		UBO &ubo = ubo_data[0];
-		UBO &prev_ubo = ubo_data[1];
+		UBO ubo;
 
 		LocalVector<RID> uniform_buffers;
+		LocalVector<RID> implementation_uniform_buffers;
 
 		LightmapData lightmaps[MAX_LIGHTMAPS];
 		RID lightmap_ids[MAX_LIGHTMAPS];
@@ -397,7 +360,7 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 
 	void _setup_environment(const RenderDataRD *p_render_data, bool p_no_fog, const Size2i &p_screen_size, bool p_flip_y, const Color &p_default_bg_color, bool p_opaque_render_buffers = false, bool p_pancake_shadows = false, int p_index = 0);
 	void _setup_voxelgis(const PagedArray<RID> &p_voxelgis);
-	void _setup_lightmaps(const PagedArray<RID> &p_lightmaps, const Transform3D &p_cam_transform);
+	void _setup_lightmaps(const RenderDataRD *p_render_data, const PagedArray<RID> &p_lightmaps, const Transform3D &p_cam_transform);
 
 	struct RenderElementInfo {
 		enum { MAX_REPEATS = (1 << 20) - 1 };
@@ -422,7 +385,7 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 
 	void _update_instance_data_buffer(RenderListType p_render_list);
 	void _fill_instance_data(RenderListType p_render_list, int *p_render_info = nullptr, uint32_t p_offset = 0, int32_t p_max_elements = -1, bool p_update_buffer = true);
-	void _fill_render_list(RenderListType p_render_list, const RenderDataRD *p_render_data, PassMode p_pass_mode, bool p_using_sdfgi = false, bool p_using_opaque_gi = false, bool p_append = false);
+	void _fill_render_list(RenderListType p_render_list, const RenderDataRD *p_render_data, PassMode p_pass_mode, uint32_t p_color_pass_flags, bool p_using_sdfgi = false, bool p_using_opaque_gi = false, bool p_append = false);
 
 	HashMap<Size2i, RID> sdfgi_framebuffer_size_cache;
 
@@ -608,24 +571,79 @@ class RenderForwardClustered : public RendererSceneRenderRD {
 
 	virtual void _update_shader_quality_settings() override;
 
+	/* Effects */
+
 	RendererRD::Resolve *resolve_effects = nullptr;
+	RendererRD::TAA *taa = nullptr;
+	RendererRD::SSEffects *ss_effects = nullptr;
+
+	/* Cluster builder */
+
+	ClusterBuilderSharedDataRD cluster_builder_shared;
+	ClusterBuilderRD *current_cluster_builder = nullptr;
+
+	/* SDFGI */
+	void _update_sdfgi(RenderDataRD *p_render_data);
+
+	/* Volumetric fog */
+	RID shadow_sampler;
+
+	void _update_volumetric_fog(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const Projection &p_cam_projection, const Transform3D &p_cam_transform, const Transform3D &p_prev_cam_inv_transform, RID p_shadow_atlas, int p_directional_light_count, bool p_use_directional_shadows, int p_positional_light_count, int p_voxel_gi_count, const PagedArray<RID> &p_fog_volumes);
+
+	/* Render shadows */
+
+	void _render_shadow_pass(RID p_light, RID p_shadow_atlas, int p_pass, const PagedArray<RenderGeometryInstance *> &p_instances, const Plane &p_camera_plane = Plane(), float p_lod_distance_multiplier = 0, float p_screen_mesh_lod_threshold = 0.0, bool p_open_pass = true, bool p_close_pass = true, bool p_clear_region = true, RenderingMethod::RenderInfo *p_render_info = nullptr);
+	void _render_shadow_begin();
+	void _render_shadow_append(RID p_framebuffer, const PagedArray<RenderGeometryInstance *> &p_instances, const Projection &p_projection, const Transform3D &p_transform, float p_zfar, float p_bias, float p_normal_bias, bool p_use_dp, bool p_use_dp_flip, bool p_use_pancake, const Plane &p_camera_plane = Plane(), float p_lod_distance_multiplier = 0.0, float p_screen_mesh_lod_threshold = 0.0, const Rect2i &p_rect = Rect2i(), bool p_flip_y = false, bool p_clear_region = true, bool p_begin = true, bool p_end = true, RenderingMethod::RenderInfo *p_render_info = nullptr);
+	void _render_shadow_process();
+	void _render_shadow_end(uint32_t p_barrier = RD::BARRIER_MASK_ALL);
+
+	/* Render Scene */
+	void _process_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, RID p_normal_buffer, const Projection &p_projection);
+	void _process_ssil(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, RID p_normal_buffer, const Projection &p_projection, const Transform3D &p_transform);
+	void _copy_framebuffer_to_ssil(Ref<RenderSceneBuffersRD> p_render_buffers);
+	void _pre_opaque_render(RenderDataRD *p_render_data, bool p_use_ssao, bool p_use_ssil, bool p_use_gi, const RID *p_normal_roughness_slices, RID p_voxel_gi_buffer);
+	void _process_ssr(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_dest_framebuffer, const RID *p_normal_buffer_slices, RID p_specular_buffer, const RID *p_metallic_slices, RID p_environment, const Projection *p_projections, const Vector3 *p_eye_offsets, bool p_use_additive);
+	void _process_sss(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_camera);
+
+	/* Debug */
+	void _debug_draw_cluster(Ref<RenderSceneBuffersRD> p_render_buffers);
 
 protected:
+	/* setup */
+
+	virtual RID _render_buffers_get_normal_texture(Ref<RenderSceneBuffersRD> p_render_buffers) override;
+	virtual RID _render_buffers_get_velocity_texture(Ref<RenderSceneBuffersRD> p_render_buffers) override;
+
+	virtual void environment_set_ssao_quality(RS::EnvironmentSSAOQuality p_quality, bool p_half_size, float p_adaptive_target, int p_blur_passes, float p_fadeout_from, float p_fadeout_to) override;
+	virtual void environment_set_ssil_quality(RS::EnvironmentSSILQuality p_quality, bool p_half_size, float p_adaptive_target, int p_blur_passes, float p_fadeout_from, float p_fadeout_to) override;
+	virtual void environment_set_ssr_roughness_quality(RS::EnvironmentSSRRoughnessQuality p_quality) override;
+
+	virtual void sub_surface_scattering_set_quality(RS::SubSurfaceScatteringQuality p_quality) override;
+	virtual void sub_surface_scattering_set_scale(float p_scale, float p_depth_scale) override;
+
+	/* Rendering */
+
 	virtual void _render_scene(RenderDataRD *p_render_data, const Color &p_default_bg_color) override;
+	virtual void _render_buffers_debug_draw(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_shadow_atlas, RID p_occlusion_buffer) override;
 
-	virtual void _render_shadow_begin() override;
-	virtual void _render_shadow_append(RID p_framebuffer, const PagedArray<RenderGeometryInstance *> &p_instances, const Projection &p_projection, const Transform3D &p_transform, float p_zfar, float p_bias, float p_normal_bias, bool p_use_dp, bool p_use_dp_flip, bool p_use_pancake, const Plane &p_camera_plane = Plane(), float p_lod_distance_multiplier = 0.0, float p_screen_mesh_lod_threshold = 0.0, const Rect2i &p_rect = Rect2i(), bool p_flip_y = false, bool p_clear_region = true, bool p_begin = true, bool p_end = true, RendererScene::RenderInfo *p_render_info = nullptr) override;
-	virtual void _render_shadow_process() override;
-	virtual void _render_shadow_end(uint32_t p_barrier = RD::BARRIER_MASK_ALL) override;
-
-	virtual void _render_material(const Transform3D &p_cam_transform, const Projection &p_cam_projection, bool p_cam_orthogonal, const PagedArray<RenderGeometryInstance *> &p_instances, RID p_framebuffer, const Rect2i &p_region) override;
+	virtual void _render_material(const Transform3D &p_cam_transform, const Projection &p_cam_projection, bool p_cam_orthogonal, const PagedArray<RenderGeometryInstance *> &p_instances, RID p_framebuffer, const Rect2i &p_region, float p_exposure_normalization) override;
 	virtual void _render_uv2(const PagedArray<RenderGeometryInstance *> &p_instances, RID p_framebuffer, const Rect2i &p_region) override;
-	virtual void _render_sdfgi(RID p_render_buffers, const Vector3i &p_from, const Vector3i &p_size, const AABB &p_bounds, const PagedArray<RenderGeometryInstance *> &p_instances, const RID &p_albedo_texture, const RID &p_emission_texture, const RID &p_emission_aniso_texture, const RID &p_geom_facing_texture) override;
+	virtual void _render_sdfgi(Ref<RenderSceneBuffersRD> p_render_buffers, const Vector3i &p_from, const Vector3i &p_size, const AABB &p_bounds, const PagedArray<RenderGeometryInstance *> &p_instances, const RID &p_albedo_texture, const RID &p_emission_texture, const RID &p_emission_aniso_texture, const RID &p_geom_facing_texture, float p_exposure_normalization) override;
 	virtual void _render_particle_collider_heightfield(RID p_fb, const Transform3D &p_cam_transform, const Projection &p_cam_projection, const PagedArray<RenderGeometryInstance *> &p_instances) override;
 
 public:
 	static RenderForwardClustered *get_singleton() { return singleton; }
 
+	ClusterBuilderSharedDataRD *get_cluster_builder_shared() { return &cluster_builder_shared; }
+	RendererRD::SSEffects *get_ss_effects() { return ss_effects; }
+
+	/* callback from updating our lighting UBOs, used to populate cluster builder */
+	virtual void setup_added_reflection_probe(const Transform3D &p_transform, const Vector3 &p_half_extents) override;
+	virtual void setup_added_light(const RS::LightType p_type, const Transform3D &p_transform, float p_radius, float p_spot_aperture) override;
+	virtual void setup_added_decal(const Transform3D &p_transform, const Vector3 &p_half_extents) override;
+
+	virtual void base_uniforms_changed() override;
 	_FORCE_INLINE_ virtual void update_uniform_sets() override {
 		base_uniform_set_updated = true;
 		_update_render_base_uniform_set();

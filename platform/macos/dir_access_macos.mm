@@ -30,7 +30,7 @@
 
 #include "dir_access_macos.h"
 
-#if defined(UNIX_ENABLED) || defined(LIBC_FILEIO_ENABLED)
+#if defined(UNIX_ENABLED)
 
 #include <errno.h>
 
@@ -69,7 +69,7 @@ String DirAccessMacOS::get_drive(int p_drive) {
 }
 
 bool DirAccessMacOS::is_hidden(const String &p_name) {
-	String f = get_current_dir().plus_file(p_name);
+	String f = get_current_dir().path_join(p_name);
 	NSURL *url = [NSURL fileURLWithPath:@(f.utf8().get_data())];
 	NSNumber *hidden = nil;
 	if (![url getResourceValue:&hidden forKey:NSURLIsHiddenKey error:nil]) {
@@ -78,4 +78,4 @@ bool DirAccessMacOS::is_hidden(const String &p_name) {
 	return [hidden boolValue];
 }
 
-#endif // UNIX_ENABLED || LIBC_FILEIO_ENABLED
+#endif // UNIX_ENABLED

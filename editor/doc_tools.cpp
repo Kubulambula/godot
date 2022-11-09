@@ -41,6 +41,7 @@
 #include "core/version.h"
 #include "editor/editor_settings.h"
 #include "scene/resources/theme.h"
+#include "scene/theme/theme_db.h"
 
 // Used for a hack preserving Mono properties on non-Mono builds.
 #include "modules/modules_enabled.gen.h" // For mono.
@@ -83,6 +84,9 @@ void DocTools::merge_from(const DocTools &p_data) {
 		}
 
 		const DocData::ClassDoc &cf = p_data.class_list[c.name];
+
+		c.is_deprecated = cf.is_deprecated;
+		c.is_experimental = cf.is_experimental;
 
 		c.description = cf.description;
 		c.brief_description = cf.brief_description;
@@ -132,6 +136,8 @@ void DocTools::merge_from(const DocTools &p_data) {
 				const DocData::MethodDoc &mf = cf.constructors[j];
 
 				m.description = mf.description;
+				m.is_deprecated = mf.is_deprecated;
+				m.is_experimental = mf.is_experimental;
 				break;
 			}
 		}
@@ -147,6 +153,8 @@ void DocTools::merge_from(const DocTools &p_data) {
 				const DocData::MethodDoc &mf = cf.methods[j];
 
 				m.description = mf.description;
+				m.is_deprecated = mf.is_deprecated;
+				m.is_experimental = mf.is_experimental;
 				break;
 			}
 		}
@@ -161,6 +169,8 @@ void DocTools::merge_from(const DocTools &p_data) {
 				const DocData::MethodDoc &mf = cf.signals[j];
 
 				m.description = mf.description;
+				m.is_deprecated = mf.is_deprecated;
+				m.is_experimental = mf.is_experimental;
 				break;
 			}
 		}
@@ -175,6 +185,8 @@ void DocTools::merge_from(const DocTools &p_data) {
 				const DocData::ConstantDoc &mf = cf.constants[j];
 
 				m.description = mf.description;
+				m.is_deprecated = mf.is_deprecated;
+				m.is_experimental = mf.is_experimental;
 				break;
 			}
 		}
@@ -189,6 +201,8 @@ void DocTools::merge_from(const DocTools &p_data) {
 				const DocData::MethodDoc &mf = cf.annotations[j];
 
 				m.description = mf.description;
+				m.is_deprecated = mf.is_deprecated;
+				m.is_experimental = mf.is_experimental;
 				break;
 			}
 		}
@@ -203,6 +217,8 @@ void DocTools::merge_from(const DocTools &p_data) {
 				const DocData::PropertyDoc &pf = cf.properties[j];
 
 				p.description = pf.description;
+				p.is_deprecated = pf.is_deprecated;
+				p.is_experimental = pf.is_experimental;
 				break;
 			}
 		}
@@ -265,6 +281,8 @@ void DocTools::merge_from(const DocTools &p_data) {
 				const DocData::MethodDoc &mf = cf.operators[j];
 
 				m.description = mf.description;
+				m.is_deprecated = mf.is_deprecated;
+				m.is_experimental = mf.is_experimental;
 				break;
 			}
 		}
@@ -317,7 +335,7 @@ static Variant get_documentation_default_value(const StringName &p_class_name, c
 	Variant default_value = Variant();
 	r_default_value_valid = false;
 
-	if (ClassDB::can_instantiate(p_class_name)) {
+	if (ClassDB::can_instantiate(p_class_name)) { // Keep this condition in sync with ClassDB::class_get_default_property_value.
 		default_value = ClassDB::class_get_default_property_value(p_class_name, p_property_name, &r_default_value_valid);
 	} else {
 		// Cannot get default value of classes that can't be instantiated
@@ -337,311 +355,318 @@ static Variant get_documentation_default_value(const StringName &p_class_name, c
 }
 
 void DocTools::generate(bool p_basic_types) {
-	List<StringName> classes;
-	ClassDB::get_class_list(&classes);
-	classes.sort_custom<StringName::AlphCompare>();
-	// Move ProjectSettings, so that other classes can register properties there.
-	classes.move_to_back(classes.find("ProjectSettings"));
+	// Add ClassDB-exposed classes.
+	{
+		List<StringName> classes;
+		ClassDB::get_class_list(&classes);
+		classes.sort_custom<StringName::AlphCompare>();
+		// Move ProjectSettings, so that other classes can register properties there.
+		classes.move_to_back(classes.find("ProjectSettings"));
 
-	bool skip_setter_getter_methods = true;
+		bool skip_setter_getter_methods = true;
 
-	while (classes.size()) {
-		HashSet<StringName> setters_getters;
-
-		String name = classes.front()->get();
-		if (!ClassDB::is_class_exposed(name)) {
-			print_verbose(vformat("Class '%s' is not exposed, skipping.", name));
-			classes.pop_front();
-			continue;
-		}
-
-		String cname = name;
-
-		class_list[cname] = DocData::ClassDoc();
-		DocData::ClassDoc &c = class_list[cname];
-		c.name = cname;
-		c.inherits = ClassDB::get_parent_class(name);
-
-		List<PropertyInfo> properties;
-		List<PropertyInfo> own_properties;
-
-		// Special case for editor and project settings, so they can be documented.
-		if (name == "EditorSettings") {
-			// We don't create the full blown EditorSettings (+ config file) with `create()`,
-			// instead we just make a local instance to get default values.
-			Ref<EditorSettings> edset = memnew(EditorSettings);
-			edset->get_property_list(&properties);
-			own_properties = properties;
-		} else if (name == "ProjectSettings") {
-			ProjectSettings::get_singleton()->get_property_list(&properties);
-			own_properties = properties;
-		} else {
-			ClassDB::get_property_list(name, &properties);
-			ClassDB::get_property_list(name, &own_properties, true);
-		}
-
-		properties.sort();
-		own_properties.sort();
-
-		List<PropertyInfo>::Element *EO = own_properties.front();
-		for (const PropertyInfo &E : properties) {
-			bool inherited = true;
-			if (EO && EO->get() == E) {
-				inherited = false;
-				EO = EO->next();
-			}
-
-			if (E.usage & PROPERTY_USAGE_GROUP || E.usage & PROPERTY_USAGE_SUBGROUP || E.usage & PROPERTY_USAGE_CATEGORY || E.usage & PROPERTY_USAGE_INTERNAL || (E.type == Variant::NIL && E.usage & PROPERTY_USAGE_ARRAY)) {
+		// Populate documentation data for each exposed class.
+		while (classes.size()) {
+			String name = classes.front()->get();
+			if (!ClassDB::is_class_exposed(name)) {
+				print_verbose(vformat("Class '%s' is not exposed, skipping.", name));
+				classes.pop_front();
 				continue;
 			}
 
-			DocData::PropertyDoc prop;
-			prop.name = E.name;
-			prop.overridden = inherited;
+			String cname = name;
+			// Property setters and getters do not get exposed as individual methods.
+			HashSet<StringName> setters_getters;
 
-			if (inherited) {
-				String parent = ClassDB::get_parent_class(c.name);
-				while (!ClassDB::has_property(parent, prop.name, true)) {
-					parent = ClassDB::get_parent_class(parent);
-				}
-				prop.overrides = parent;
-			}
+			class_list[cname] = DocData::ClassDoc();
+			DocData::ClassDoc &c = class_list[cname];
+			c.name = cname;
+			c.inherits = ClassDB::get_parent_class(name);
 
-			bool default_value_valid = false;
-			Variant default_value;
+			List<PropertyInfo> properties;
+			List<PropertyInfo> own_properties;
 
+			// Special case for editor and project settings, so they can be documented.
 			if (name == "EditorSettings") {
-				if (E.name == "resource_local_to_scene" || E.name == "resource_name" || E.name == "resource_path" || E.name == "script") {
-					// Don't include spurious properties in the generated EditorSettings class reference.
-					continue;
-				}
+				// We don't create the full blown EditorSettings (+ config file) with `create()`,
+				// instead we just make a local instance to get default values.
+				Ref<EditorSettings> edset = memnew(EditorSettings);
+				edset->get_property_list(&properties);
+				own_properties = properties;
+			} else if (name == "ProjectSettings") {
+				ProjectSettings::get_singleton()->get_property_list(&properties);
+				own_properties = properties;
+			} else {
+				ClassDB::get_property_list(name, &properties);
+				ClassDB::get_property_list(name, &own_properties, true);
 			}
 
-			if (name == "ProjectSettings") {
-				// Special case for project settings, so that settings are not taken from the current project's settings
-				if (E.name == "script" || !ProjectSettings::get_singleton()->is_builtin_setting(E.name)) {
+			properties.sort();
+			own_properties.sort();
+
+			List<PropertyInfo>::Element *EO = own_properties.front();
+			for (const PropertyInfo &E : properties) {
+				bool inherited = true;
+				if (EO && EO->get() == E) {
+					inherited = false;
+					EO = EO->next();
+				}
+
+				if (E.usage & PROPERTY_USAGE_GROUP || E.usage & PROPERTY_USAGE_SUBGROUP || E.usage & PROPERTY_USAGE_CATEGORY || E.usage & PROPERTY_USAGE_INTERNAL || (E.type == Variant::NIL && E.usage & PROPERTY_USAGE_ARRAY)) {
 					continue;
 				}
-				if (E.usage & PROPERTY_USAGE_EDITOR) {
-					if (!ProjectSettings::get_singleton()->get_ignore_value_in_docs(E.name)) {
-						default_value = ProjectSettings::get_singleton()->property_get_revert(E.name);
-						default_value_valid = true;
-					}
-				}
-			} else {
-				default_value = get_documentation_default_value(name, E.name, default_value_valid);
+
+				DocData::PropertyDoc prop;
+				prop.name = E.name;
+				prop.overridden = inherited;
+
 				if (inherited) {
-					bool base_default_value_valid = false;
-					Variant base_default_value = get_documentation_default_value(ClassDB::get_parent_class(name), E.name, base_default_value_valid);
-					if (!default_value_valid || !base_default_value_valid || default_value == base_default_value) {
+					String parent = ClassDB::get_parent_class(c.name);
+					while (!ClassDB::has_property(parent, prop.name, true)) {
+						parent = ClassDB::get_parent_class(parent);
+					}
+					prop.overrides = parent;
+				}
+
+				bool default_value_valid = false;
+				Variant default_value;
+
+				if (name == "EditorSettings") {
+					if (E.name == "resource_local_to_scene" || E.name == "resource_name" || E.name == "resource_path" || E.name == "script") {
+						// Don't include spurious properties in the generated EditorSettings class reference.
 						continue;
 					}
 				}
-			}
 
-			if (default_value_valid && default_value.get_type() != Variant::OBJECT) {
-				prop.default_value = default_value.get_construct_string().replace("\n", " ");
-			}
-
-			StringName setter = ClassDB::get_property_setter(name, E.name);
-			StringName getter = ClassDB::get_property_getter(name, E.name);
-
-			prop.setter = setter;
-			prop.getter = getter;
-
-			bool found_type = false;
-			if (getter != StringName()) {
-				MethodBind *mb = ClassDB::get_method(name, getter);
-				if (mb) {
-					PropertyInfo retinfo = mb->get_return_info();
-
-					found_type = true;
-					if (retinfo.type == Variant::INT && retinfo.usage & (PROPERTY_USAGE_CLASS_IS_ENUM | PROPERTY_USAGE_CLASS_IS_BITFIELD)) {
-						prop.enumeration = retinfo.class_name;
-						prop.type = "int";
-					} else if (retinfo.class_name != StringName()) {
-						prop.type = retinfo.class_name;
-					} else if (retinfo.type == Variant::ARRAY && retinfo.hint == PROPERTY_HINT_ARRAY_TYPE) {
-						prop.type = retinfo.hint_string + "[]";
-					} else if (retinfo.hint == PROPERTY_HINT_RESOURCE_TYPE) {
-						prop.type = retinfo.hint_string;
-					} else if (retinfo.type == Variant::NIL && retinfo.usage & PROPERTY_USAGE_NIL_IS_VARIANT) {
-						prop.type = "Variant";
-					} else if (retinfo.type == Variant::NIL) {
-						prop.type = "void";
-					} else {
-						prop.type = Variant::get_type_name(retinfo.type);
+				if (name == "ProjectSettings") {
+					// Special case for project settings, so that settings are not taken from the current project's settings
+					if (E.name == "script" || !ProjectSettings::get_singleton()->is_builtin_setting(E.name)) {
+						continue;
 					}
-				}
-
-				setters_getters.insert(getter);
-			}
-
-			if (setter != StringName()) {
-				setters_getters.insert(setter);
-			}
-
-			if (!found_type) {
-				if (E.type == Variant::OBJECT && E.hint == PROPERTY_HINT_RESOURCE_TYPE) {
-					prop.type = E.hint_string;
+					if (E.usage & PROPERTY_USAGE_EDITOR) {
+						if (!ProjectSettings::get_singleton()->get_ignore_value_in_docs(E.name)) {
+							default_value = ProjectSettings::get_singleton()->property_get_revert(E.name);
+							default_value_valid = true;
+						}
+					}
 				} else {
-					prop.type = Variant::get_type_name(E.type);
-				}
-			}
-
-			c.properties.push_back(prop);
-		}
-
-		List<MethodInfo> method_list;
-		ClassDB::get_method_list(name, &method_list, true);
-		method_list.sort();
-
-		for (const MethodInfo &E : method_list) {
-			if (E.name.is_empty() || (E.name[0] == '_' && !(E.flags & METHOD_FLAG_VIRTUAL))) {
-				continue; //hidden, don't count
-			}
-
-			if (skip_setter_getter_methods && setters_getters.has(E.name)) {
-				// Don't skip parametric setters and getters, i.e. method which require
-				// one or more parameters to define what property should be set or retrieved.
-				// E.g. CPUParticles3D::set_param(Parameter param, float value).
-				if (E.arguments.size() == 0 /* getter */ || (E.arguments.size() == 1 && E.return_val.type == Variant::NIL /* setter */)) {
-					continue;
-				}
-			}
-
-			DocData::MethodDoc method;
-			DocData::method_doc_from_methodinfo(method, E, "");
-
-			Vector<Error> errs = ClassDB::get_method_error_return_values(name, E.name);
-			if (errs.size()) {
-				if (!errs.has(OK)) {
-					errs.insert(0, OK);
-				}
-				for (int i = 0; i < errs.size(); i++) {
-					if (!method.errors_returned.has(errs[i])) {
-						method.errors_returned.push_back(errs[i]);
+					default_value = get_documentation_default_value(name, E.name, default_value_valid);
+					if (inherited) {
+						bool base_default_value_valid = false;
+						Variant base_default_value = get_documentation_default_value(ClassDB::get_parent_class(name), E.name, base_default_value_valid);
+						if (!default_value_valid || !base_default_value_valid || default_value == base_default_value) {
+							continue;
+						}
 					}
 				}
-			}
 
-			c.methods.push_back(method);
-		}
-
-		List<MethodInfo> signal_list;
-		ClassDB::get_signal_list(name, &signal_list, true);
-
-		if (signal_list.size()) {
-			for (List<MethodInfo>::Element *EV = signal_list.front(); EV; EV = EV->next()) {
-				DocData::MethodDoc signal;
-				signal.name = EV->get().name;
-				for (int i = 0; i < EV->get().arguments.size(); i++) {
-					const PropertyInfo &arginfo = EV->get().arguments[i];
-					DocData::ArgumentDoc argument;
-					DocData::argument_doc_from_arginfo(argument, arginfo);
-
-					signal.arguments.push_back(argument);
+				if (default_value_valid && default_value.get_type() != Variant::OBJECT) {
+					prop.default_value = default_value.get_construct_string().replace("\n", " ");
 				}
 
-				c.signals.push_back(signal);
+				StringName setter = ClassDB::get_property_setter(name, E.name);
+				StringName getter = ClassDB::get_property_getter(name, E.name);
+
+				prop.setter = setter;
+				prop.getter = getter;
+
+				bool found_type = false;
+				if (getter != StringName()) {
+					MethodBind *mb = ClassDB::get_method(name, getter);
+					if (mb) {
+						PropertyInfo retinfo = mb->get_return_info();
+
+						found_type = true;
+						if (retinfo.type == Variant::INT && retinfo.usage & (PROPERTY_USAGE_CLASS_IS_ENUM | PROPERTY_USAGE_CLASS_IS_BITFIELD)) {
+							prop.enumeration = retinfo.class_name;
+							prop.type = "int";
+						} else if (retinfo.class_name != StringName()) {
+							prop.type = retinfo.class_name;
+						} else if (retinfo.type == Variant::ARRAY && retinfo.hint == PROPERTY_HINT_ARRAY_TYPE) {
+							prop.type = retinfo.hint_string + "[]";
+						} else if (retinfo.hint == PROPERTY_HINT_RESOURCE_TYPE) {
+							prop.type = retinfo.hint_string;
+						} else if (retinfo.type == Variant::NIL && retinfo.usage & PROPERTY_USAGE_NIL_IS_VARIANT) {
+							prop.type = "Variant";
+						} else if (retinfo.type == Variant::NIL) {
+							prop.type = "void";
+						} else {
+							prop.type = Variant::get_type_name(retinfo.type);
+						}
+					}
+
+					setters_getters.insert(getter);
+				}
+
+				if (setter != StringName()) {
+					setters_getters.insert(setter);
+				}
+
+				if (!found_type) {
+					if (E.type == Variant::OBJECT && E.hint == PROPERTY_HINT_RESOURCE_TYPE) {
+						prop.type = E.hint_string;
+					} else {
+						prop.type = Variant::get_type_name(E.type);
+					}
+				}
+
+				c.properties.push_back(prop);
 			}
+
+			List<MethodInfo> method_list;
+			ClassDB::get_method_list(name, &method_list, true);
+			method_list.sort();
+
+			for (const MethodInfo &E : method_list) {
+				if (E.name.is_empty() || (E.name[0] == '_' && !(E.flags & METHOD_FLAG_VIRTUAL))) {
+					continue; //hidden, don't count
+				}
+
+				if (skip_setter_getter_methods && setters_getters.has(E.name)) {
+					// Don't skip parametric setters and getters, i.e. method which require
+					// one or more parameters to define what property should be set or retrieved.
+					// E.g. CPUParticles3D::set_param(Parameter param, float value).
+					if (E.arguments.size() == 0 /* getter */ || (E.arguments.size() == 1 && E.return_val.type == Variant::NIL /* setter */)) {
+						continue;
+					}
+				}
+
+				DocData::MethodDoc method;
+				DocData::method_doc_from_methodinfo(method, E, "");
+
+				Vector<Error> errs = ClassDB::get_method_error_return_values(name, E.name);
+				if (errs.size()) {
+					if (!errs.has(OK)) {
+						errs.insert(0, OK);
+					}
+					for (int i = 0; i < errs.size(); i++) {
+						if (!method.errors_returned.has(errs[i])) {
+							method.errors_returned.push_back(errs[i]);
+						}
+					}
+				}
+
+				c.methods.push_back(method);
+			}
+
+			List<MethodInfo> signal_list;
+			ClassDB::get_signal_list(name, &signal_list, true);
+
+			if (signal_list.size()) {
+				for (List<MethodInfo>::Element *EV = signal_list.front(); EV; EV = EV->next()) {
+					DocData::MethodDoc signal;
+					signal.name = EV->get().name;
+					for (int i = 0; i < EV->get().arguments.size(); i++) {
+						const PropertyInfo &arginfo = EV->get().arguments[i];
+						DocData::ArgumentDoc argument;
+						DocData::argument_doc_from_arginfo(argument, arginfo);
+
+						signal.arguments.push_back(argument);
+					}
+
+					c.signals.push_back(signal);
+				}
+			}
+
+			List<String> constant_list;
+			ClassDB::get_integer_constant_list(name, &constant_list, true);
+
+			for (const String &E : constant_list) {
+				DocData::ConstantDoc constant;
+				constant.name = E;
+				constant.value = itos(ClassDB::get_integer_constant(name, E));
+				constant.is_value_valid = true;
+				constant.enumeration = ClassDB::get_integer_constant_enum(name, E);
+				constant.is_bitfield = ClassDB::is_enum_bitfield(name, constant.enumeration);
+				c.constants.push_back(constant);
+			}
+
+			// Theme items.
+			{
+				List<StringName> l;
+
+				ThemeDB::get_singleton()->get_default_theme()->get_color_list(cname, &l);
+				for (const StringName &E : l) {
+					DocData::ThemeItemDoc tid;
+					tid.name = E;
+					tid.type = "Color";
+					tid.data_type = "color";
+					tid.default_value = Variant(ThemeDB::get_singleton()->get_default_theme()->get_color(E, cname)).get_construct_string().replace("\n", " ");
+					c.theme_properties.push_back(tid);
+				}
+
+				l.clear();
+				ThemeDB::get_singleton()->get_default_theme()->get_constant_list(cname, &l);
+				for (const StringName &E : l) {
+					DocData::ThemeItemDoc tid;
+					tid.name = E;
+					tid.type = "int";
+					tid.data_type = "constant";
+					tid.default_value = itos(ThemeDB::get_singleton()->get_default_theme()->get_constant(E, cname));
+					c.theme_properties.push_back(tid);
+				}
+
+				l.clear();
+				ThemeDB::get_singleton()->get_default_theme()->get_font_list(cname, &l);
+				for (const StringName &E : l) {
+					DocData::ThemeItemDoc tid;
+					tid.name = E;
+					tid.type = "Font";
+					tid.data_type = "font";
+					c.theme_properties.push_back(tid);
+				}
+
+				l.clear();
+				ThemeDB::get_singleton()->get_default_theme()->get_font_size_list(cname, &l);
+				for (const StringName &E : l) {
+					DocData::ThemeItemDoc tid;
+					tid.name = E;
+					tid.type = "int";
+					tid.data_type = "font_size";
+					c.theme_properties.push_back(tid);
+				}
+
+				l.clear();
+				ThemeDB::get_singleton()->get_default_theme()->get_icon_list(cname, &l);
+				for (const StringName &E : l) {
+					DocData::ThemeItemDoc tid;
+					tid.name = E;
+					tid.type = "Texture2D";
+					tid.data_type = "icon";
+					c.theme_properties.push_back(tid);
+				}
+
+				l.clear();
+				ThemeDB::get_singleton()->get_default_theme()->get_stylebox_list(cname, &l);
+				for (const StringName &E : l) {
+					DocData::ThemeItemDoc tid;
+					tid.name = E;
+					tid.type = "StyleBox";
+					tid.data_type = "style";
+					c.theme_properties.push_back(tid);
+				}
+
+				c.theme_properties.sort();
+			}
+
+			classes.pop_front();
 		}
-
-		List<String> constant_list;
-		ClassDB::get_integer_constant_list(name, &constant_list, true);
-
-		for (const String &E : constant_list) {
-			DocData::ConstantDoc constant;
-			constant.name = E;
-			constant.value = itos(ClassDB::get_integer_constant(name, E));
-			constant.is_value_valid = true;
-			constant.enumeration = ClassDB::get_integer_constant_enum(name, E);
-			constant.is_bitfield = ClassDB::is_enum_bitfield(name, constant.enumeration);
-			c.constants.push_back(constant);
-		}
-
-		// Theme items.
-		{
-			List<StringName> l;
-
-			Theme::get_default()->get_color_list(cname, &l);
-			for (const StringName &E : l) {
-				DocData::ThemeItemDoc tid;
-				tid.name = E;
-				tid.type = "Color";
-				tid.data_type = "color";
-				tid.default_value = Variant(Theme::get_default()->get_color(E, cname)).get_construct_string().replace("\n", " ");
-				c.theme_properties.push_back(tid);
-			}
-
-			l.clear();
-			Theme::get_default()->get_constant_list(cname, &l);
-			for (const StringName &E : l) {
-				DocData::ThemeItemDoc tid;
-				tid.name = E;
-				tid.type = "int";
-				tid.data_type = "constant";
-				tid.default_value = itos(Theme::get_default()->get_constant(E, cname));
-				c.theme_properties.push_back(tid);
-			}
-
-			l.clear();
-			Theme::get_default()->get_font_list(cname, &l);
-			for (const StringName &E : l) {
-				DocData::ThemeItemDoc tid;
-				tid.name = E;
-				tid.type = "Font";
-				tid.data_type = "font";
-				c.theme_properties.push_back(tid);
-			}
-
-			l.clear();
-			Theme::get_default()->get_font_size_list(cname, &l);
-			for (const StringName &E : l) {
-				DocData::ThemeItemDoc tid;
-				tid.name = E;
-				tid.type = "int";
-				tid.data_type = "font_size";
-				c.theme_properties.push_back(tid);
-			}
-
-			l.clear();
-			Theme::get_default()->get_icon_list(cname, &l);
-			for (const StringName &E : l) {
-				DocData::ThemeItemDoc tid;
-				tid.name = E;
-				tid.type = "Texture2D";
-				tid.data_type = "icon";
-				c.theme_properties.push_back(tid);
-			}
-
-			l.clear();
-			Theme::get_default()->get_stylebox_list(cname, &l);
-			for (const StringName &E : l) {
-				DocData::ThemeItemDoc tid;
-				tid.name = E;
-				tid.type = "StyleBox";
-				tid.data_type = "style";
-				c.theme_properties.push_back(tid);
-			}
-
-			c.theme_properties.sort();
-		}
-
-		classes.pop_front();
 	}
 
+	// Add a dummy Variant entry.
 	{
-		// So we can document the concept of Variant even if it's not a usable class per se.
+		// This allows us to document the concept of Variant even though
+		// it's not a ClassDB-exposed class.
 		class_list["Variant"] = DocData::ClassDoc();
 		class_list["Variant"].name = "Variant";
 	}
 
+	// If we don't want to populate basic types, break here.
 	if (!p_basic_types) {
 		return;
 	}
 
-	// Add Variant types.
+	// Add Variant data types.
 	for (int i = 0; i < Variant::VARIANT_MAX; i++) {
 		if (i == Variant::NIL) {
 			continue; // Not exposed outside of 'null', should not be in class list.
@@ -809,14 +834,14 @@ void DocTools::generate(bool p_basic_types) {
 		}
 	}
 
-	//built in constants and functions
-
+	// Add global API (servers, engine singletons, global constants) and Variant utility functions.
 	{
 		String cname = "@GlobalScope";
 		class_list[cname] = DocData::ClassDoc();
 		DocData::ClassDoc &c = class_list[cname];
 		c.name = cname;
 
+		// Global constants.
 		for (int i = 0; i < CoreConstants::get_global_constant_count(); i++) {
 			DocData::ConstantDoc cd;
 			cd.name = CoreConstants::get_global_constant_name(i);
@@ -830,10 +855,11 @@ void DocTools::generate(bool p_basic_types) {
 			c.constants.push_back(cd);
 		}
 
+		// Servers/engine singletons.
 		List<Engine::Singleton> singletons;
 		Engine::get_singleton()->get_singletons(&singletons);
 
-		//servers (this is kind of hackish)
+		// FIXME: this is kind of hackish...
 		for (const Engine::Singleton &s : singletons) {
 			DocData::PropertyDoc pd;
 			if (!s.ptr) {
@@ -847,13 +873,14 @@ void DocTools::generate(bool p_basic_types) {
 			c.properties.push_back(pd);
 		}
 
+		// Variant utility functions.
 		List<StringName> utility_functions;
 		Variant::get_utility_function_list(&utility_functions);
 		utility_functions.sort_custom<StringName::AlphCompare>();
 		for (const StringName &E : utility_functions) {
 			DocData::MethodDoc md;
 			md.name = E;
-			//return
+			// Utility function's return type.
 			if (Variant::has_utility_function_return_value(E)) {
 				PropertyInfo pi;
 				pi.type = Variant::get_utility_function_return_type(E);
@@ -865,6 +892,7 @@ void DocTools::generate(bool p_basic_types) {
 				md.return_type = ad.type;
 			}
 
+			// Utility function's arguments.
 			if (Variant::is_utility_function_vararg(E)) {
 				md.qualifiers = "vararg";
 			} else {
@@ -885,11 +913,10 @@ void DocTools::generate(bool p_basic_types) {
 		}
 	}
 
-	// Built-in script reference.
-	// We only add a doc entry for languages which actually define any built-in
-	// methods or constants.
-
+	// Add scripting language built-ins.
 	{
+		// We only add a doc entry for languages which actually define any built-in
+		// methods, constants, or annotations.
 		for (int i = 0; i < ScriptServer::get_language_count(); i++) {
 			ScriptLanguage *lang = ScriptServer::get_language(i);
 			String cname = "@" + lang->get_name();
@@ -997,6 +1024,12 @@ static Error _parse_methods(Ref<XMLParser> &parser, Vector<DocData::MethodDoc> &
 				if (parser->has_attribute("qualifiers")) {
 					method.qualifiers = parser->get_attribute_value("qualifiers");
 				}
+				if (parser->has_attribute("is_deprecated")) {
+					method.is_deprecated = parser->get_attribute_value("is_deprecated").to_lower() == "true";
+				}
+				if (parser->has_attribute("is_experimental")) {
+					method.is_experimental = parser->get_attribute_value("is_experimental").to_lower() == "true";
+				}
 
 				while (parser->read() == OK) {
 					if (parser->get_node_type() == XMLParser::NODE_ELEMENT) {
@@ -1010,7 +1043,7 @@ static Error _parse_methods(Ref<XMLParser> &parser, Vector<DocData::MethodDoc> &
 						} else if (name == "returns_error") {
 							ERR_FAIL_COND_V(!parser->has_attribute("number"), ERR_FILE_CORRUPT);
 							method.errors_returned.push_back(parser->get_attribute_value("number").to_int());
-						} else if (name == "argument") {
+						} else if (name == "param") {
 							DocData::ArgumentDoc argument;
 							ERR_FAIL_COND_V(!parser->has_attribute("name"), ERR_FILE_CORRUPT);
 							argument.name = parser->get_attribute_value("name");
@@ -1061,7 +1094,7 @@ Error DocTools::load_classes(const String &p_dir) {
 	while (!path.is_empty()) {
 		if (!da->current_is_dir() && path.ends_with("xml")) {
 			Ref<XMLParser> parser = memnew(XMLParser);
-			Error err2 = parser->open(p_dir.plus_file(path));
+			Error err2 = parser->open(p_dir.path_join(path));
 			if (err2) {
 				return err2;
 			}
@@ -1126,6 +1159,14 @@ Error DocTools::_load(Ref<XMLParser> parser) {
 		c.name = name;
 		if (parser->has_attribute("inherits")) {
 			c.inherits = parser->get_attribute_value("inherits");
+		}
+
+		if (parser->has_attribute("is_deprecated")) {
+			c.is_deprecated = parser->get_attribute_value("is_deprecated").to_lower() == "true";
+		}
+
+		if (parser->has_attribute("is_experimental")) {
+			c.is_experimental = parser->get_attribute_value("is_experimental").to_lower() == "true";
 		}
 
 		while (parser->read() == OK) {
@@ -1201,6 +1242,12 @@ Error DocTools::_load(Ref<XMLParser> parser) {
 								if (parser->has_attribute("enum")) {
 									prop2.enumeration = parser->get_attribute_value("enum");
 								}
+								if (parser->has_attribute("is_deprecated")) {
+									prop2.is_deprecated = parser->get_attribute_value("is_deprecated").to_lower() == "true";
+								}
+								if (parser->has_attribute("is_experimental")) {
+									prop2.is_experimental = parser->get_attribute_value("is_experimental").to_lower() == "true";
+								}
 								if (!parser->is_empty()) {
 									parser->read();
 									if (parser->get_node_type() == XMLParser::NODE_TEXT) {
@@ -1265,6 +1312,12 @@ Error DocTools::_load(Ref<XMLParser> parser) {
 								if (parser->has_attribute("is_bitfield")) {
 									constant2.is_bitfield = parser->get_attribute_value("is_bitfield").to_lower() == "true";
 								}
+								if (parser->has_attribute("is_deprecated")) {
+									constant2.is_deprecated = parser->get_attribute_value("is_deprecated").to_lower() == "true";
+								}
+								if (parser->has_attribute("is_experimental")) {
+									constant2.is_experimental = parser->get_attribute_value("is_experimental").to_lower() == "true";
+								}
 								if (!parser->is_empty()) {
 									parser->read();
 									if (parser->get_node_type() == XMLParser::NODE_TEXT) {
@@ -1317,7 +1370,15 @@ static void _write_method_doc(Ref<FileAccess> f, const String &p_name, Vector<Do
 				qualifiers += " qualifiers=\"" + m.qualifiers.xml_escape() + "\"";
 			}
 
-			_write_string(f, 2, "<" + p_name + " name=\"" + m.name.xml_escape() + "\"" + qualifiers + ">");
+			String additional_attributes;
+			if (m.is_deprecated) {
+				additional_attributes += " is_deprecated=\"true\"";
+			}
+			if (m.is_experimental) {
+				additional_attributes += " is_experimental=\"true\"";
+			}
+
+			_write_string(f, 2, "<" + p_name + " name=\"" + m.name.xml_escape() + "\"" + qualifiers + additional_attributes + ">");
 
 			if (!m.return_type.is_empty()) {
 				String enum_text;
@@ -1341,9 +1402,9 @@ static void _write_method_doc(Ref<FileAccess> f, const String &p_name, Vector<Do
 				}
 
 				if (!a.default_value.is_empty()) {
-					_write_string(f, 3, "<argument index=\"" + itos(j) + "\" name=\"" + a.name.xml_escape() + "\" type=\"" + a.type.xml_escape() + "\"" + enum_text + " default=\"" + a.default_value.xml_escape(true) + "\" />");
+					_write_string(f, 3, "<param index=\"" + itos(j) + "\" name=\"" + a.name.xml_escape() + "\" type=\"" + a.type.xml_escape() + "\"" + enum_text + " default=\"" + a.default_value.xml_escape(true) + "\" />");
 				} else {
-					_write_string(f, 3, "<argument index=\"" + itos(j) + "\" name=\"" + a.name.xml_escape() + "\" type=\"" + a.type.xml_escape() + "\"" + enum_text + " />");
+					_write_string(f, 3, "<param index=\"" + itos(j) + "\" name=\"" + a.name.xml_escape() + "\" type=\"" + a.type.xml_escape() + "\"" + enum_text + " />");
 				}
 			}
 
@@ -1370,7 +1431,7 @@ Error DocTools::save_classes(const String &p_default_path, const HashMap<String,
 		}
 
 		Error err;
-		String save_file = save_path.plus_file(c.name + ".xml");
+		String save_file = save_path.path_join(c.name + ".xml");
 		Ref<FileAccess> f = FileAccess::open(save_file, FileAccess::WRITE, &err);
 
 		ERR_CONTINUE_MSG(err != OK, "Can't write doc file: " + save_file + ".");
@@ -1380,6 +1441,12 @@ Error DocTools::save_classes(const String &p_default_path, const HashMap<String,
 		String header = "<class name=\"" + c.name + "\"";
 		if (!c.inherits.is_empty()) {
 			header += " inherits=\"" + c.inherits + "\"";
+			if (c.is_deprecated) {
+				header += " is_deprecated=\"true\"";
+			}
+			if (c.is_experimental) {
+				header += " is_experimental=\"true\"";
+			}
 		}
 		header += String(" version=\"") + VERSION_BRANCH + "\"";
 		// Reference the XML schema so editors can provide error checking.
@@ -1423,6 +1490,12 @@ Error DocTools::save_classes(const String &p_default_path, const HashMap<String,
 				if (!c.properties[i].default_value.is_empty()) {
 					additional_attributes += " default=\"" + c.properties[i].default_value.xml_escape(true) + "\"";
 				}
+				if (c.properties[i].is_deprecated) {
+					additional_attributes += " is_deprecated=\"true\"";
+				}
+				if (c.properties[i].is_experimental) {
+					additional_attributes += " is_experimental=\"true\"";
+				}
 
 				const DocData::PropertyDoc &p = c.properties[i];
 
@@ -1443,21 +1516,30 @@ Error DocTools::save_classes(const String &p_default_path, const HashMap<String,
 			_write_string(f, 1, "<constants>");
 			for (int i = 0; i < c.constants.size(); i++) {
 				const DocData::ConstantDoc &k = c.constants[i];
+
+				String additional_attributes;
+				if (c.constants[i].is_deprecated) {
+					additional_attributes += " is_deprecated=\"true\"";
+				}
+				if (c.constants[i].is_experimental) {
+					additional_attributes += " is_experimental=\"true\"";
+				}
+
 				if (k.is_value_valid) {
 					if (!k.enumeration.is_empty()) {
 						if (k.is_bitfield) {
-							_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"" + k.value + "\" enum=\"" + k.enumeration + "\" is_bitfield=\"true\">");
+							_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"" + k.value + "\" enum=\"" + k.enumeration + "\" is_bitfield=\"true\"" + additional_attributes + ">");
 						} else {
-							_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"" + k.value + "\" enum=\"" + k.enumeration + "\">");
+							_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"" + k.value + "\" enum=\"" + k.enumeration + "\"" + additional_attributes + ">");
 						}
 					} else {
-						_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"" + k.value + "\">");
+						_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"" + k.value + "\"" + additional_attributes + ">");
 					}
 				} else {
 					if (!k.enumeration.is_empty()) {
-						_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"platform-dependent\" enum=\"" + k.enumeration + "\">");
+						_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"platform-dependent\" enum=\"" + k.enumeration + "\"" + additional_attributes + ">");
 					} else {
-						_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"platform-dependent\">");
+						_write_string(f, 2, "<constant name=\"" + k.name + "\" value=\"platform-dependent\"" + additional_attributes + ">");
 					}
 				}
 				_write_string(f, 3, _translate_doc_string(k.description).strip_edges().xml_escape());

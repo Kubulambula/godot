@@ -36,7 +36,7 @@
 #include "scene/debugger/scene_debugger.h"
 
 bool EditorDebuggerRemoteObject::_set(const StringName &p_name, const Variant &p_value) {
-	if (!editable || !prop_values.has(p_name) || String(p_name).begins_with("Constants/")) {
+	if (!prop_values.has(p_name) || String(p_name).begins_with("Constants/")) {
 		return false;
 	}
 
@@ -91,7 +91,6 @@ void EditorDebuggerRemoteObject::_bind_methods() {
 
 EditorDebuggerInspector::EditorDebuggerInspector() {
 	variables = memnew(EditorDebuggerRemoteObject);
-	variables->editable = false;
 }
 
 EditorDebuggerInspector::~EditorDebuggerInspector() {
@@ -167,11 +166,11 @@ ObjectID EditorDebuggerInspector::add_object(const Array &p_arr) {
 				if (pinfo.hint_string == "Script") {
 					if (debug_obj->get_script() != var) {
 						debug_obj->set_script(Ref<RefCounted>());
-						Ref<Script> script(var);
-						if (!script.is_null()) {
-							ScriptInstance *script_instance = script->placeholder_instance_create(debug_obj);
-							if (script_instance) {
-								debug_obj->set_script_and_instance(var, script_instance);
+						Ref<Script> scr(var);
+						if (!scr.is_null()) {
+							ScriptInstance *scr_instance = scr->placeholder_instance_create(debug_obj);
+							if (scr_instance) {
+								debug_obj->set_script_and_instance(var, scr_instance);
 							}
 						}
 					}

@@ -76,7 +76,7 @@ private:
 	real_t collision_base_size = 0.01;
 
 	bool trail_enabled = false;
-	double trail_length = 0.3;
+	double trail_lifetime = 0.3;
 
 	TransformAlign transform_align = TRANSFORM_ALIGN_DISABLED;
 
@@ -94,7 +94,7 @@ private:
 protected:
 	static void _bind_methods();
 	void _notification(int p_what);
-	virtual void _validate_property(PropertyInfo &property) const override;
+	void _validate_property(PropertyInfo &p_property) const;
 
 public:
 	AABB get_aabb() const override;
@@ -112,7 +112,7 @@ public:
 	void set_speed_scale(double p_scale);
 	void set_collision_base_size(real_t p_ratio);
 	void set_trail_enabled(bool p_enabled);
-	void set_trail_length(double p_seconds);
+	void set_trail_lifetime(double p_seconds);
 
 	bool is_emitting() const;
 	int get_amount() const;
@@ -127,7 +127,7 @@ public:
 	double get_speed_scale() const;
 	real_t get_collision_base_size() const;
 	bool is_trail_enabled() const;
-	double get_trail_length() const;
+	double get_trail_lifetime() const;
 
 	void set_fixed_fps(int p_count);
 	int get_fixed_fps() const;
@@ -147,7 +147,7 @@ public:
 	void set_draw_pass_mesh(int p_pass, const Ref<Mesh> &p_mesh);
 	Ref<Mesh> get_draw_pass_mesh(int p_pass) const;
 
-	TypedArray<String> get_configuration_warnings() const override;
+	PackedStringArray get_configuration_warnings() const override;
 
 	void set_sub_emitter(const NodePath &p_path);
 	NodePath get_sub_emitter() const;

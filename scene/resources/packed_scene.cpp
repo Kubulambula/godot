@@ -150,15 +150,15 @@ Node *SceneState::instantiate(GenEditState p_edit_state) const {
 		} else if (n.instance >= 0) {
 			//instance a scene into this node
 			if (n.instance & FLAG_INSTANCE_IS_PLACEHOLDER) {
-				String path = props[n.instance & FLAG_MASK];
+				String scene_path = props[n.instance & FLAG_MASK];
 				if (disable_placeholders) {
-					Ref<PackedScene> sdata = ResourceLoader::load(path, "PackedScene");
+					Ref<PackedScene> sdata = ResourceLoader::load(scene_path, "PackedScene");
 					ERR_FAIL_COND_V(!sdata.is_valid(), nullptr);
 					node = sdata->instantiate(p_edit_state == GEN_EDIT_STATE_DISABLED ? PackedScene::GEN_EDIT_STATE_DISABLED : PackedScene::GEN_EDIT_STATE_INSTANCE);
 					ERR_FAIL_COND_V(!node, nullptr);
 				} else {
 					InstancePlaceholder *ip = memnew(InstancePlaceholder);
-					ip->set_instance_path(path);
+					ip->set_instance_path(scene_path);
 					node = ip;
 				}
 				node->set_scene_instance_load_placeholder(true);
@@ -279,25 +279,36 @@ Node *SceneState::instantiate(GenEditState p_edit_state) const {
 							Ref<Resource> res = value;
 							if (res.is_valid()) {
 								if (res->is_local_to_scene()) {
-									HashMap<Ref<Resource>, Ref<Resource>>::Iterator E = resources_local_to_scene.find(res);
-
-									if (E) {
-										value = E->value;
+									// In a situation where a local-to-scene resource is used in a child node of a non-editable instance,
+									// we need to avoid the parent scene from overriding the resource potentially also used in the root
+									// of the instantiated scene. That would to the instance having two different instances of the resource.
+									// Since at this point it's too late to propagate the resource instance in the parent scene to all the relevant
+									// nodes in the instance (and that would require very complex bookkepping), what we do instead is
+									// tampering the resource object already there with the values from the node in the parent scene and
+									// then tell this node to reference that resource.
+									if (n.instance >= 0) {
+										Ref<Resource> node_res = node->get(snames[nprops[j].name]);
+										if (node_res.is_valid()) {
+											node_res->copy_from(res);
+											node_res->configure_for_local_scene(node, resources_local_to_scene);
+											value = node_res;
+										}
 									} else {
+										HashMap<Ref<Resource>, Ref<Resource>>::Iterator E = resources_local_to_scene.find(res);
 										Node *base = i == 0 ? node : ret_nodes[0];
-
-										if (p_edit_state == GEN_EDIT_STATE_MAIN || p_edit_state == GEN_EDIT_STATE_MAIN_INHERITED) {
-											//for the main scene, use the resource as is
-											res->configure_for_local_scene(base, resources_local_to_scene);
-											resources_local_to_scene[res] = res;
-
+										if (E) {
+											value = E->value;
 										} else {
-											//for instances, a copy must be made
-											Node *base2 = i == 0 ? node : ret_nodes[0];
-											Ref<Resource> local_dupe = res->duplicate_for_local_scene(base2, resources_local_to_scene);
-											resources_local_to_scene[res] = local_dupe;
-											res = local_dupe;
-											value = local_dupe;
+											if (p_edit_state == GEN_EDIT_STATE_MAIN) {
+												//for the main scene, use the resource as is
+												res->configure_for_local_scene(base, resources_local_to_scene);
+												resources_local_to_scene[res] = res;
+											} else {
+												//for instances, a copy must be made
+												Ref<Resource> local_dupe = res->duplicate_for_local_scene(base, resources_local_to_scene);
+												resources_local_to_scene[res] = local_dupe;
+												value = local_dupe;
+											}
 										}
 									}
 									//must make a copy, because this res is local to scene
@@ -398,7 +409,9 @@ Node *SceneState::instantiate(GenEditState p_edit_state) const {
 	}
 
 	for (KeyValue<Ref<Resource>, Ref<Resource>> &E : resources_local_to_scene) {
-		E.value->setup_local_to_scene();
+		if (E.value->get_local_scene() == ret_nodes[0]) {
+			E.value->setup_local_to_scene();
+		}
 	}
 
 	//do connections
@@ -925,8 +938,8 @@ Error SceneState::pack(Node *p_scene) {
 
 	// If using scene inheritance, pack the scene it inherits from.
 	if (scene->get_scene_inherited_state().is_valid()) {
-		String path = scene->get_scene_inherited_state()->get_path();
-		Ref<PackedScene> instance = ResourceLoader::load(path);
+		String scene_path = scene->get_scene_inherited_state()->get_path();
+		Ref<PackedScene> instance = ResourceLoader::load(scene_path);
 		if (instance.is_valid()) {
 			base_scene_idx = _vm_get_variant(instance, variant_map);
 		}
@@ -1533,7 +1546,7 @@ Array SceneState::get_connection_binds(int p_idx) const {
 	return binds;
 }
 
-bool SceneState::has_connection(const NodePath &p_node_from, const StringName &p_signal, const NodePath &p_node_to, const StringName &p_method) {
+bool SceneState::has_connection(const NodePath &p_node_from, const StringName &p_signal, const NodePath &p_node_to, const StringName &p_method, bool p_no_inheritance) {
 	// this method cannot be const because of this
 	Ref<SceneState> ss = this;
 
@@ -1563,6 +1576,10 @@ bool SceneState::has_connection(const NodePath &p_node_from, const StringName &p
 			if (np_from == p_node_from && sn_signal == p_signal && np_to == p_node_to && sn_method == p_method) {
 				return true;
 			}
+		}
+
+		if (p_no_inheritance) {
+			break;
 		}
 
 		ss = ss->get_base_scene_state();
@@ -1742,7 +1759,7 @@ Node *PackedScene::instantiate(GenEditState p_edit_state) const {
 		s->set_scene_file_path(get_path());
 	}
 
-	s->notification(Node::NOTIFICATION_INSTANCED);
+	s->notification(Node::NOTIFICATION_SCENE_INSTANTIATED);
 
 	return s;
 }
@@ -1779,7 +1796,7 @@ void PackedScene::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("pack", "path"), &PackedScene::pack);
 	ClassDB::bind_method(D_METHOD("instantiate", "edit_state"), &PackedScene::instantiate, DEFVAL(GEN_EDIT_STATE_DISABLED));
 	ClassDB::bind_method(D_METHOD("can_instantiate"), &PackedScene::can_instantiate);
-	ClassDB::bind_method(D_METHOD("_set_bundled_scene"), &PackedScene::_set_bundled_scene);
+	ClassDB::bind_method(D_METHOD("_set_bundled_scene", "scene"), &PackedScene::_set_bundled_scene);
 	ClassDB::bind_method(D_METHOD("_get_bundled_scene"), &PackedScene::_get_bundled_scene);
 	ClassDB::bind_method(D_METHOD("get_state"), &PackedScene::get_state);
 

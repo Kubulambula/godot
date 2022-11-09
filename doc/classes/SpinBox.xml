@@ -47,11 +47,17 @@
 	<members>
 		<member name="alignment" type="int" setter="set_horizontal_alignment" getter="get_horizontal_alignment" enum="HorizontalAlignment" default="0">
 		</member>
+		<member name="custom_arrow_step" type="float" setter="set_custom_arrow_step" getter="get_custom_arrow_step" default="0.0">
+			If not [code]0[/code], [code]value[/code] will always be rounded to a multiple of [code]custom_arrow_step[/code] when interacting with the arrow buttons of the [SpinBox].
+		</member>
 		<member name="editable" type="bool" setter="set_editable" getter="is_editable" default="true">
 			If [code]true[/code], the [SpinBox] will be editable. Otherwise, it will be read only.
 		</member>
 		<member name="prefix" type="String" setter="set_prefix" getter="get_prefix" default="&quot;&quot;">
 			Adds the specified [code]prefix[/code] string before the numerical value of the [SpinBox].
+		</member>
+		<member name="select_all_on_focus" type="bool" setter="set_select_all_on_focus" getter="is_select_all_on_focus" default="false">
+			If [code]true[/code], the [SpinBox] will select the whole text when the [LineEdit] gains focus. Clicking the up and down arrows won't trigger this behavior.
 		</member>
 		<member name="suffix" type="String" setter="set_suffix" getter="get_suffix" default="&quot;&quot;">
 			Adds the specified [code]suffix[/code] string after the numerical value of the [SpinBox].

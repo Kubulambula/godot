@@ -240,6 +240,15 @@ String OS_IOS::get_name() const {
 	return "iOS";
 }
 
+String OS_IOS::get_distribution_name() const {
+	return get_name();
+}
+
+String OS_IOS::get_version() const {
+	NSOperatingSystemVersion ver = [NSProcessInfo processInfo].operatingSystemVersion;
+	return vformat("%d.%d.%d", (int64_t)ver.majorVersion, (int64_t)ver.minorVersion, (int64_t)ver.patchVersion);
+}
+
 String OS_IOS::get_model_name() const {
 	String model = ios->get_model();
 	if (model != "") {
@@ -387,7 +396,14 @@ void OS_IOS::vibrate_handheld(int p_duration_ms) {
 }
 
 bool OS_IOS::_check_internal_feature_support(const String &p_feature) {
-	return p_feature == "mobile";
+	if (p_feature == "system_fonts") {
+		return true;
+	}
+	if (p_feature == "mobile") {
+		return true;
+	}
+
+	return false;
 }
 
 void OS_IOS::on_focus_out() {

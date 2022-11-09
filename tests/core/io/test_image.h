@@ -78,8 +78,8 @@ TEST_CASE("[Image] Instantiation") {
 
 TEST_CASE("[Image] Saving and loading") {
 	Ref<Image> image = memnew(Image(4, 4, false, Image::FORMAT_RGBA8));
-	const String save_path_png = OS::get_singleton()->get_cache_path().plus_file("image.png");
-	const String save_path_exr = OS::get_singleton()->get_cache_path().plus_file("image.exr");
+	const String save_path_png = OS::get_singleton()->get_cache_path().path_join("image.png");
+	const String save_path_exr = OS::get_singleton()->get_cache_path().path_join("image.exr");
 
 	// Save PNG
 	Error err;
@@ -124,7 +124,7 @@ TEST_CASE("[Image] Saving and loading") {
 			image_jpg->load_jpg_from_buffer(data_jpg) == OK,
 			"The JPG image should load successfully.");
 
-	// Load WEBP
+	// Load WebP
 	Ref<Image> image_webp = memnew(Image());
 	Ref<FileAccess> f_webp = FileAccess::open(TestUtils::get_data_path("images/icon.webp"), FileAccess::READ, &err);
 	PackedByteArray data_webp;
@@ -132,7 +132,7 @@ TEST_CASE("[Image] Saving and loading") {
 	f_webp->get_buffer(data_webp.ptrw(), f_webp->get_length());
 	CHECK_MESSAGE(
 			image_webp->load_webp_from_buffer(data_webp) == OK,
-			"The WEBP image should load successfully.");
+			"The WebP image should load successfully.");
 
 	// Load PNG
 	Ref<Image> image_png = memnew(Image());
@@ -162,7 +162,7 @@ TEST_CASE("[Image] Basic getters") {
 	CHECK(image->get_size() == Vector2(8, 4));
 	CHECK(image->get_format() == Image::FORMAT_LA8);
 	CHECK(image->get_used_rect() == Rect2i(0, 0, 0, 0));
-	Ref<Image> image_get_rect = image->get_rect(Rect2i(0, 0, 2, 1));
+	Ref<Image> image_get_rect = image->get_region(Rect2i(0, 0, 2, 1));
 	CHECK(image_get_rect->get_size() == Vector2(2, 1));
 }
 

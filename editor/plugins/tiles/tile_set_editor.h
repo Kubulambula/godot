@@ -39,6 +39,8 @@
 #include "tile_set_atlas_source_editor.h"
 #include "tile_set_scenes_collection_source_editor.h"
 
+class EditorUndoRedoManager;
+
 class TileSetEditor : public VBoxContainer {
 	GDCLASS(TileSetEditor, VBoxContainer);
 
@@ -58,7 +60,7 @@ private:
 	TileSetAtlasSourceEditor *tile_set_atlas_source_editor = nullptr;
 	TileSetScenesCollectionSourceEditor *tile_set_scenes_collection_source_editor = nullptr;
 
-	UndoRedo *undo_redo = nullptr;
+	Ref<EditorUndoRedoManager> undo_redo;
 
 	void _drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from);
 	bool _can_drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from) const;
@@ -80,6 +82,8 @@ private:
 
 	AtlasMergingDialog *atlas_merging_dialog = nullptr;
 	TileProxiesManagerDialog *tile_proxies_manager_dialog = nullptr;
+
+	bool first_edit = true;
 
 	// Patterns.
 	ItemList *patterns_item_list = nullptr;
@@ -105,7 +109,6 @@ public:
 	void edit(Ref<TileSet> p_tile_set);
 
 	TileSetEditor();
-	~TileSetEditor();
 };
 
 #endif // TILE_SET_EDITOR_H

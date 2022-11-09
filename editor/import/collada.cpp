@@ -131,7 +131,7 @@ Transform3D Collada::Node::compute_transform(const Collada &state) const {
 		switch (xf.op) {
 			case XForm::OP_ROTATE: {
 				if (xf.data.size() >= 4) {
-					xform_step.rotate(Vector3(xf.data[0], xf.data[1], xf.data[2]), Math::deg2rad(xf.data[3]));
+					xform_step.rotate(Vector3(xf.data[0], xf.data[1], xf.data[2]), Math::deg_to_rad(xf.data[3]));
 				}
 			} break;
 			case XForm::OP_SCALE: {
@@ -289,7 +289,7 @@ void Collada::_parse_image(XMLParser &parser) {
 		String path = parser.get_attribute_value("source").strip_edges();
 		if (!path.contains("://") && path.is_relative_path()) {
 			// path is relative to file being loaded, so convert to a resource path
-			image.path = ProjectSettings::get_singleton()->localize_path(state.local_path.get_base_dir().plus_file(path.uri_decode()));
+			image.path = ProjectSettings::get_singleton()->localize_path(state.local_path.get_base_dir().path_join(path.uri_decode()));
 		}
 	} else {
 		while (parser.read() == OK) {
@@ -302,7 +302,7 @@ void Collada::_parse_image(XMLParser &parser) {
 
 					if (!path.contains("://") && path.is_relative_path()) {
 						// path is relative to file being loaded, so convert to a resource path
-						path = ProjectSettings::get_singleton()->localize_path(state.local_path.get_base_dir().plus_file(path));
+						path = ProjectSettings::get_singleton()->localize_path(state.local_path.get_base_dir().path_join(path));
 
 					} else if (path.find("file:///") == 0) {
 						path = path.replace_first("file:///", "");
@@ -848,6 +848,8 @@ void Collada::_parse_curve_geometry(XMLParser &parser, String p_id, String p_nam
 
 	CurveData &curvedata = state.curve_data_map[p_id];
 	curvedata.name = p_name;
+	String closed = parser.get_attribute_value_safe("closed").to_lower();
+	curvedata.closed = closed == "true" || closed == "1";
 
 	COLLADA_PRINT("curve name: " + p_name);
 
@@ -2036,11 +2038,7 @@ void Collada::_merge_skeletons(VisualScene *p_vscene, Node *p_node) {
 
 				ERR_CONTINUE(!state.scene_map.has(nodeid)); //weird, it should have it...
 
-#ifdef NO_SAFE_CAST
-				NodeJoint *nj = static_cast<NodeJoint *>(state.scene_map[nodeid]);
-#else
 				NodeJoint *nj = dynamic_cast<NodeJoint *>(state.scene_map[nodeid]);
-#endif
 				ERR_CONTINUE(!nj); //broken collada
 				ERR_CONTINUE(!nj->owner); //weird, node should have a skeleton owner
 
@@ -2197,11 +2195,7 @@ bool Collada::_move_geometry_to_skeletons(VisualScene *p_vscene, Node *p_node, L
 			String nodeid = ng->skeletons[0];
 
 			ERR_FAIL_COND_V(!state.scene_map.has(nodeid), false); //weird, it should have it...
-#ifdef NO_SAFE_CAST
-			NodeJoint *nj = static_cast<NodeJoint *>(state.scene_map[nodeid]);
-#else
 			NodeJoint *nj = dynamic_cast<NodeJoint *>(state.scene_map[nodeid]);
-#endif
 			ERR_FAIL_COND_V(!nj, false);
 			ERR_FAIL_COND_V(!nj->owner, false); //weird, node should have a skeleton owner
 

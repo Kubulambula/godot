@@ -36,12 +36,12 @@
 void CollisionObject2D::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE: {
-			Transform2D global_transform = get_global_transform();
+			Transform2D gl_transform = get_global_transform();
 
 			if (area) {
-				PhysicsServer2D::get_singleton()->area_set_transform(rid, global_transform);
+				PhysicsServer2D::get_singleton()->area_set_transform(rid, gl_transform);
 			} else {
-				PhysicsServer2D::get_singleton()->body_set_state(rid, PhysicsServer2D::BODY_STATE_TRANSFORM, global_transform);
+				PhysicsServer2D::get_singleton()->body_set_state(rid, PhysicsServer2D::BODY_STATE_TRANSFORM, gl_transform);
 			}
 
 			bool disabled = !is_enabled();
@@ -81,12 +81,12 @@ void CollisionObject2D::_notification(int p_what) {
 				return;
 			}
 
-			Transform2D global_transform = get_global_transform();
+			Transform2D gl_transform = get_global_transform();
 
 			if (area) {
-				PhysicsServer2D::get_singleton()->area_set_transform(rid, global_transform);
+				PhysicsServer2D::get_singleton()->area_set_transform(rid, gl_transform);
 			} else {
-				PhysicsServer2D::get_singleton()->body_set_state(rid, PhysicsServer2D::BODY_STATE_TRANSFORM, global_transform);
+				PhysicsServer2D::get_singleton()->body_set_state(rid, PhysicsServer2D::BODY_STATE_TRANSFORM, gl_transform);
 			}
 		} break;
 
@@ -153,13 +153,13 @@ uint32_t CollisionObject2D::get_collision_mask() const {
 void CollisionObject2D::set_collision_layer_value(int p_layer_number, bool p_value) {
 	ERR_FAIL_COND_MSG(p_layer_number < 1, "Collision layer number must be between 1 and 32 inclusive.");
 	ERR_FAIL_COND_MSG(p_layer_number > 32, "Collision layer number must be between 1 and 32 inclusive.");
-	uint32_t collision_layer = get_collision_layer();
+	uint32_t collision_layer_new = get_collision_layer();
 	if (p_value) {
-		collision_layer |= 1 << (p_layer_number - 1);
+		collision_layer_new |= 1 << (p_layer_number - 1);
 	} else {
-		collision_layer &= ~(1 << (p_layer_number - 1));
+		collision_layer_new &= ~(1 << (p_layer_number - 1));
 	}
-	set_collision_layer(collision_layer);
+	set_collision_layer(collision_layer_new);
 }
 
 bool CollisionObject2D::get_collision_layer_value(int p_layer_number) const {
@@ -184,6 +184,17 @@ bool CollisionObject2D::get_collision_mask_value(int p_layer_number) const {
 	ERR_FAIL_COND_V_MSG(p_layer_number < 1, false, "Collision layer number must be between 1 and 32 inclusive.");
 	ERR_FAIL_COND_V_MSG(p_layer_number > 32, false, "Collision layer number must be between 1 and 32 inclusive.");
 	return get_collision_mask() & (1 << (p_layer_number - 1));
+}
+
+void CollisionObject2D::set_collision_priority(real_t p_priority) {
+	collision_priority = p_priority;
+	if (!area) {
+		PhysicsServer2D::get_singleton()->body_set_collision_priority(get_rid(), p_priority);
+	}
+}
+
+real_t CollisionObject2D::get_collision_priority() const {
+	return collision_priority;
 }
 
 void CollisionObject2D::set_disable_mode(DisableMode p_mode) {
@@ -350,8 +361,8 @@ void CollisionObject2D::get_shape_owners(List<uint32_t> *r_owners) {
 	}
 }
 
-Array CollisionObject2D::_get_shape_owners() {
-	Array ret;
+PackedInt32Array CollisionObject2D::_get_shape_owners() {
+	PackedInt32Array ret;
 	for (const KeyValue<uint32_t, ShapeData> &E : shapes) {
 		ret.push_back(E.key);
 	}
@@ -554,8 +565,8 @@ void CollisionObject2D::_update_pickable() {
 	}
 }
 
-TypedArray<String> CollisionObject2D::get_configuration_warnings() const {
-	TypedArray<String> warnings = Node::get_configuration_warnings();
+PackedStringArray CollisionObject2D::get_configuration_warnings() const {
+	PackedStringArray warnings = Node::get_configuration_warnings();
 
 	if (shapes.is_empty()) {
 		warnings.push_back(RTR("This node has no shape, so it can't collide or interact with other objects.\nConsider adding a CollisionShape2D or CollisionPolygon2D as a child to define its shape."));
@@ -574,6 +585,8 @@ void CollisionObject2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_collision_layer_value", "layer_number"), &CollisionObject2D::get_collision_layer_value);
 	ClassDB::bind_method(D_METHOD("set_collision_mask_value", "layer_number", "value"), &CollisionObject2D::set_collision_mask_value);
 	ClassDB::bind_method(D_METHOD("get_collision_mask_value", "layer_number"), &CollisionObject2D::get_collision_mask_value);
+	ClassDB::bind_method(D_METHOD("set_collision_priority", "priority"), &CollisionObject2D::set_collision_priority);
+	ClassDB::bind_method(D_METHOD("get_collision_priority"), &CollisionObject2D::get_collision_priority);
 	ClassDB::bind_method(D_METHOD("set_disable_mode", "mode"), &CollisionObject2D::set_disable_mode);
 	ClassDB::bind_method(D_METHOD("get_disable_mode"), &CollisionObject2D::get_disable_mode);
 	ClassDB::bind_method(D_METHOD("set_pickable", "enabled"), &CollisionObject2D::set_pickable);
@@ -599,6 +612,10 @@ void CollisionObject2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("shape_find_owner", "shape_index"), &CollisionObject2D::shape_find_owner);
 
 	GDVIRTUAL_BIND(_input_event, "viewport", "event", "shape_idx");
+	GDVIRTUAL_BIND(_mouse_enter);
+	GDVIRTUAL_BIND(_mouse_exit);
+	GDVIRTUAL_BIND(_mouse_shape_enter, "shape_idx");
+	GDVIRTUAL_BIND(_mouse_shape_exit, "shape_idx");
 
 	ADD_SIGNAL(MethodInfo("input_event", PropertyInfo(Variant::OBJECT, "viewport", PROPERTY_HINT_RESOURCE_TYPE, "Node"), PropertyInfo(Variant::OBJECT, "event", PROPERTY_HINT_RESOURCE_TYPE, "InputEvent"), PropertyInfo(Variant::INT, "shape_idx")));
 	ADD_SIGNAL(MethodInfo("mouse_entered"));
@@ -611,6 +628,7 @@ void CollisionObject2D::_bind_methods() {
 	ADD_GROUP("Collision", "collision_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_layer", PROPERTY_HINT_LAYERS_2D_PHYSICS), "set_collision_layer", "get_collision_layer");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_2D_PHYSICS), "set_collision_mask", "get_collision_mask");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
 
 	ADD_GROUP("Input", "input_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "input_pickable"), "set_pickable", "is_pickable");

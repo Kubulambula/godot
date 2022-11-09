@@ -213,7 +213,7 @@ class EditorExportPlatformUWP : public EditorExportPlatform {
 		String architecture = arch == "arm32" ? "arm" : (arch == "x86_32" ? "x86" : "x64");
 		result = result.replace("$architecture$", architecture);
 
-		result = result.replace("$display_name$", String(p_preset->get("package/display_name")).is_empty() ? (String)ProjectSettings::get_singleton()->get("application/config/name") : String(p_preset->get("package/display_name")));
+		result = result.replace("$display_name$", String(p_preset->get("package/display_name")).is_empty() ? (String)GLOBAL_GET("application/config/name") : String(p_preset->get("package/display_name")));
 
 		result = result.replace("$publisher_display_name$", p_preset->get("package/publisher_display_name"));
 		result = result.replace("$app_description$", p_preset->get("package/description"));
@@ -329,7 +329,7 @@ class EditorExportPlatformUWP : public EditorExportPlatform {
 			return data;
 		}
 
-		String tmp_path = EditorPaths::get_singleton()->get_cache_dir().plus_file("uwp_tmp_logo.png");
+		String tmp_path = EditorPaths::get_singleton()->get_cache_dir().path_join("uwp_tmp_logo.png");
 
 		Error err = texture->get_image()->save_png(tmp_path);
 
@@ -429,7 +429,8 @@ public:
 
 	virtual void get_export_options(List<ExportOption> *r_options) override;
 
-	virtual bool can_export(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const override;
+	virtual bool has_valid_export_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const override;
+	virtual bool has_valid_project_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error) const override;
 
 	virtual Error export_project(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, int p_flags = 0) override;
 

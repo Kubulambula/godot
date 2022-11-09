@@ -92,7 +92,7 @@ void EditorVisualProfiler::add_frame_metric(const Metric &p_metric) {
 }
 
 void EditorVisualProfiler::clear() {
-	int metric_size = EditorSettings::get_singleton()->get("debugger/profiler_frame_history_size");
+	int metric_size = EDITOR_GET("debugger/profiler_frame_history_size");
 	metric_size = CLAMP(metric_size, 60, 10000);
 	frame_metrics.clear();
 	frame_metrics.resize(metric_size);
@@ -298,9 +298,7 @@ void EditorVisualProfiler::_update_plot() {
 		}
 	}
 
-	Ref<Image> img;
-	img.instantiate();
-	img->create(w, h, false, Image::FORMAT_RGBA8, graph_image);
+	Ref<Image> img = Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, graph_image);
 
 	if (reset_texture) {
 		if (graph_texture.is_null()) {
@@ -312,7 +310,7 @@ void EditorVisualProfiler::_update_plot() {
 	graph_texture->update(img);
 
 	graph->set_texture(graph_texture);
-	graph->update();
+	graph->queue_redraw();
 }
 
 void EditorVisualProfiler::_update_frame(bool p_focus_selected) {
@@ -489,7 +487,7 @@ void EditorVisualProfiler::_graph_tex_draw() {
 
 void EditorVisualProfiler::_graph_tex_mouse_exit() {
 	hover_metric = -1;
-	graph->update();
+	graph->queue_redraw();
 }
 
 void EditorVisualProfiler::_cursor_metric_changed(double) {
@@ -497,7 +495,7 @@ void EditorVisualProfiler::_cursor_metric_changed(double) {
 		return;
 	}
 
-	graph->update();
+	graph->queue_redraw();
 	_update_frame();
 }
 
@@ -613,7 +611,7 @@ void EditorVisualProfiler::_graph_tex_input(const Ref<InputEvent> &p_ev) {
 			}
 		}
 
-		graph->update();
+		graph->queue_redraw();
 	}
 }
 
@@ -637,7 +635,7 @@ int EditorVisualProfiler::_get_cursor_index() const {
 
 void EditorVisualProfiler::disable_seeking() {
 	seeking = false;
-	graph->update();
+	graph->queue_redraw();
 }
 
 void EditorVisualProfiler::_combo_changed(int) {

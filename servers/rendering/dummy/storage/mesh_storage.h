@@ -31,23 +31,59 @@
 #ifndef MESH_STORAGE_DUMMY_H
 #define MESH_STORAGE_DUMMY_H
 
+#include "core/templates/local_vector.h"
+#include "core/templates/rid_owner.h"
 #include "servers/rendering/storage/mesh_storage.h"
-#include "servers/rendering/storage/utilities.h"
 
 namespace RendererDummy {
 
 class MeshStorage : public RendererMeshStorage {
+private:
+	static MeshStorage *singleton;
+
+	struct DummyMesh {
+		Vector<RS::SurfaceData> surfaces;
+		int blend_shape_count;
+		RS::BlendShapeMode blend_shape_mode;
+		PackedFloat32Array blend_shape_values;
+	};
+
+	mutable RID_Owner<DummyMesh> mesh_owner;
+
 public:
+	static MeshStorage *get_singleton() {
+		return singleton;
+	};
+
+	MeshStorage();
+	~MeshStorage();
+
 	/* MESH API */
 
-	virtual RID mesh_allocate() override { return RID(); }
-	virtual void mesh_initialize(RID p_rid) override {}
-	virtual void mesh_free(RID p_rid) override {}
+	bool owns_mesh(RID p_rid) { return mesh_owner.owns(p_rid); };
+
+	virtual RID mesh_allocate() override;
+	virtual void mesh_initialize(RID p_rid) override;
+	virtual void mesh_free(RID p_rid) override;
 
 	virtual void mesh_set_blend_shape_count(RID p_mesh, int p_blend_shape_count) override {}
 	virtual bool mesh_needs_instance(RID p_mesh, bool p_has_skeleton) override { return false; }
 
-	virtual void mesh_add_surface(RID p_mesh, const RS::SurfaceData &p_surface) override {}
+	virtual void mesh_add_surface(RID p_mesh, const RS::SurfaceData &p_surface) override {
+		DummyMesh *m = mesh_owner.get_or_null(p_mesh);
+		ERR_FAIL_COND(!m);
+		m->surfaces.push_back(RS::SurfaceData());
+		RS::SurfaceData *s = &m->surfaces.write[m->surfaces.size() - 1];
+		s->format = p_surface.format;
+		s->primitive = p_surface.primitive;
+		s->vertex_data = p_surface.vertex_data;
+		s->attribute_data = p_surface.attribute_data;
+		s->vertex_count = p_surface.vertex_count;
+		s->index_data = p_surface.index_data;
+		s->index_count = p_surface.index_count;
+		s->aabb = p_surface.aabb;
+		s->skin_data = p_surface.skin_data;
+	}
 
 	virtual int mesh_get_blend_shape_count(RID p_mesh) const override { return 0; }
 
@@ -61,8 +97,19 @@ public:
 	virtual void mesh_surface_set_material(RID p_mesh, int p_surface, RID p_material) override {}
 	virtual RID mesh_surface_get_material(RID p_mesh, int p_surface) const override { return RID(); }
 
-	virtual RS::SurfaceData mesh_get_surface(RID p_mesh, int p_surface) const override { return RS::SurfaceData(); }
-	virtual int mesh_get_surface_count(RID p_mesh) const override { return 0; }
+	virtual RS::SurfaceData mesh_get_surface(RID p_mesh, int p_surface) const override {
+		DummyMesh *m = mesh_owner.get_or_null(p_mesh);
+		ERR_FAIL_COND_V(!m, RS::SurfaceData());
+		ERR_FAIL_INDEX_V(p_surface, m->surfaces.size(), RS::SurfaceData());
+		RS::SurfaceData s = m->surfaces[p_surface];
+		return s;
+	}
+
+	virtual int mesh_get_surface_count(RID p_mesh) const override {
+		DummyMesh *m = mesh_owner.get_or_null(p_mesh);
+		ERR_FAIL_COND_V(!m, 0);
+		return m->surfaces.size();
+	}
 
 	virtual void mesh_set_custom_aabb(RID p_mesh, const AABB &p_aabb) override {}
 	virtual AABB mesh_get_custom_aabb(RID p_mesh) const override { return AABB(); }

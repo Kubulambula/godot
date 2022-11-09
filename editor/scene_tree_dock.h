@@ -119,6 +119,10 @@ class SceneTreeDock : public VBoxContainer {
 	Button *button_detach_script = nullptr;
 	MenuButton *button_tree_menu = nullptr;
 
+	Button *node_shortcuts_toggle = nullptr;
+	VBoxContainer *beginner_node_shortcuts = nullptr;
+	VBoxContainer *favorite_node_shortcuts = nullptr;
+
 	Button *button_2d = nullptr;
 	Button *button_3d = nullptr;
 	Button *button_ui = nullptr;
@@ -133,7 +137,6 @@ class SceneTreeDock : public VBoxContainer {
 	HBoxContainer *tool_hbc = nullptr;
 	void _tool_selected(int p_tool, bool p_confirm_override = false);
 	void _property_selected(int p_idx);
-	void _node_collapsed(Object *p_obj);
 
 	Node *property_drop_node = nullptr;
 	String resource_drop_path;
@@ -157,7 +160,13 @@ class SceneTreeDock : public VBoxContainer {
 	EditorQuickOpen *quick_open = nullptr;
 	EditorFileDialog *new_scene_from_dialog = nullptr;
 
+	enum FilterMenuItems {
+		FILTER_BY_TYPE = 64, // Used in the same menus as the Tool enum.
+		FILTER_BY_GROUP,
+	};
+
 	LineEdit *filter = nullptr;
+	PopupMenu *filter_quick_menu = nullptr;
 	TextureRect *filter_icon = nullptr;
 
 	PopupMenu *menu = nullptr;
@@ -183,9 +192,6 @@ class SceneTreeDock : public VBoxContainer {
 
 	void _node_reparent(NodePath p_path, bool p_keep_global_xform);
 	void _do_reparent(Node *p_new_parent, int p_position_in_parent, Vector<Node *> p_nodes, bool p_keep_global_xform);
-
-	bool _is_collapsed_recursive(TreeItem *p_item) const;
-	void _set_collapsed_recursive(TreeItem *p_item, bool p_collapsed);
 
 	void _set_owners(Node *p_owner, const Array &p_nodes);
 
@@ -224,8 +230,6 @@ class SceneTreeDock : public VBoxContainer {
 	virtual void input(const Ref<InputEvent> &p_event) override;
 	virtual void shortcut_input(const Ref<InputEvent> &p_event) override;
 
-	void _import_subscene();
-
 	void _new_scene_from(String p_file);
 	void _set_node_owner_recursive(Node *p_node, Node *p_owner);
 
@@ -245,8 +249,12 @@ class SceneTreeDock : public VBoxContainer {
 
 	void _tree_rmb(const Vector2 &p_menu_pos);
 	void _update_tree_menu();
+	void _update_filter_menu();
 
 	void _filter_changed(const String &p_filter);
+	void _filter_gui_input(const Ref<InputEvent> &p_event);
+	void _filter_option_selected(int option);
+	void _append_filter_options_to(PopupMenu *p_menu, bool p_include_separator = true);
 
 	void _perform_instantiate_scenes(const Vector<String> &p_files, Node *parent, int p_pos);
 	void _replace_with_branch_scene(const String &p_file, Node *base);
@@ -288,7 +296,6 @@ public:
 
 	void _focus_node();
 
-	void import_subscene();
 	void add_root_node(Node *p_node);
 	void set_edited_scene(Node *p_scene);
 	void instantiate(const String &p_file);

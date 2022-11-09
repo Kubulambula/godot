@@ -210,7 +210,7 @@ namespace Godot
                     case 3:
                         return a;
                     default:
-                        throw new IndexOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(index));
                 }
             }
             set
@@ -230,7 +230,7 @@ namespace Godot
                         a = value;
                         return;
                     default:
-                        throw new IndexOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(index));
                 }
             }
         }
@@ -333,14 +333,14 @@ namespace Godot
         /// <param name="to">The destination color for interpolation.</param>
         /// <param name="weight">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
         /// <returns>The resulting color of the interpolation.</returns>
-        public Color Lerp(Color to, float weight)
+        public Color Lerp(Color to, real_t weight)
         {
             return new Color
             (
-                Mathf.Lerp(r, to.r, weight),
-                Mathf.Lerp(g, to.g, weight),
-                Mathf.Lerp(b, to.b, weight),
-                Mathf.Lerp(a, to.a, weight)
+                (float)Mathf.Lerp(r, to.r, weight),
+                (float)Mathf.Lerp(g, to.g, weight),
+                (float)Mathf.Lerp(b, to.b, weight),
+                (float)Mathf.Lerp(a, to.a, weight)
             );
         }
 
@@ -355,10 +355,10 @@ namespace Godot
         {
             return new Color
             (
-                Mathf.Lerp(r, to.r, weight.r),
-                Mathf.Lerp(g, to.g, weight.g),
-                Mathf.Lerp(b, to.b, weight.b),
-                Mathf.Lerp(a, to.a, weight.a)
+                (float)Mathf.Lerp(r, to.r, weight.r),
+                (float)Mathf.Lerp(g, to.g, weight.g),
+                (float)Mathf.Lerp(b, to.b, weight.b),
+                (float)Mathf.Lerp(a, to.a, weight.a)
             );
         }
 
@@ -595,9 +595,9 @@ namespace Godot
         /// </summary>
         /// <param name="rgba">A string for the HTML hexadecimal representation of this color.</param>
         /// <exception name="ArgumentOutOfRangeException">
-        /// Thrown when the given <paramref name="rgba"/> color code is invalid.
+        /// <paramref name="rgba"/> color code is invalid.
         /// </exception>
-        private static Color FromHTML(string rgba)
+        private static Color FromHTML(ReadOnlySpan<char> rgba)
         {
             Color c;
             if (rgba.Length == 0)
@@ -611,7 +611,7 @@ namespace Godot
 
             if (rgba[0] == '#')
             {
-                rgba = rgba.Substring(1);
+                rgba = rgba.Slice(1);
             }
 
             // If enabled, use 1 hex digit per channel instead of 2.
@@ -665,22 +665,22 @@ namespace Godot
 
             if (c.r < 0)
             {
-                throw new ArgumentOutOfRangeException("Invalid color code. Red part is not valid hexadecimal: " + rgba);
+                throw new ArgumentOutOfRangeException($"Invalid color code. Red part is not valid hexadecimal: {rgba}");
             }
 
             if (c.g < 0)
             {
-                throw new ArgumentOutOfRangeException("Invalid color code. Green part is not valid hexadecimal: " + rgba);
+                throw new ArgumentOutOfRangeException($"Invalid color code. Green part is not valid hexadecimal: {rgba}");
             }
 
             if (c.b < 0)
             {
-                throw new ArgumentOutOfRangeException("Invalid color code. Blue part is not valid hexadecimal: " + rgba);
+                throw new ArgumentOutOfRangeException($"Invalid color code. Blue part is not valid hexadecimal: {rgba}");
             }
 
             if (c.a < 0)
             {
-                throw new ArgumentOutOfRangeException("Invalid color code. Alpha part is not valid hexadecimal: " + rgba);
+                throw new ArgumentOutOfRangeException($"Invalid color code. Alpha part is not valid hexadecimal: {rgba}");
             }
             return c;
         }
@@ -817,9 +817,9 @@ namespace Godot
             value = max;
         }
 
-        private static int ParseCol4(string str, int ofs)
+        private static int ParseCol4(ReadOnlySpan<char> str, int index)
         {
-            char character = str[ofs];
+            char character = str[index];
 
             if (character >= '0' && character <= '9')
             {
@@ -836,27 +836,27 @@ namespace Godot
             return -1;
         }
 
-        private static int ParseCol8(string str, int ofs)
+        private static int ParseCol8(ReadOnlySpan<char> str, int index)
         {
-            return ParseCol4(str, ofs) * 16 + ParseCol4(str, ofs + 1);
+            return ParseCol4(str, index) * 16 + ParseCol4(str, index + 1);
         }
 
-        private string ToHex32(float val)
+        private static string ToHex32(float val)
         {
             byte b = (byte)Mathf.RoundToInt(Mathf.Clamp(val * 255, 0, 255));
             return b.HexEncode();
         }
 
-        internal static bool HtmlIsValid(string color)
+        internal static bool HtmlIsValid(ReadOnlySpan<char> color)
         {
-            if (color.Length == 0)
+            if (color.IsEmpty)
             {
                 return false;
             }
 
             if (color[0] == '#')
             {
-                color = color.Substring(1);
+                color = color.Slice(1);
             }
 
             // Check if the amount of hex digits is valid.
@@ -916,7 +916,7 @@ namespace Godot
         /// <c>new Color(1 - c.r, 1 - c.g, 1 - c.b, 1 - c.a)</c>.
         /// </summary>
         /// <param name="color">The color to invert.</param>
-        /// <returns>The inverted color</returns>
+        /// <returns>The inverted color.</returns>
         public static Color operator -(Color color)
         {
             return Colors.White - color;
@@ -1151,12 +1151,7 @@ namespace Godot
         /// <returns>Whether or not the color and the other object are equal.</returns>
         public override bool Equals(object obj)
         {
-            if (obj is Color)
-            {
-                return Equals((Color)obj);
-            }
-
-            return false;
+            return obj is Color other && Equals(other);
         }
 
         /// <summary>

@@ -34,6 +34,8 @@
 #include "core/math/geometry_3d.h"
 #include "core/os/keyboard.h"
 #include "editor/editor_node.h"
+#include "editor/editor_settings.h"
+#include "editor/editor_undo_redo_manager.h"
 #include "node_3d_editor_plugin.h"
 #include "scene/resources/curve.h"
 
@@ -171,7 +173,7 @@ void Path3DGizmo::commit_handle(int p_id, bool p_secondary, const Variant &p_res
 		return;
 	}
 
-	UndoRedo *ur = Node3DEditor::get_singleton()->get_undo_redo();
+	Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
 
 	if (!p_secondary) {
 		if (p_cancel) {
@@ -262,45 +264,45 @@ void Path3DGizmo::redraw() {
 
 	if (Path3DEditorPlugin::singleton->get_edited_path() == path) {
 		v3p.clear();
-		Vector<Vector3> handles;
-		Vector<Vector3> sec_handles;
+		Vector<Vector3> handle_points;
+		Vector<Vector3> sec_handle_points;
 
 		for (int i = 0; i < c->get_point_count(); i++) {
 			Vector3 p = c->get_point_position(i);
-			handles.push_back(p);
+			handle_points.push_back(p);
 			// push Out points first so they get selected if the In and Out points are on top of each other.
 			if (i < c->get_point_count() - 1) {
 				v3p.push_back(p);
 				v3p.push_back(p + c->get_point_out(i));
-				sec_handles.push_back(p + c->get_point_out(i));
+				sec_handle_points.push_back(p + c->get_point_out(i));
 			}
 			if (i > 0) {
 				v3p.push_back(p);
 				v3p.push_back(p + c->get_point_in(i));
-				sec_handles.push_back(p + c->get_point_in(i));
+				sec_handle_points.push_back(p + c->get_point_in(i));
 			}
 		}
 
 		if (v3p.size() > 1) {
 			add_lines(v3p, path_thin_material);
 		}
-		if (handles.size()) {
-			add_handles(handles, handles_material);
+		if (handle_points.size()) {
+			add_handles(handle_points, handles_material);
 		}
-		if (sec_handles.size()) {
-			add_handles(sec_handles, sec_handles_material, Vector<int>(), false, true);
+		if (sec_handle_points.size()) {
+			add_handles(sec_handle_points, sec_handles_material, Vector<int>(), false, true);
 		}
 	}
 }
 
 Path3DGizmo::Path3DGizmo(Path3D *p_path) {
 	path = p_path;
-	set_spatial_node(p_path);
+	set_node_3d(p_path);
 	orig_in_length = 0;
 	orig_out_length = 0;
 }
 
-EditorPlugin::AfterGUIInput Path3DEditorPlugin::forward_spatial_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event) {
+EditorPlugin::AfterGUIInput Path3DEditorPlugin::forward_3d_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event) {
 	if (!path) {
 		return EditorPlugin::AFTER_GUI_INPUT_PASS;
 	}
@@ -384,7 +386,7 @@ EditorPlugin::AfterGUIInput Path3DEditorPlugin::forward_spatial_gui_input(Camera
 				}
 			}
 
-			UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
+			Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
 			if (closest_seg != -1) {
 				//subdivide
 
@@ -426,21 +428,21 @@ EditorPlugin::AfterGUIInput Path3DEditorPlugin::forward_spatial_gui_input(Camera
 				// Find the offset and point index of the place to break up.
 				// Also check for the control points.
 				if (dist_to_p < click_dist) {
-					UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
+					Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
 					ur->create_action(TTR("Remove Path Point"));
 					ur->add_do_method(c.ptr(), "remove_point", i);
 					ur->add_undo_method(c.ptr(), "add_point", c->get_point_position(i), c->get_point_in(i), c->get_point_out(i), i);
 					ur->commit_action();
 					return EditorPlugin::AFTER_GUI_INPUT_STOP;
 				} else if (dist_to_p_out < click_dist) {
-					UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
+					Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
 					ur->create_action(TTR("Remove Out-Control Point"));
 					ur->add_do_method(c.ptr(), "set_point_out", i, Vector3());
 					ur->add_undo_method(c.ptr(), "set_point_out", i, c->get_point_out(i));
 					ur->commit_action();
 					return EditorPlugin::AFTER_GUI_INPUT_STOP;
 				} else if (dist_to_p_in < click_dist) {
-					UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
+					Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
 					ur->create_action(TTR("Remove In-Control Point"));
 					ur->add_do_method(c.ptr(), "set_point_in", i, Vector3());
 					ur->add_undo_method(c.ptr(), "set_point_in", i, c->get_point_in(i));
@@ -519,7 +521,7 @@ void Path3DEditorPlugin::_close_curve() {
 	if (c->get_point_position(0) == c->get_point_position(c->get_point_count() - 1)) {
 		return;
 	}
-	UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
+	Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
 	ur->create_action(TTR("Close Curve"));
 	ur->add_do_method(c.ptr(), "add_point", c->get_point_position(0), c->get_point_in(0), c->get_point_out(0), -1);
 	ur->add_undo_method(c.ptr(), "remove_point", c->get_point_count());
@@ -595,7 +597,7 @@ Path3DEditorPlugin::Path3DEditorPlugin() {
 	curve_edit->set_toggle_mode(true);
 	curve_edit->hide();
 	curve_edit->set_focus_mode(Control::FOCUS_NONE);
-	curve_edit->set_tooltip(TTR("Select Points") + "\n" + TTR("Shift+Drag: Select Control Points") + "\n" + keycode_get_string((Key)KeyModifierMask::CMD) + TTR("Click: Add Point") + "\n" + TTR("Right Click: Delete Point"));
+	curve_edit->set_tooltip_text(TTR("Select Points") + "\n" + TTR("Shift+Drag: Select Control Points") + "\n" + keycode_get_string((Key)KeyModifierMask::CMD_OR_CTRL) + TTR("Click: Add Point") + "\n" + TTR("Right Click: Delete Point"));
 	Node3DEditor::get_singleton()->add_control_to_menu_panel(curve_edit);
 
 	curve_create = memnew(Button);
@@ -603,7 +605,7 @@ Path3DEditorPlugin::Path3DEditorPlugin() {
 	curve_create->set_toggle_mode(true);
 	curve_create->hide();
 	curve_create->set_focus_mode(Control::FOCUS_NONE);
-	curve_create->set_tooltip(TTR("Add Point (in empty space)") + "\n" + TTR("Split Segment (in curve)"));
+	curve_create->set_tooltip_text(TTR("Add Point (in empty space)") + "\n" + TTR("Split Segment (in curve)"));
 	Node3DEditor::get_singleton()->add_control_to_menu_panel(curve_create);
 
 	curve_del = memnew(Button);
@@ -611,14 +613,14 @@ Path3DEditorPlugin::Path3DEditorPlugin() {
 	curve_del->set_toggle_mode(true);
 	curve_del->hide();
 	curve_del->set_focus_mode(Control::FOCUS_NONE);
-	curve_del->set_tooltip(TTR("Delete Point"));
+	curve_del->set_tooltip_text(TTR("Delete Point"));
 	Node3DEditor::get_singleton()->add_control_to_menu_panel(curve_del);
 
 	curve_close = memnew(Button);
 	curve_close->set_flat(true);
 	curve_close->hide();
 	curve_close->set_focus_mode(Control::FOCUS_NONE);
-	curve_close->set_tooltip(TTR("Close Curve"));
+	curve_close->set_tooltip_text(TTR("Close Curve"));
 	Node3DEditor::get_singleton()->add_control_to_menu_panel(curve_close);
 
 	PopupMenu *menu;

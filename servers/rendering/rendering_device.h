@@ -42,7 +42,7 @@ class RDSamplerState;
 class RDVertexAttribute;
 class RDShaderSource;
 class RDShaderSPIRV;
-class RDUniforms;
+class RDUniform;
 class RDPipelineRasterizationState;
 class RDPipelineMultisampleState;
 class RDPipelineDepthStencilState;
@@ -128,6 +128,8 @@ public:
 	typedef String (*ShaderSPIRVGetCacheKeyFunction)(const RenderingDevice *p_render_device);
 	typedef Vector<uint8_t> (*ShaderCompileToSPIRVFunction)(ShaderStage p_stage, const String &p_source_code, ShaderLanguage p_language, String *r_error, const RenderingDevice *p_render_device);
 	typedef Vector<uint8_t> (*ShaderCacheFunction)(ShaderStage p_stage, const String &p_source_code, ShaderLanguage p_language);
+
+	typedef void (*InvalidationCallback)(void *);
 
 private:
 	static ShaderCompileToSPIRVFunction compile_to_spirv_function;
@@ -460,6 +462,33 @@ public:
 		TextureSamples samples;
 		uint32_t usage_bits;
 		Vector<DataFormat> shareable_formats;
+		bool is_resolve_buffer = false;
+
+		bool operator==(const TextureFormat &b) const {
+			if (format != b.format) {
+				return false;
+			} else if (width != b.width) {
+				return false;
+			} else if (height != b.height) {
+				return false;
+			} else if (depth != b.depth) {
+				return false;
+			} else if (array_layers != b.array_layers) {
+				return false;
+			} else if (mipmaps != b.mipmaps) {
+				return false;
+			} else if (texture_type != b.texture_type) {
+				return false;
+			} else if (samples != b.samples) {
+				return false;
+			} else if (usage_bits != b.usage_bits) {
+				return false;
+			} else if (shareable_formats != b.shareable_formats) {
+				return false;
+			} else {
+				return true;
+			}
+		}
 
 		TextureFormat() {
 			format = DATA_FORMAT_R8_UNORM;
@@ -547,13 +576,15 @@ public:
 		int32_t vrs_attachment = ATTACHMENT_UNUSED; // density map for VRS, only used if supported
 	};
 
-	virtual FramebufferFormatID framebuffer_format_create_multipass(const Vector<AttachmentFormat> &p_attachments, Vector<FramebufferPass> &p_passes, uint32_t p_view_count = 1) = 0;
+	virtual FramebufferFormatID framebuffer_format_create_multipass(const Vector<AttachmentFormat> &p_attachments, const Vector<FramebufferPass> &p_passes, uint32_t p_view_count = 1) = 0;
 	virtual FramebufferFormatID framebuffer_format_create_empty(TextureSamples p_samples = TEXTURE_SAMPLES_1) = 0;
 	virtual TextureSamples framebuffer_format_get_texture_samples(FramebufferFormatID p_format, uint32_t p_pass = 0) = 0;
 
 	virtual RID framebuffer_create(const Vector<RID> &p_texture_attachments, FramebufferFormatID p_format_check = INVALID_ID, uint32_t p_view_count = 1) = 0;
-	virtual RID framebuffer_create_multipass(const Vector<RID> &p_texture_attachments, Vector<FramebufferPass> &p_passes, FramebufferFormatID p_format_check = INVALID_ID, uint32_t p_view_count = 1) = 0;
+	virtual RID framebuffer_create_multipass(const Vector<RID> &p_texture_attachments, const Vector<FramebufferPass> &p_passes, FramebufferFormatID p_format_check = INVALID_ID, uint32_t p_view_count = 1) = 0;
 	virtual RID framebuffer_create_empty(const Size2i &p_size, TextureSamples p_samples = TEXTURE_SAMPLES_1, FramebufferFormatID p_format_check = INVALID_ID) = 0;
+	virtual bool framebuffer_is_valid(RID p_framebuffer) const = 0;
+	virtual void framebuffer_set_invalidation_callback(RID p_framebuffer, InvalidationCallback p_callback, void *p_userdata) = 0;
 
 	virtual FramebufferFormatID framebuffer_get_format(RID p_framebuffer) = 0;
 
@@ -793,8 +824,7 @@ public:
 
 	virtual RID uniform_set_create(const Vector<Uniform> &p_uniforms, RID p_shader, uint32_t p_shader_set) = 0;
 	virtual bool uniform_set_is_valid(RID p_uniform_set) = 0;
-	typedef void (*UniformSetInvalidatedCallback)(void *);
-	virtual void uniform_set_set_invalidation_callback(RID p_uniform_set, UniformSetInvalidatedCallback p_callback, void *p_userdata) = 0;
+	virtual void uniform_set_set_invalidation_callback(RID p_uniform_set, InvalidationCallback p_callback, void *p_userdata) = 0;
 
 	virtual Error buffer_update(RID p_buffer, uint32_t p_offset, uint32_t p_size, const void *p_data, uint32_t p_post_barrier = BARRIER_MASK_ALL) = 0;
 	virtual Error buffer_clear(RID p_buffer, uint32_t p_offset, uint32_t p_size, uint32_t p_post_barrier = BARRIER_MASK_ALL) = 0;
@@ -928,7 +958,7 @@ public:
 		bool wireframe;
 		PolygonCullMode cull_mode;
 		PolygonFrontFace front_face;
-		bool depth_bias_enable;
+		bool depth_bias_enabled;
 		float depth_bias_constant_factor;
 		float depth_bias_clamp;
 		float depth_bias_slope_factor;
@@ -940,7 +970,7 @@ public:
 			wireframe = false;
 			cull_mode = POLYGON_CULL_DISABLED;
 			front_face = POLYGON_FRONT_FACE_CLOCKWISE;
-			depth_bias_enable = false;
+			depth_bias_enabled = false;
 			depth_bias_constant_factor = 0;
 			depth_bias_clamp = 0;
 			depth_bias_slope_factor = 0;
@@ -1126,6 +1156,7 @@ public:
 	virtual DrawListID draw_list_begin(RID p_framebuffer, InitialAction p_initial_color_action, FinalAction p_final_color_action, InitialAction p_initial_depth_action, FinalAction p_final_depth_action, const Vector<Color> &p_clear_color_values = Vector<Color>(), float p_clear_depth = 1.0, uint32_t p_clear_stencil = 0, const Rect2 &p_region = Rect2(), const Vector<RID> &p_storage_textures = Vector<RID>()) = 0;
 	virtual Error draw_list_begin_split(RID p_framebuffer, uint32_t p_splits, DrawListID *r_split_ids, InitialAction p_initial_color_action, FinalAction p_final_color_action, InitialAction p_initial_depth_action, FinalAction p_final_depth_action, const Vector<Color> &p_clear_color_values = Vector<Color>(), float p_clear_depth = 1.0, uint32_t p_clear_stencil = 0, const Rect2 &p_region = Rect2(), const Vector<RID> &p_storage_textures = Vector<RID>()) = 0;
 
+	virtual void draw_list_set_blend_constants(DrawListID p_list, const Color &p_color) = 0;
 	virtual void draw_list_bind_render_pipeline(DrawListID p_list, RID p_render_pipeline) = 0;
 	virtual void draw_list_bind_uniform_set(DrawListID p_list, RID p_uniform_set, uint32_t p_index) = 0;
 	virtual void draw_list_bind_vertex_array(DrawListID p_list, RID p_vertex_array) = 0;
@@ -1221,6 +1252,8 @@ public:
 		LIMIT_MAX_COMPUTE_WORKGROUP_SIZE_X,
 		LIMIT_MAX_COMPUTE_WORKGROUP_SIZE_Y,
 		LIMIT_MAX_COMPUTE_WORKGROUP_SIZE_Z,
+		LIMIT_MAX_VIEWPORT_DIMENSIONS_X,
+		LIMIT_MAX_VIEWPORT_DIMENSIONS_Y,
 		LIMIT_SUBGROUP_SIZE,
 		LIMIT_SUBGROUP_IN_SHADERS, // Set flags using SHADER_STAGE_VERTEX_BIT, SHADER_STAGE_FRAGMENT_BIT, etc.
 		LIMIT_SUBGROUP_OPERATIONS,
@@ -1283,7 +1316,7 @@ protected:
 	Vector<uint8_t> _shader_compile_binary_from_spirv(const Ref<RDShaderSPIRV> &p_bytecode, const String &p_shader_name = "");
 	RID _shader_create_from_spirv(const Ref<RDShaderSPIRV> &p_spirv, const String &p_shader_name = "");
 
-	RID _uniform_set_create(const Array &p_uniforms, RID p_shader, uint32_t p_shader_set);
+	RID _uniform_set_create(const TypedArray<RDUniform> &p_uniforms, RID p_shader, uint32_t p_shader_set);
 
 	Error _buffer_update(RID p_buffer, uint32_t p_offset, uint32_t p_size, const Vector<uint8_t> &p_data, uint32_t p_post_barrier = BARRIER_MASK_ALL);
 

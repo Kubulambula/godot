@@ -29,6 +29,7 @@
 /*************************************************************************/
 
 #include "extension_api_dump.h"
+
 #include "core/config/engine.h"
 #include "core/core_constants.h"
 #include "core/io/file_access.h"
@@ -38,7 +39,15 @@
 
 #ifdef TOOLS_ENABLED
 
-static String get_type_name(const PropertyInfo &p_info) {
+static String get_builtin_or_variant_type_name(const Variant::Type p_type) {
+	if (p_type == Variant::NIL) {
+		return "Variant";
+	} else {
+		return Variant::get_type_name(p_type);
+	}
+}
+
+static String get_property_info_type_name(const PropertyInfo &p_info) {
 	if (p_info.type == Variant::INT && (p_info.hint == PROPERTY_HINT_INT_IS_POINTER)) {
 		if (p_info.hint_string.is_empty()) {
 			return "void*";
@@ -46,11 +55,17 @@ static String get_type_name(const PropertyInfo &p_info) {
 			return p_info.hint_string + "*";
 		}
 	}
+	if (p_info.type == Variant::ARRAY && (p_info.hint == PROPERTY_HINT_ARRAY_TYPE)) {
+		return String("typedarray::") + p_info.hint_string;
+	}
 	if (p_info.type == Variant::INT && (p_info.usage & (PROPERTY_USAGE_CLASS_IS_ENUM))) {
 		return String("enum::") + String(p_info.class_name);
 	}
 	if (p_info.type == Variant::INT && (p_info.usage & (PROPERTY_USAGE_CLASS_IS_BITFIELD))) {
 		return String("bitfield::") + String(p_info.class_name);
+	}
+	if (p_info.type == Variant::INT && (p_info.usage & PROPERTY_USAGE_ARRAY)) {
+		return "int";
 	}
 	if (p_info.class_name != StringName()) {
 		return p_info.class_name;
@@ -64,7 +79,7 @@ static String get_type_name(const PropertyInfo &p_info) {
 	if (p_info.type == Variant::NIL) {
 		return "void";
 	}
-	return Variant::get_type_name(p_info.type);
+	return get_builtin_or_variant_type_name(p_info.type);
 }
 
 Dictionary NativeExtensionAPIDump::generate_extension_api() {
@@ -88,6 +103,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 	}
 
 	const uint32_t vec3_elems = 3;
+	const uint32_t vec4_elems = 4;
 	const uint32_t ptrsize_32 = 4;
 	const uint32_t ptrsize_64 = 8;
 	static const char *build_config_name[4] = { "float_32", "float_64", "double_32", "double_64" };
@@ -138,7 +154,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 			{ Variant::AABB, (vec3_elems * 2) * sizeof(float), (vec3_elems * 2) * sizeof(float), (vec3_elems * 2) * sizeof(double), (vec3_elems * 2) * sizeof(double) },
 			{ Variant::BASIS, (vec3_elems * 3) * sizeof(float), (vec3_elems * 3) * sizeof(float), (vec3_elems * 3) * sizeof(double), (vec3_elems * 3) * sizeof(double) },
 			{ Variant::TRANSFORM3D, (vec3_elems * 4) * sizeof(float), (vec3_elems * 4) * sizeof(float), (vec3_elems * 4) * sizeof(double), (vec3_elems * 4) * sizeof(double) },
-			{ Variant::PROJECTION, 4 * 4 * sizeof(float), 4 * 4 * sizeof(float), 4 * 4 * sizeof(double), 4 * 4 * sizeof(double) },
+			{ Variant::PROJECTION, (vec4_elems * 4) * sizeof(float), (vec4_elems * 4) * sizeof(float), (vec4_elems * 4) * sizeof(double), (vec4_elems * 4) * sizeof(double) },
 			{ Variant::COLOR, 4 * sizeof(float), 4 * sizeof(float), 4 * sizeof(float), 4 * sizeof(float) },
 			{ Variant::STRING_NAME, ptrsize_32, ptrsize_64, ptrsize_32, ptrsize_64 },
 			{ Variant::NODE_PATH, ptrsize_32, ptrsize_64, ptrsize_32, ptrsize_64 },
@@ -211,7 +227,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 				String name = t == Variant::VARIANT_MAX ? String("Variant") : Variant::get_type_name(t);
 				Dictionary d2;
 				d2["name"] = name;
-				uint32_t size;
+				uint32_t size = 0;
 				switch (i) {
 					case 0:
 						size = type_size_array[j].size_32_bits_real_float;
@@ -284,6 +300,10 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 			{ Variant::BASIS, "z", vec3_elems * 2 * sizeof(float), vec3_elems * 2 * sizeof(float), vec3_elems * 2 * sizeof(double), vec3_elems * 2 * sizeof(double) },
 			{ Variant::TRANSFORM3D, "basis", 0, 0, 0, 0 },
 			{ Variant::TRANSFORM3D, "origin", (vec3_elems * 3) * sizeof(float), (vec3_elems * 3) * sizeof(float), (vec3_elems * 3) * sizeof(double), (vec3_elems * 3) * sizeof(double) },
+			{ Variant::PROJECTION, "x", 0, 0, 0, 0 },
+			{ Variant::PROJECTION, "y", vec4_elems * sizeof(float), vec4_elems * sizeof(float), vec4_elems * sizeof(double), vec4_elems * sizeof(double) },
+			{ Variant::PROJECTION, "z", vec4_elems * 2 * sizeof(float), vec4_elems * 2 * sizeof(float), vec4_elems * 2 * sizeof(double), vec4_elems * 2 * sizeof(double) },
+			{ Variant::PROJECTION, "w", vec4_elems * 3 * sizeof(float), vec4_elems * 3 * sizeof(float), vec4_elems * 3 * sizeof(double), vec4_elems * 3 * sizeof(double) },
 			{ Variant::COLOR, "r", 0, 0, 0, 0 },
 			{ Variant::COLOR, "g", sizeof(float), sizeof(float), sizeof(float), sizeof(float) },
 			{ Variant::COLOR, "b", 2 * sizeof(float), 2 * sizeof(float), 2 * sizeof(float), 2 * sizeof(float) },
@@ -322,7 +342,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 					last_type = t;
 				}
 				Dictionary d3;
-				uint32_t offset;
+				uint32_t offset = 0;
 				switch (i) {
 					case 0:
 						offset = member_offset_array[idx].offset_32_bits_real_float;
@@ -419,8 +439,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 				Dictionary arg;
 				String argname = vararg ? "arg" + itos(i + 1) : Variant::get_utility_function_argument_name(name, i);
 				arg["name"] = argname;
-				Variant::Type argtype = Variant::get_utility_function_argument_type(name, i);
-				arg["type"] = argtype == Variant::NIL ? String("Variant") : Variant::get_type_name(argtype);
+				arg["type"] = get_builtin_or_variant_type_name(Variant::get_utility_function_argument_type(name, i));
 				//no default value support in utility functions
 				arguments.push_back(arg);
 			}
@@ -450,11 +469,10 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 			Dictionary d;
 			d["name"] = Variant::get_type_name(type);
 			if (Variant::has_indexing(type)) {
-				Variant::Type index_type = Variant::get_indexed_element_type(type);
-				d["indexing_return_type"] = index_type == Variant::NIL ? String("Variant") : Variant::get_type_name(index_type);
+				d["indexing_return_type"] = get_builtin_or_variant_type_name(Variant::get_indexed_element_type(type));
 			}
 
-			d["is_keyed"] = Variant::ValidatedKeyedSetter(type);
+			d["is_keyed"] = Variant::is_keyed(type);
 
 			{
 				//members
@@ -465,7 +483,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 				for (const StringName &member_name : member_names) {
 					Dictionary d2;
 					d2["name"] = String(member_name);
-					d2["type"] = Variant::get_type_name(Variant::get_member_type(type, member_name));
+					d2["type"] = get_builtin_or_variant_type_name(Variant::get_member_type(type, member_name));
 					members.push_back(d2);
 				}
 				if (members.size()) {
@@ -482,7 +500,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 					Dictionary d2;
 					d2["name"] = String(constant_name);
 					Variant constant = Variant::get_constant_value(type, constant_name);
-					d2["type"] = Variant::get_type_name(constant.get_type());
+					d2["type"] = get_builtin_or_variant_type_name(constant.get_type());
 					d2["value"] = constant.get_construct_string();
 					constants.push_back(d2);
 				}
@@ -533,9 +551,9 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 							Dictionary d2;
 							d2["name"] = Variant::get_operator_name(Variant::Operator(k));
 							if (k != Variant::OP_NEGATE && k != Variant::OP_POSITIVE && k != Variant::OP_NOT && k != Variant::OP_BIT_NEGATE) {
-								d2["right_type"] = Variant::get_type_name(Variant::Type(j));
+								d2["right_type"] = get_builtin_or_variant_type_name(Variant::Type(j));
 							}
-							d2["return_type"] = Variant::get_type_name(Variant::get_operator_return_type(Variant::Operator(k), type, Variant::Type(j)));
+							d2["return_type"] = get_builtin_or_variant_type_name(Variant::get_operator_return_type(Variant::Operator(k), type, Variant::Type(j)));
 							operators.push_back(d2);
 						}
 					}
@@ -569,8 +587,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 					for (int j = 0; j < argcount; j++) {
 						Dictionary d3;
 						d3["name"] = Variant::get_builtin_method_argument_name(type, method_name, j);
-						Variant::Type argtype = Variant::get_builtin_method_argument_type(type, method_name, j);
-						d3["type"] = argtype == Variant::NIL ? String("Variant") : Variant::get_type_name(argtype);
+						d3["type"] = get_builtin_or_variant_type_name(Variant::get_builtin_method_argument_type(type, method_name, j));
 
 						if (j >= (argcount - default_args.size())) {
 							int dargidx = j - (argcount - default_args.size());
@@ -602,7 +619,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 					for (int k = 0; k < argcount; k++) {
 						Dictionary d3;
 						d3["name"] = Variant::get_constructor_argument_name(type, j, k);
-						d3["type"] = Variant::get_type_name(Variant::get_constructor_argument_type(type, j, k));
+						d3["type"] = get_builtin_or_variant_type_name(Variant::get_constructor_argument_type(type, j, k));
 						arguments.push_back(d3);
 					}
 					if (arguments.size()) {
@@ -730,7 +747,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 								d3["name"] = pinfo.name;
 							}
 
-							d3["type"] = get_type_name(pinfo);
+							d3["type"] = get_property_info_type_name(pinfo);
 
 							if (i == -1) {
 								d2["return_value"] = d3;
@@ -773,7 +790,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 							if (i >= 0) {
 								d3["name"] = pinfo.name;
 							}
-							d3["type"] = get_type_name(pinfo);
+							d3["type"] = get_property_info_type_name(pinfo);
 
 							if (method->get_argument_meta(i) > 0) {
 								static const char *argmeta[11] = { "none", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float", "double" };
@@ -820,7 +837,7 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 					for (int i = 0; i < F.arguments.size(); i++) {
 						Dictionary d3;
 						d3["name"] = F.arguments[i].name;
-						d3["type"] = get_type_name(F.arguments[i]);
+						d3["type"] = get_property_info_type_name(F.arguments[i]);
 						arguments.push_back(d3);
 					}
 					if (arguments.size()) {
@@ -840,15 +857,19 @@ Dictionary NativeExtensionAPIDump::generate_extension_api() {
 				List<PropertyInfo> property_list;
 				ClassDB::get_property_list(class_name, &property_list, true);
 				for (const PropertyInfo &F : property_list) {
-					if (F.usage & PROPERTY_USAGE_CATEGORY || F.usage & PROPERTY_USAGE_GROUP || F.usage & PROPERTY_USAGE_SUBGROUP) {
+					if (F.usage & PROPERTY_USAGE_CATEGORY || F.usage & PROPERTY_USAGE_GROUP || F.usage & PROPERTY_USAGE_SUBGROUP || (F.type == Variant::NIL && F.usage & PROPERTY_USAGE_ARRAY)) {
 						continue; //not real properties
 					}
 					if (F.name.begins_with("_")) {
 						continue; //hidden property
 					}
+					if (F.name.find("/") >= 0) {
+						// Ignore properties with '/' (slash) in the name. These are only meant for use in the inspector.
+						continue;
+					}
 					StringName property_name = F.name;
 					Dictionary d2;
-					d2["type"] = get_type_name(F);
+					d2["type"] = get_property_info_type_name(F);
 					d2["name"] = String(property_name);
 					d2["setter"] = ClassDB::get_property_setter(class_name, F.name);
 					d2["getter"] = ClassDB::get_property_getter(class_name, F.name);
@@ -918,9 +939,9 @@ void NativeExtensionAPIDump::generate_extension_json_file(const String &p_path) 
 	Ref<JSON> json;
 	json.instantiate();
 
-	String text = json->stringify(api, "\t", false);
+	String text = json->stringify(api, "\t", false) + "\n";
 	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::WRITE);
-	CharString cs = text.ascii();
-	fa->store_buffer((const uint8_t *)cs.ptr(), cs.length());
+	fa->store_string(text);
 }
-#endif
+
+#endif // TOOLS_ENABLED

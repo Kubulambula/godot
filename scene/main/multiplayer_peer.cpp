@@ -78,6 +78,10 @@ bool MultiplayerPeer::is_refusing_new_connections() const {
 	return refuse_connections;
 }
 
+bool MultiplayerPeer::is_server_relay_supported() const {
+	return false;
+}
+
 void MultiplayerPeer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_transfer_channel", "channel"), &MultiplayerPeer::set_transfer_channel);
 	ClassDB::bind_method(D_METHOD("get_transfer_channel"), &MultiplayerPeer::get_transfer_channel);
@@ -86,8 +90,12 @@ void MultiplayerPeer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_target_peer", "id"), &MultiplayerPeer::set_target_peer);
 
 	ClassDB::bind_method(D_METHOD("get_packet_peer"), &MultiplayerPeer::get_packet_peer);
+	ClassDB::bind_method(D_METHOD("get_packet_channel"), &MultiplayerPeer::get_packet_channel);
+	ClassDB::bind_method(D_METHOD("get_packet_mode"), &MultiplayerPeer::get_packet_mode);
 
 	ClassDB::bind_method(D_METHOD("poll"), &MultiplayerPeer::poll);
+	ClassDB::bind_method(D_METHOD("close"), &MultiplayerPeer::close);
+	ClassDB::bind_method(D_METHOD("disconnect_peer", "peer", "force"), &MultiplayerPeer::disconnect_peer, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("get_connection_status"), &MultiplayerPeer::get_connection_status);
 	ClassDB::bind_method(D_METHOD("get_unique_id"), &MultiplayerPeer::get_unique_id);
@@ -95,6 +103,8 @@ void MultiplayerPeer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_refuse_new_connections", "enable"), &MultiplayerPeer::set_refuse_new_connections);
 	ClassDB::bind_method(D_METHOD("is_refusing_new_connections"), &MultiplayerPeer::is_refusing_new_connections);
+
+	ClassDB::bind_method(D_METHOD("is_server_relay_supported"), &MultiplayerPeer::is_server_relay_supported);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "refuse_new_connections"), "set_refuse_new_connections", "is_refusing_new_connections");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "transfer_mode", PROPERTY_HINT_ENUM, "Unreliable,Unreliable Ordered,Reliable"), "set_transfer_mode", "get_transfer_mode");
@@ -113,26 +123,14 @@ void MultiplayerPeer::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("peer_connected", PropertyInfo(Variant::INT, "id")));
 	ADD_SIGNAL(MethodInfo("peer_disconnected", PropertyInfo(Variant::INT, "id")));
-	ADD_SIGNAL(MethodInfo("server_disconnected"));
-	ADD_SIGNAL(MethodInfo("connection_succeeded"));
-	ADD_SIGNAL(MethodInfo("connection_failed"));
 }
 
 /*************/
 
-int MultiplayerPeerExtension::get_available_packet_count() const {
-	int count;
-	if (GDVIRTUAL_CALL(_get_available_packet_count, count)) {
-		return count;
-	}
-	WARN_PRINT_ONCE("MultiplayerPeerExtension::_get_available_packet_count is unimplemented!");
-	return -1;
-}
-
 Error MultiplayerPeerExtension::get_packet(const uint8_t **r_buffer, int &r_buffer_size) {
-	int err;
+	Error err;
 	if (GDVIRTUAL_CALL(_get_packet, r_buffer, &r_buffer_size, err)) {
-		return (Error)err;
+		return err;
 	}
 	if (GDVIRTUAL_IS_OVERRIDDEN(_get_packet_script)) {
 		if (!GDVIRTUAL_CALL(_get_packet_script, script_buffer)) {
@@ -153,9 +151,9 @@ Error MultiplayerPeerExtension::get_packet(const uint8_t **r_buffer, int &r_buff
 }
 
 Error MultiplayerPeerExtension::put_packet(const uint8_t *p_buffer, int p_buffer_size) {
-	int err;
+	Error err;
 	if (GDVIRTUAL_CALL(_put_packet, p_buffer, p_buffer_size, err)) {
-		return (Error)err;
+		return err;
 	}
 	if (GDVIRTUAL_IS_OVERRIDDEN(_put_packet_script)) {
 		PackedByteArray a;
@@ -169,87 +167,6 @@ Error MultiplayerPeerExtension::put_packet(const uint8_t *p_buffer, int p_buffer
 	}
 	WARN_PRINT_ONCE("MultiplayerPeerExtension::_put_packet_native is unimplemented!");
 	return FAILED;
-}
-
-int MultiplayerPeerExtension::get_max_packet_size() const {
-	int size;
-	if (GDVIRTUAL_CALL(_get_max_packet_size, size)) {
-		return size;
-	}
-	WARN_PRINT_ONCE("MultiplayerPeerExtension::_get_max_packet_size is unimplemented!");
-	return 0;
-}
-
-void MultiplayerPeerExtension::set_transfer_channel(int p_channel) {
-	if (GDVIRTUAL_CALL(_set_transfer_channel, p_channel)) {
-		return;
-	}
-	MultiplayerPeer::set_transfer_channel(p_channel);
-}
-
-int MultiplayerPeerExtension::get_transfer_channel() const {
-	int channel;
-	if (GDVIRTUAL_CALL(_get_transfer_channel, channel)) {
-		return channel;
-	}
-	return MultiplayerPeer::get_transfer_channel();
-}
-
-void MultiplayerPeerExtension::set_transfer_mode(TransferMode p_mode) {
-	if (GDVIRTUAL_CALL(_set_transfer_mode, p_mode)) {
-		return;
-	}
-	MultiplayerPeer::set_transfer_mode(p_mode);
-}
-
-MultiplayerPeer::TransferMode MultiplayerPeerExtension::get_transfer_mode() const {
-	int mode;
-	if (GDVIRTUAL_CALL(_get_transfer_mode, mode)) {
-		return (MultiplayerPeer::TransferMode)mode;
-	}
-	return MultiplayerPeer::get_transfer_mode();
-}
-
-void MultiplayerPeerExtension::set_target_peer(int p_peer_id) {
-	if (GDVIRTUAL_CALL(_set_target_peer, p_peer_id)) {
-		return;
-	}
-	WARN_PRINT_ONCE("MultiplayerPeerExtension::_set_target_peer is unimplemented!");
-}
-
-int MultiplayerPeerExtension::get_packet_peer() const {
-	int peer;
-	if (GDVIRTUAL_CALL(_get_packet_peer, peer)) {
-		return peer;
-	}
-	WARN_PRINT_ONCE("MultiplayerPeerExtension::_get_packet_peer is unimplemented!");
-	return 0;
-}
-
-bool MultiplayerPeerExtension::is_server() const {
-	bool server;
-	if (GDVIRTUAL_CALL(_is_server, server)) {
-		return server;
-	}
-	WARN_PRINT_ONCE("MultiplayerPeerExtension::_is_server is unimplemented!");
-	return false;
-}
-
-void MultiplayerPeerExtension::poll() {
-	int err;
-	if (GDVIRTUAL_CALL(_poll, err)) {
-		return;
-	}
-	WARN_PRINT_ONCE("MultiplayerPeerExtension::_poll is unimplemented!");
-}
-
-int MultiplayerPeerExtension::get_unique_id() const {
-	int id;
-	if (GDVIRTUAL_CALL(_get_unique_id, id)) {
-		return id;
-	}
-	WARN_PRINT_ONCE("MultiplayerPeerExtension::_get_unique_id is unimplemented!");
-	return 0;
 }
 
 void MultiplayerPeerExtension::set_refuse_new_connections(bool p_enable) {
@@ -267,13 +184,12 @@ bool MultiplayerPeerExtension::is_refusing_new_connections() const {
 	return MultiplayerPeer::is_refusing_new_connections();
 }
 
-MultiplayerPeer::ConnectionStatus MultiplayerPeerExtension::get_connection_status() const {
-	int status;
-	if (GDVIRTUAL_CALL(_get_connection_status, status)) {
-		return (ConnectionStatus)status;
+bool MultiplayerPeerExtension::is_server_relay_supported() const {
+	bool can_relay;
+	if (GDVIRTUAL_CALL(_is_server_relay_supported, can_relay)) {
+		return can_relay;
 	}
-	WARN_PRINT_ONCE("MultiplayerPeerExtension::_get_connection_status is unimplemented!");
-	return CONNECTION_DISCONNECTED;
+	return MultiplayerPeer::is_server_relay_supported();
 }
 
 void MultiplayerPeerExtension::_bind_methods() {
@@ -296,8 +212,13 @@ void MultiplayerPeerExtension::_bind_methods() {
 	GDVIRTUAL_BIND(_get_packet_peer);
 	GDVIRTUAL_BIND(_is_server);
 	GDVIRTUAL_BIND(_poll);
+	GDVIRTUAL_BIND(_close);
+	GDVIRTUAL_BIND(_disconnect_peer, "p_peer", "p_force");
 	GDVIRTUAL_BIND(_get_unique_id);
 	GDVIRTUAL_BIND(_set_refuse_new_connections, "p_enable");
 	GDVIRTUAL_BIND(_is_refusing_new_connections);
 	GDVIRTUAL_BIND(_get_connection_status);
+
+	ADD_PROPERTY_DEFAULT("transfer_mode", TRANSFER_MODE_RELIABLE);
+	ADD_PROPERTY_DEFAULT("transfer_channel", 0);
 }

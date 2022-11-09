@@ -15,13 +15,15 @@
 # Ziv D <wizdavid@gmail.com>, 2020.
 # Violin Iliev <violin.developer@gmail.com>, 2021.
 # Ivan Gechev <ivan_banov@abv.bg>, 2022.
+# BigHomieDripDrop <bartu.bali@gmail.com>, 2022.
+# xaio <xaio666@gmail.com>, 2022.
 msgid ""
 msgstr ""
 "Project-Id-Version: Godot Engine editor\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2022-04-28 11:11+0000\n"
-"Last-Translator: Любомир Василев <lyubomirv@gmx.com>\n"
+"PO-Revision-Date: 2022-09-22 15:26+0000\n"
+"Last-Translator: xaio <xaio666@gmail.com>\n"
 "Language-Team: Bulgarian <https://hosted.weblate.org/projects/godot-engine/"
 "godot/bg/>\n"
 "Language: bg\n"
@@ -29,67 +31,59 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.12.1-dev\n"
+"X-Generator: Weblate 4.14.1\n"
 
 #: core/bind/core_bind.cpp main/main.cpp
 msgid "Tablet Driver"
-msgstr ""
+msgstr "Драйвер за таблет"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Clipboard"
-msgstr "Отрязване над"
+msgstr "Клипборд"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Current Screen"
-msgstr "Текущо име на сцената"
+msgstr "Текуща Сцена"
 
 #: core/bind/core_bind.cpp
 msgid "Exit Code"
-msgstr ""
+msgstr "Изходен Код"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "V-Sync Enabled"
-msgstr "Включване"
+msgstr "V-Sync Включено"
 
 #: core/bind/core_bind.cpp main/main.cpp
 msgid "V-Sync Via Compositor"
-msgstr ""
+msgstr "V-Sync Чрез Композитора"
 
 #: core/bind/core_bind.cpp main/main.cpp
 msgid "Delta Smoothing"
-msgstr ""
+msgstr "Делта Изглаждане"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Low Processor Usage Mode"
-msgstr "Режим на преместване"
+msgstr "Режим на Ниско Натоварване на Процесора"
 
 #: core/bind/core_bind.cpp
 msgid "Low Processor Usage Mode Sleep (µsec)"
-msgstr ""
+msgstr "Заспиване в Режим на Ниско Натоварване на Процесора (µsec)"
 
 #: core/bind/core_bind.cpp main/main.cpp platform/uwp/os_uwp.cpp
-#, fuzzy
 msgid "Keep Screen On"
-msgstr "Дебъгерът да остане отворен"
+msgstr "Дръж Екрана Включен"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Min Window Size"
-msgstr "Размер на контура:"
+msgstr "Минимален Размер на Екрана"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Max Window Size"
-msgstr "Размер на контура:"
+msgstr "Максимален Размер на Екрана"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Screen Orientation"
-msgstr "Отваряне на документацията"
+msgstr "Ориентация на Екрана"
 
 #: core/bind/core_bind.cpp core/project_settings.cpp main/main.cpp
 #: platform/uwp/os_uwp.cpp
@@ -102,7 +96,7 @@ msgstr "Без граници"
 
 #: core/bind/core_bind.cpp
 msgid "Per Pixel Transparency Enabled"
-msgstr ""
+msgstr "Попикселова Прозрачност Включено"
 
 #: core/bind/core_bind.cpp core/project_settings.cpp
 msgid "Fullscreen"
@@ -110,26 +104,24 @@ msgstr "Цял екран"
 
 #: core/bind/core_bind.cpp
 msgid "Maximized"
-msgstr ""
+msgstr "Максимизиран"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Minimized"
-msgstr "Инициализиране"
+msgstr "Минимизиран"
 
 #: core/bind/core_bind.cpp core/project_settings.cpp scene/gui/dialogs.cpp
 #: scene/gui/graph_node.cpp
 msgid "Resizable"
-msgstr ""
+msgstr "Преоразмеряване е Възможно"
 
 #: core/bind/core_bind.cpp core/os/input_event.cpp scene/2d/node_2d.cpp
 #: scene/2d/physics_body_2d.cpp scene/2d/remote_transform_2d.cpp
 #: scene/3d/physics_body.cpp scene/3d/remote_transform.cpp
 #: scene/gui/control.cpp scene/gui/line_edit.cpp
 #: scene/resources/default_theme/default_theme.cpp
-#, fuzzy
 msgid "Position"
-msgstr "Създаване на функция"
+msgstr "Позиция"
 
 #: core/bind/core_bind.cpp core/project_settings.cpp editor/editor_settings.cpp
 #: main/main.cpp modules/gridmap/grid_map.cpp
@@ -140,60 +132,52 @@ msgstr "Създаване на функция"
 #: scene/resources/primitive_meshes.cpp scene/resources/sky.cpp
 #: scene/resources/style_box.cpp scene/resources/texture.cpp
 #: scene/resources/visual_shader.cpp servers/visual_server.cpp
-#, fuzzy
 msgid "Size"
-msgstr "Размер:"
+msgstr "Размер"
 
 #: core/bind/core_bind.cpp
 msgid "Endian Swap"
-msgstr ""
+msgstr "Размяна на Байтова Крайност"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Editor Hint"
-msgstr "Тема на редактора"
+msgstr "Съвет за Редактора"
 
 #: core/bind/core_bind.cpp
 msgid "Print Error Messages"
-msgstr "Принирай съобщения за грешки"
+msgstr "Принтирай съобщения за грешки"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Iterations Per Second"
-msgstr "Режим на интерполация"
+msgstr "Итерации в Секунда"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Target FPS"
-msgstr "Принудително изпращане"
+msgstr "Целеви FPS"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Time Scale"
-msgstr "Текстурна област"
+msgstr "Времева Скала"
 
 #: core/bind/core_bind.cpp main/main.cpp
 msgid "Physics Jitter Fix"
-msgstr ""
+msgstr "Корекция на Физично Трептене"
 
 #: core/bind/core_bind.cpp editor/plugins/version_control_editor_plugin.cpp
 msgid "Error"
 msgstr "Грешка"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Error String"
-msgstr "Грешка при запазване"
+msgstr "Низ на Грешката"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Error Line"
-msgstr "Грешка при запазване"
+msgstr "Линия на Грешката"
 
 #: core/bind/core_bind.cpp
-#, fuzzy
 msgid "Result"
-msgstr "Резултати от търсенето"
+msgstr "Резултат"
 
 #: core/command_queue_mt.cpp core/message_queue.cpp main/main.cpp
 msgid "Memory"
@@ -208,16 +192,15 @@ msgstr "Памет"
 #: modules/webrtc/webrtc_data_channel.h modules/websocket/websocket_macros.h
 #: servers/visual_server.cpp
 msgid "Limits"
-msgstr ""
+msgstr "Ограничения"
 
 #: core/command_queue_mt.cpp
-#, fuzzy
 msgid "Command Queue"
-msgstr "Command: завъртане"
+msgstr "Oпашка от Kоманди"
 
 #: core/command_queue_mt.cpp
 msgid "Multithreading Queue Size (KB)"
-msgstr ""
+msgstr "Размер на Многонишковата Опашка (KB)"
 
 #: core/func_ref.cpp modules/visual_script/visual_script_builtin_funcs.cpp
 #: modules/visual_script/visual_script_func_nodes.cpp
@@ -236,101 +219,92 @@ msgstr "Данни"
 #: modules/gdscript/language_server/gdscript_language_server.cpp
 #: modules/webrtc/webrtc_data_channel.h modules/websocket/websocket_macros.h
 #: scene/gui/file_dialog.cpp
-#, fuzzy
 msgid "Network"
-msgstr "Профилиране на мрежата"
+msgstr "Мрежа"
 
 #: core/io/file_access_network.cpp
 msgid "Remote FS"
-msgstr "Отдалечена ФС"
+msgstr "Дистанционна ФС"
 
 #: core/io/file_access_network.cpp
 msgid "Page Size"
-msgstr "Размер на страница"
+msgstr "Размер на Страница"
 
 #: core/io/file_access_network.cpp
 msgid "Page Read Ahead"
-msgstr ""
+msgstr "Кеширане на Страницата"
 
 #: core/io/http_client.cpp
 msgid "Blocking Mode Enabled"
-msgstr ""
+msgstr "Блокиращ Режим Включен"
 
 #: core/io/http_client.cpp
-#, fuzzy
 msgid "Connection"
-msgstr "Свързване"
+msgstr "Връзка"
 
 #: core/io/http_client.cpp
 msgid "Read Chunk Size"
-msgstr ""
+msgstr "Размер на Прочетеното Парче"
 
 #: core/io/marshalls.cpp
-#, fuzzy
 msgid "Object ID"
-msgstr "Изчертани обекти:"
+msgstr "Обект ID"
 
 #: core/io/multiplayer_api.cpp core/io/packet_peer.cpp
-#, fuzzy
 msgid "Allow Object Decoding"
-msgstr "Показване на избледняващи кадри"
+msgstr "Разреши Декодирането на Обекта"
 
 #: core/io/multiplayer_api.cpp scene/main/scene_tree.cpp
 msgid "Refuse New Network Connections"
 msgstr "Отказ на нови мрежови връзки"
 
 #: core/io/multiplayer_api.cpp scene/main/scene_tree.cpp
-#, fuzzy
 msgid "Network Peer"
-msgstr "Профилиране на мрежата"
+msgstr "Мрежов Връстник"
 
 #: core/io/multiplayer_api.cpp scene/animation/animation_player.cpp
-#, fuzzy
 msgid "Root Node"
-msgstr "Име на коренния обект"
+msgstr "Коренен Връх"
 
 #: core/io/networked_multiplayer_peer.cpp
-#, fuzzy
 msgid "Refuse New Connections"
-msgstr "Свързване"
+msgstr "Отказ на нови връзки"
 
 #: core/io/networked_multiplayer_peer.cpp
-#, fuzzy
 msgid "Transfer Mode"
-msgstr "Панорамен режим"
+msgstr "Режим на трансфер"
 
 #: core/io/packet_peer.cpp
 msgid "Encode Buffer Max Size"
-msgstr ""
+msgstr "Максимален размер на буфера за кодиране"
 
 #: core/io/packet_peer.cpp
 msgid "Input Buffer Max Size"
-msgstr ""
+msgstr "Максимален размер на входния буфер"
 
 #: core/io/packet_peer.cpp
 msgid "Output Buffer Max Size"
-msgstr ""
+msgstr "Максимален размер на изходния буфер"
 
 #: core/io/packet_peer.cpp
 msgid "Stream Peer"
-msgstr ""
+msgstr "Поточен връстник"
 
 #: core/io/stream_peer.cpp
 msgid "Big Endian"
-msgstr ""
+msgstr "Биг-Ендиан"
 
 #: core/io/stream_peer.cpp
 msgid "Data Array"
-msgstr ""
+msgstr "Масив от Данни"
 
 #: core/io/stream_peer_ssl.cpp
 msgid "Blocking Handshake"
-msgstr ""
+msgstr "Блокиращ Handshake"
 
 #: core/io/udp_server.cpp
-#, fuzzy
 msgid "Max Pending Connections"
-msgstr "Редактиране на Връзката:"
+msgstr "Максимален брой чакащи връзки"
 
 #: core/math/expression.cpp modules/gdscript/gdscript_functions.cpp
 #: modules/visual_script/visual_script_builtin_funcs.cpp
@@ -350,9 +324,8 @@ msgid "Not enough bytes for decoding bytes, or invalid format."
 msgstr "Недостатъчно байтове за разкодиране или неправилен формат."
 
 #: core/math/expression.cpp
-#, fuzzy
 msgid "Invalid input %d (not passed) in expression"
-msgstr "Неправилен входен параметър %i (не е подаден) в израза"
+msgstr "Неправилен входен параметър %d (не е подаден) в израза"
 
 #: core/math/expression.cpp
 msgid "self can't be used because instance is null (not passed)"
@@ -385,13 +358,12 @@ msgid "Seed"
 msgstr ""
 
 #: core/math/random_number_generator.cpp
-#, fuzzy
 msgid "State"
-msgstr "Ротация"
+msgstr "Състояние"
 
 #: core/message_queue.cpp
 msgid "Message Queue"
-msgstr ""
+msgstr "Опашка на съобщения"
 
 #: core/message_queue.cpp
 msgid "Max Size (KB)"
@@ -404,7 +376,7 @@ msgstr "Режим на преместване"
 
 #: core/os/input.cpp
 msgid "Use Accumulated Input"
-msgstr ""
+msgstr "Ползвай акумулиран вход"
 
 #: core/os/input_event.cpp editor/project_settings_editor.cpp
 #: servers/audio_server.cpp
@@ -432,9 +404,8 @@ msgid "Command"
 msgstr "Command"
 
 #: core/os/input_event.cpp
-#, fuzzy
 msgid "Physical"
-msgstr "Включване"
+msgstr "Физически"
 
 #: core/os/input_event.cpp scene/2d/touch_screen_button.cpp
 #: scene/gui/base_button.cpp scene/gui/texture_button.cpp
@@ -445,19 +416,20 @@ msgstr "Натиснат"
 #: core/os/input_event.cpp
 #, fuzzy
 msgid "Scancode"
-msgstr "Сканиране"
+msgstr "Сканкод"
 
 #: core/os/input_event.cpp
 msgid "Physical Scancode"
-msgstr ""
+msgstr "Физически сканкод"
 
 #: core/os/input_event.cpp
 msgid "Unicode"
 msgstr "Уникод"
 
 #: core/os/input_event.cpp
+#, fuzzy
 msgid "Echo"
-msgstr ""
+msgstr "Echo"
 
 #: core/os/input_event.cpp scene/gui/base_button.cpp
 #, fuzzy
@@ -485,7 +457,7 @@ msgstr "Двоен клик"
 
 #: core/os/input_event.cpp
 msgid "Tilt"
-msgstr ""
+msgstr "Наклон"
 
 #: core/os/input_event.cpp
 msgid "Pressure"
@@ -493,11 +465,11 @@ msgstr "Натиск"
 
 #: core/os/input_event.cpp
 msgid "Pen Inverted"
-msgstr ""
+msgstr "Писалка обърната"
 
 #: core/os/input_event.cpp
 msgid "Relative"
-msgstr ""
+msgstr "Относително"
 
 #: core/os/input_event.cpp scene/2d/camera_2d.cpp scene/2d/cpu_particles_2d.cpp
 #: scene/3d/cpu_particles.cpp scene/3d/interpolated_camera.cpp
@@ -632,15 +604,15 @@ msgstr "Заключен елемент"
 
 #: core/project_settings.cpp
 msgid "Use Hidden Project Data Directory"
-msgstr ""
+msgstr "Ползвай скрита дата директория на проекта"
 
 #: core/project_settings.cpp
 msgid "Use Custom User Dir"
-msgstr ""
+msgstr "Ползвай персоналната директория на потребителя"
 
 #: core/project_settings.cpp
 msgid "Custom User Dir Name"
-msgstr ""
+msgstr "Име на персонална потребителска категория"
 
 #: core/project_settings.cpp main/main.cpp
 #: platform/javascript/export/export.cpp platform/osx/export/export.cpp
@@ -653,7 +625,7 @@ msgstr "Показване на всичко"
 #: modules/opensimplex/noise_texture.cpp scene/2d/line_2d.cpp
 #: scene/3d/label_3d.cpp scene/gui/text_edit.cpp scene/resources/texture.cpp
 msgid "Width"
-msgstr ""
+msgstr "Широчина"
 
 #: core/project_settings.cpp main/main.cpp modules/csg/csg_shape.cpp
 #: modules/gltf/gltf_node.cpp modules/opensimplex/noise_texture.cpp
@@ -662,20 +634,19 @@ msgstr ""
 #: scene/resources/font.cpp scene/resources/navigation_mesh.cpp
 #: scene/resources/primitive_meshes.cpp scene/resources/texture.cpp
 msgid "Height"
-msgstr ""
+msgstr "Височина"
 
 #: core/project_settings.cpp
 msgid "Always On Top"
-msgstr ""
+msgstr "Винаги отгоре"
 
 #: core/project_settings.cpp
 msgid "Test Width"
-msgstr ""
+msgstr "Тестова широчина"
 
 #: core/project_settings.cpp
-#, fuzzy
 msgid "Test Height"
-msgstr "Тестово"
+msgstr "Тестова височина"
 
 #: core/project_settings.cpp editor/animation_track_editor.cpp
 #: editor/editor_audio_buses.cpp main/main.cpp servers/audio_server.cpp
@@ -684,14 +655,14 @@ msgstr "Аудио"
 
 #: core/project_settings.cpp
 msgid "Default Bus Layout"
-msgstr ""
+msgstr "Bus Layout по подразбиране"
 
 #: core/project_settings.cpp editor/editor_export.cpp
 #: editor/editor_file_system.cpp editor/editor_node.cpp
 #: editor/editor_settings.cpp editor/script_create_dialog.cpp
 #: scene/2d/camera_2d.cpp scene/3d/light.cpp scene/main/node.cpp
 msgid "Editor"
-msgstr ""
+msgstr "Редактор"
 
 #: core/project_settings.cpp
 msgid "Main Run Args"
@@ -704,11 +675,11 @@ msgstr "Път на сцената:"
 
 #: core/project_settings.cpp
 msgid "Search In File Extensions"
-msgstr ""
+msgstr "Търси във файловите окончания"
 
 #: core/project_settings.cpp
 msgid "Script Templates Search Path"
-msgstr ""
+msgstr "Път за търсене на скриптови шаблони"
 
 #: core/project_settings.cpp
 #, fuzzy
@@ -727,7 +698,7 @@ msgstr "Вход"
 
 #: core/project_settings.cpp
 msgid "UI Accept"
-msgstr ""
+msgstr "UI Приемам"
 
 #: core/project_settings.cpp
 #, fuzzy
@@ -741,38 +712,35 @@ msgstr "Отказ"
 
 #: core/project_settings.cpp
 msgid "UI Focus Next"
-msgstr ""
+msgstr "UI фокус следващ"
 
 #: core/project_settings.cpp
 msgid "UI Focus Prev"
-msgstr ""
+msgstr "UI фокус предишен"
 
 #: core/project_settings.cpp
-#, fuzzy
 msgid "UI Left"
-msgstr "Горе вляво"
+msgstr "UI наляво"
 
 #: core/project_settings.cpp
-#, fuzzy
 msgid "UI Right"
-msgstr "Горе вдясно"
+msgstr "UI надясно"
 
 #: core/project_settings.cpp
 msgid "UI Up"
-msgstr ""
+msgstr "UI нагоре"
 
 #: core/project_settings.cpp
-#, fuzzy
 msgid "UI Down"
-msgstr "Надолу"
+msgstr "UI надолу"
 
 #: core/project_settings.cpp
 msgid "UI Page Up"
-msgstr ""
+msgstr "UI страница нагоре"
 
 #: core/project_settings.cpp
 msgid "UI Page Down"
-msgstr ""
+msgstr "UI страница надолу"
 
 #: core/project_settings.cpp
 msgid "UI Home"
@@ -792,7 +760,7 @@ msgstr "На края"
 #: servers/physics_2d/space_2d_sw.cpp servers/physics_2d_server.cpp
 #: servers/physics_server.cpp
 msgid "Physics"
-msgstr ""
+msgstr "Физика"
 
 #: core/project_settings.cpp editor/editor_settings.cpp
 #: editor/import/resource_importer_layered_texture.cpp
@@ -802,11 +770,11 @@ msgstr ""
 #: scene/3d/physics_body.cpp scene/resources/world.cpp
 #: servers/physics/space_sw.cpp servers/physics_server.cpp
 msgid "3D"
-msgstr ""
+msgstr "3D"
 
 #: core/project_settings.cpp
 msgid "Smooth Trimesh Collision"
-msgstr ""
+msgstr "Плавен тримеш сблъсък"
 
 #: core/project_settings.cpp drivers/gles2/rasterizer_canvas_base_gles2.cpp
 #: drivers/gles2/rasterizer_scene_gles2.cpp
@@ -818,7 +786,7 @@ msgstr ""
 #: scene/main/viewport.cpp servers/visual/visual_server_scene.cpp
 #: servers/visual_server.cpp
 msgid "Rendering"
-msgstr ""
+msgstr "Рендериране"
 
 #: core/project_settings.cpp drivers/gles2/rasterizer_storage_gles2.cpp
 #: drivers/gles3/rasterizer_scene_gles3.cpp
@@ -828,18 +796,17 @@ msgstr ""
 #: scene/resources/multimesh.cpp servers/visual/visual_server_scene.cpp
 #: servers/visual_server.cpp
 msgid "Quality"
-msgstr ""
+msgstr "Качество"
 
 #: core/project_settings.cpp scene/gui/file_dialog.cpp
 #: scene/main/scene_tree.cpp scene/resources/navigation_mesh.cpp
 #: servers/visual_server.cpp
-#, fuzzy
 msgid "Filters"
-msgstr "Филтри:"
+msgstr "Филтри"
 
 #: core/project_settings.cpp scene/main/viewport.cpp
 msgid "Sharpen Intensity"
-msgstr ""
+msgstr "Интензивност на изострянето"
 
 #: core/project_settings.cpp editor/editor_export.cpp editor/editor_node.cpp
 #: editor/editor_settings.cpp editor/plugins/script_editor_plugin.cpp
@@ -855,19 +822,18 @@ msgstr "Дебъгване"
 
 #: core/project_settings.cpp main/main.cpp modules/gdscript/gdscript.cpp
 #: modules/visual_script/visual_script.cpp scene/resources/dynamic_font.cpp
-#, fuzzy
 msgid "Settings"
-msgstr "Настройки:"
+msgstr "Настройки"
 
 #: core/project_settings.cpp editor/script_editor_debugger.cpp main/main.cpp
 #: modules/mono/mono_gd/gd_mono.cpp
 msgid "Profiler"
-msgstr ""
+msgstr "Профайлър"
 
 #: core/project_settings.cpp
 #, fuzzy
 msgid "Max Functions"
-msgstr "Преобразуване във функция"
+msgstr "Макс функции"
 
 #: core/project_settings.cpp scene/3d/vehicle_body.cpp
 msgid "Compression"
@@ -875,31 +841,31 @@ msgstr "Компресиране"
 
 #: core/project_settings.cpp
 msgid "Formats"
-msgstr ""
+msgstr "Формати"
 
 #: core/project_settings.cpp
 msgid "Zstd"
-msgstr ""
+msgstr "Zstd"
 
 #: core/project_settings.cpp
 msgid "Long Distance Matching"
-msgstr ""
+msgstr "Съвпадение на дълги разстояния"
 
 #: core/project_settings.cpp
 msgid "Compression Level"
-msgstr ""
+msgstr "Ниво на компресия"
 
 #: core/project_settings.cpp
 msgid "Window Log Size"
-msgstr ""
+msgstr "Размер на лог прозореца"
 
 #: core/project_settings.cpp
 msgid "Zlib"
-msgstr ""
+msgstr "Zlib"
 
 #: core/project_settings.cpp
 msgid "Gzip"
-msgstr ""
+msgstr "Gzip"
 
 #: core/project_settings.cpp platform/android/export/export.cpp
 msgid "Android"
@@ -914,26 +880,24 @@ msgid "TCP"
 msgstr "TCP"
 
 #: core/register_core_types.cpp
-#, fuzzy
 msgid "Connect Timeout Seconds"
-msgstr "Връзки към метода:"
+msgstr "Време за свързване Секунди"
 
 #: core/register_core_types.cpp
 msgid "Packet Peer Stream"
-msgstr ""
+msgstr "Брой пакети на стрийм"
 
 #: core/register_core_types.cpp
 msgid "Max Buffer (Power of 2)"
-msgstr ""
+msgstr "Максимален размер на буфера (степен от 2)"
 
 #: core/register_core_types.cpp editor/editor_settings.cpp main/main.cpp
 msgid "SSL"
-msgstr ""
+msgstr "SSL"
 
 #: core/register_core_types.cpp main/main.cpp
-#, fuzzy
 msgid "Certificates"
-msgstr "Вертекси:"
+msgstr "Сертификати"
 
 #: core/resource.cpp editor/dependency_editor.cpp
 #: editor/editor_resource_picker.cpp
@@ -942,9 +906,8 @@ msgid "Resource"
 msgstr "Ресурс"
 
 #: core/resource.cpp
-#, fuzzy
 msgid "Local To Scene"
-msgstr "Затваряне на сцената"
+msgstr "Локално на сцената"
 
 #: core/resource.cpp editor/dependency_editor.cpp
 #: editor/editor_autoload_settings.cpp editor/plugins/path_editor_plugin.cpp
@@ -954,22 +917,20 @@ msgid "Path"
 msgstr "Път"
 
 #: core/script_language.cpp
-#, fuzzy
 msgid "Source Code"
-msgstr "Източник за полигонна мрежа:"
+msgstr "Изходен код"
 
 #: core/translation.cpp editor/project_settings_editor.cpp
 msgid "Locale"
-msgstr ""
+msgstr "Локал"
 
 #: core/translation.cpp
-#, fuzzy
 msgid "Test"
-msgstr "Тестово"
+msgstr "Тест"
 
 #: core/translation.cpp scene/resources/font.cpp
 msgid "Fallback"
-msgstr ""
+msgstr "Резервен вариант"
 
 #: core/ustring.cpp scene/resources/segment_shape_2d.cpp
 msgid "B"
@@ -1005,12 +966,12 @@ msgstr "ЕиБ"
 #: drivers/gles3/rasterizer_scene_gles3.cpp
 #: drivers/gles3/rasterizer_storage_gles3.cpp modules/gltf/gltf_state.cpp
 msgid "Buffers"
-msgstr ""
+msgstr "Буфери"
 
 #: drivers/gles2/rasterizer_canvas_base_gles2.cpp
 #: drivers/gles3/rasterizer_canvas_base_gles3.cpp
 msgid "Canvas Polygon Buffer Size (KB)"
-msgstr ""
+msgstr "Размер на буфера на полигона на канавата (KB)"
 
 #: drivers/gles2/rasterizer_canvas_base_gles2.cpp
 #: drivers/gles3/rasterizer_canvas_base_gles3.cpp
@@ -1027,7 +988,7 @@ msgstr ""
 #: servers/physics_2d/space_2d_sw.cpp servers/physics_2d_server.cpp
 #: servers/visual_server.cpp
 msgid "2D"
-msgstr ""
+msgstr "2D"
 
 #: drivers/gles2/rasterizer_canvas_base_gles2.cpp
 #: drivers/gles3/rasterizer_canvas_base_gles3.cpp
@@ -1055,28 +1016,27 @@ msgstr "Изпичане на карти на осветеност"
 #: drivers/gles2/rasterizer_storage_gles2.cpp
 #: drivers/gles3/rasterizer_storage_gles3.cpp
 msgid "Use Bicubic Sampling"
-msgstr ""
+msgstr "Ползвай Bicubic семплиране"
 
 #: drivers/gles3/rasterizer_scene_gles3.cpp
 msgid "Max Renderable Elements"
-msgstr ""
+msgstr "Макс. рендерируеми елементи"
 
 #: drivers/gles3/rasterizer_scene_gles3.cpp
 msgid "Max Renderable Lights"
-msgstr ""
+msgstr "Максимум рендерируеми светлини"
 
 #: drivers/gles3/rasterizer_scene_gles3.cpp
-#, fuzzy
 msgid "Max Renderable Reflections"
-msgstr "Центриране върху избраното"
+msgstr "Макс рендерируеми отражения"
 
 #: drivers/gles3/rasterizer_scene_gles3.cpp
 msgid "Max Lights Per Object"
-msgstr ""
+msgstr "Максимум светлини на обект"
 
 #: drivers/gles3/rasterizer_scene_gles3.cpp
 msgid "Subsurface Scattering"
-msgstr ""
+msgstr "Подповърхностно разсейване"
 
 #: drivers/gles3/rasterizer_scene_gles3.cpp editor/animation_track_editor.cpp
 #: editor/import/resource_importer_texture.cpp
@@ -1105,7 +1065,7 @@ msgstr ""
 
 #: drivers/gles3/rasterizer_scene_gles3.cpp scene/resources/environment.cpp
 msgid "High Quality"
-msgstr ""
+msgstr "Високо качество"
 
 #: drivers/gles3/rasterizer_storage_gles3.cpp
 msgid "Blend Shape Max Buffer Size (KB)"
@@ -1138,7 +1098,7 @@ msgstr "Вмъкване на ключ тук"
 
 #: editor/animation_bezier_editor.cpp
 msgid "Duplicate Selected Key(s)"
-msgstr "Копиране на избран(и) ключ(ове)"
+msgstr "Дупликат на избран(и) ключ(ове)"
 
 #: editor/animation_bezier_editor.cpp
 msgid "Delete Selected Key(s)"
@@ -1192,7 +1152,7 @@ msgstr "Добавяне на кадър"
 #: scene/3d/cpu_particles.cpp scene/3d/particles.cpp
 #: scene/resources/particles_material.cpp servers/visual_server.cpp
 msgid "Time"
-msgstr ""
+msgstr "Време"
 
 #: editor/animation_track_editor.cpp editor/import/resource_importer_scene.cpp
 #: platform/osx/export/export.cpp
@@ -1220,29 +1180,31 @@ msgstr "Добавяне на входящ порт"
 #: editor/animation_track_editor.cpp main/main.cpp
 #: modules/mono/mono_gd/gd_mono.cpp
 msgid "Args"
-msgstr ""
+msgstr "Аргументи"
 
 #: editor/animation_track_editor.cpp editor/editor_settings.cpp
 #: editor/script_editor_debugger.cpp modules/gltf/gltf_accessor.cpp
 #: modules/gltf/gltf_light.cpp modules/visual_script/visual_script_nodes.cpp
 #: scene/3d/physics_body.cpp scene/resources/visual_shader_nodes.cpp
 msgid "Type"
-msgstr ""
+msgstr "Тип"
 
 #: editor/animation_track_editor.cpp
+#, fuzzy
 msgid "In Handle"
-msgstr ""
+msgstr "In Handle"
 
 #: editor/animation_track_editor.cpp
+#, fuzzy
 msgid "Out Handle"
-msgstr ""
+msgstr "Out Handle"
 
 #: editor/animation_track_editor.cpp
 #: editor/import/resource_importer_texture.cpp
 #: scene/2d/audio_stream_player_2d.cpp scene/3d/audio_stream_player_3d.cpp
 #: scene/audio/audio_stream_player.cpp scene/gui/video_player.cpp
 msgid "Stream"
-msgstr ""
+msgstr "Поток"
 
 #: editor/animation_track_editor.cpp
 #, fuzzy
@@ -1265,8 +1227,9 @@ msgid "Animation"
 msgstr "Анимация"
 
 #: editor/animation_track_editor.cpp
+#, fuzzy
 msgid "Easing"
-msgstr ""
+msgstr "Easing"
 
 #: editor/animation_track_editor.cpp
 msgid "Anim Multi Change Keyframe Time"
@@ -2126,7 +2089,7 @@ msgstr ""
 
 #: editor/connections_dialog.cpp editor/editor_help.cpp editor/node_dock.cpp
 msgid "Signals"
-msgstr ""
+msgstr "Сигнали"
 
 #: editor/connections_dialog.cpp
 msgid "Filter signals"
@@ -2814,8 +2777,9 @@ msgid "Project export for platform:"
 msgstr ""
 
 #: editor/editor_export.cpp
-msgid "Completed with errors."
-msgstr ""
+#, fuzzy
+msgid "Completed with warnings."
+msgstr "Копиране на избраното"
 
 #: editor/editor_export.cpp
 msgid "Completed successfully."
@@ -3729,7 +3693,7 @@ msgstr ""
 #: editor/editor_network_profiler.cpp editor/editor_node.cpp
 #: scene/main/node.cpp scene/resources/default_theme/default_theme.cpp
 msgid "Node"
-msgstr "Обект"
+msgstr "Връх"
 
 #: editor/editor_network_profiler.cpp
 msgid "Incoming RPC"
@@ -4505,6 +4469,7 @@ msgstr ""
 
 #: editor/editor_node.cpp editor/project_manager.cpp
 #: editor/script_create_dialog.cpp modules/mono/editor/csharp_project.cpp
+#: modules/mono/godotsharp_dirs.cpp
 msgid "Project"
 msgstr "Проект"
 
@@ -6948,7 +6913,7 @@ msgstr ""
 #: editor/import/resource_importer_layered_texture.cpp
 #: editor/import/resource_importer_texture.cpp
 msgid "sRGB"
-msgstr ""
+msgstr "sRGB"
 
 #: editor/import/resource_importer_layered_texture.cpp
 #, fuzzy
@@ -7335,7 +7300,8 @@ msgid "8 Bit"
 msgstr ""
 
 #: editor/import/resource_importer_wav.cpp main/main.cpp
-#: modules/mono/editor/csharp_project.cpp modules/mono/mono_gd/gd_mono.cpp
+#: modules/mono/editor/csharp_project.cpp modules/mono/godotsharp_dirs.cpp
+#: modules/mono/mono_gd/gd_mono.cpp
 msgid "Mono"
 msgstr ""
 
@@ -8203,6 +8169,7 @@ msgstr "Режим на възпроизвеждане:"
 
 #: editor/plugins/animation_tree_editor_plugin.cpp
 #: editor/plugins/animation_tree_player_editor_plugin.cpp
+#, fuzzy
 msgid "AnimationTree"
 msgstr "AnimationTree"
 
@@ -15160,18 +15127,19 @@ msgstr ""
 msgid "Make Local"
 msgstr ""
 
-#: editor/scene_tree_dock.cpp editor/scene_tree_editor.cpp
-msgid "Another node already uses this unique name in the scene."
-msgstr ""
+#: editor/scene_tree_dock.cpp
+#, fuzzy
+msgid "Enable Scene Unique Name(s)"
+msgstr "Име на обекта:"
 
 #: editor/scene_tree_dock.cpp
 #, fuzzy
-msgid "Enable Scene Unique Name"
-msgstr "Име на обекта:"
+msgid "Unique names already used by another node in the scene:"
+msgstr "Името вече е заето от друга функция/променлива/сигнал:"
 
-#: editor/scene_tree_dock.cpp editor/scene_tree_editor.cpp
+#: editor/scene_tree_dock.cpp
 #, fuzzy
-msgid "Disable Scene Unique Name"
+msgid "Disable Scene Unique Name(s)"
 msgstr "Име на обекта:"
 
 #: editor/scene_tree_dock.cpp
@@ -15363,6 +15331,11 @@ msgid "Button Group"
 msgstr "Група бутони"
 
 #: editor/scene_tree_editor.cpp
+#, fuzzy
+msgid "Disable Scene Unique Name"
+msgstr "Име на обекта:"
+
+#: editor/scene_tree_editor.cpp
 msgid "(Connecting From)"
 msgstr "(Свързване от)"
 
@@ -15423,6 +15396,10 @@ msgstr ""
 
 #: editor/scene_tree_editor.cpp
 msgid "Invalid node name, the following characters are not allowed:"
+msgstr ""
+
+#: editor/scene_tree_editor.cpp
+msgid "Another node already uses this unique name in the scene."
 msgstr ""
 
 #: editor/scene_tree_editor.cpp
@@ -17324,6 +17301,21 @@ msgstr "Запълване на избраното"
 msgid "Auto Update Project"
 msgstr "Редактиране на проекта"
 
+#: modules/mono/godotsharp_dirs.cpp
+#, fuzzy
+msgid "Assembly Name"
+msgstr "Показване на всичко"
+
+#: modules/mono/godotsharp_dirs.cpp
+#, fuzzy
+msgid "Solution Directory"
+msgstr "Изберете папка"
+
+#: modules/mono/godotsharp_dirs.cpp
+#, fuzzy
+msgid "C# Project Directory"
+msgstr "Изберете папка"
+
 #: modules/mono/mono_gd/gd_mono_utils.cpp
 msgid "End of inner exception stack trace"
 msgstr "Край на вътрешния стек на проследяване за изключението"
@@ -18741,14 +18733,13 @@ msgid "Code Signing"
 msgstr "Сигнал"
 
 #: platform/android/export/export_plugin.cpp
-#, fuzzy
 msgid ""
 "'apksigner' could not be found. Please check that the command is available "
 "in the Android SDK build-tools directory. The resulting %s is unsigned."
 msgstr ""
-"Командата „apksigner“ не може да бъде намерена.\n"
-"Проверете дали командата е налична в папката „build-tools“ на Android SDK.\n"
-"Резултатният файл „%s“ не е подписан."
+"Командата „apksigner“ не може да бъде намерена. Проверете дали командата е "
+"налична в папката „build-tools“ на Android SDK. Резултатният файл „%s“ не е "
+"подписан."
 
 #: platform/android/export/export_plugin.cpp
 msgid "Signing debug %s..."
@@ -18795,9 +18786,8 @@ msgid "Invalid filename! Android APK requires the *.apk extension."
 msgstr "Неправилно име! Android APK изисква разширение *.apk."
 
 #: platform/android/export/export_plugin.cpp
-#, fuzzy
 msgid "Unsupported export format!"
-msgstr "Неподдържан формат за изнасяне!\n"
+msgstr "Неподдържан формат за изнасяне!"
 
 #: platform/android/export/export_plugin.cpp
 msgid ""
@@ -18820,10 +18810,8 @@ msgstr ""
 "името на проекта"
 
 #: platform/android/export/export_plugin.cpp
-#, fuzzy
 msgid "Could not export project files to gradle project."
-msgstr ""
-"Файловете на проекта не могат да бъдат изнесени като проект на gradle.\n"
+msgstr "Файловете на проекта не могат да бъдат изнесени като проект на gradle."
 
 #: platform/android/export/export_plugin.cpp
 msgid "Could not write expansion package file!"
@@ -18834,15 +18822,13 @@ msgid "Building Android Project (gradle)"
 msgstr "Компилиране на проект за Android (gradle)"
 
 #: platform/android/export/export_plugin.cpp
-#, fuzzy
 msgid ""
 "Building of Android project failed, check output for the error. "
 "Alternatively visit docs.godotengine.org for Android build documentation."
 msgstr ""
 "Компилирането на проекта за Android беше неуспешно. Вижте изхода за "
-"грешката.\n"
-"Може също да разгледате документацията за компилиране за Android на docs."
-"godotengine.org."
+"грешката. Може също да разгледате документацията за компилиране за Android "
+"на docs.godotengine.org."
 
 #: platform/android/export/export_plugin.cpp
 msgid "Moving output"
@@ -18866,22 +18852,18 @@ msgid "Creating APK..."
 msgstr "Създаване на APK…"
 
 #: platform/android/export/export_plugin.cpp
-#, fuzzy
 msgid "Could not find template APK to export: \"%s\"."
-msgstr ""
-"Не е намерен шаблонен файл APK за изнасяне:\n"
-"%s"
+msgstr "Не е намерен шаблонен файл APK за изнасяне: %s"
 
 #: platform/android/export/export_plugin.cpp
-#, fuzzy
 msgid ""
 "Missing libraries in the export template for the selected architectures: %s. "
 "Please build a template with all required libraries, or uncheck the missing "
 "architectures in the export preset."
 msgstr ""
-"В шаблона за изнасяне липсват библиотеки за избраните архитектури: %s.\n"
-"Моля, създайте шаблон с всички необходими библиотеки или махнете отметките "
-"от липсващите архитектури в конфигурацията за изнасяне."
+"В шаблона за изнасяне липсват библиотеки за избраните архитектури: %s. Моля, "
+"създайте шаблон с всички необходими библиотеки или махнете отметките от "
+"липсващите архитектури в конфигурацията за изнасяне."
 
 #: platform/android/export/export_plugin.cpp
 msgid "Adding files..."
@@ -19124,6 +19106,11 @@ msgstr "Персонализиран обект"
 #, fuzzy
 msgid "Custom BG Color"
 msgstr "Персонализиран обект"
+
+#: platform/iphone/export/export.cpp
+#, fuzzy
+msgid "Export Icons"
+msgstr "Задаване на отстъп"
 
 #: platform/iphone/export/export.cpp platform/javascript/export/export.cpp
 #: platform/osx/export/export.cpp
@@ -19729,10 +19716,8 @@ msgid "ZIP Creation"
 msgstr "Проект"
 
 #: platform/osx/export/export.cpp
-#, fuzzy
 msgid "Could not open file to read from path \"%s\"."
-msgstr ""
-"Файловете на проекта не могат да бъдат изнесени като проект на gradle.\n"
+msgstr "Файловете на проекта не могат да бъдат изнесени като проект на gradle."
 
 #: platform/osx/export/export.cpp
 msgid "Invalid bundle identifier:"
@@ -19973,6 +19958,12 @@ msgid "Show Name On Square 310 X 310"
 msgstr ""
 
 #: platform/uwp/export/export.cpp
+msgid ""
+"Godot's Mono version does not support the UWP platform. Use the standard "
+"build (no C# support) if you wish to target UWP."
+msgstr ""
+
+#: platform/uwp/export/export.cpp
 msgid "Invalid package short name."
 msgstr "Неправилно кратко име на пакет."
 
@@ -20110,15 +20101,15 @@ msgstr "Не е намерено хранилище за ключове. Изн�
 
 #: platform/windows/export/export.cpp
 msgid ""
-"Could not start rcedit executable, configure rcedit path in the Editor "
-"Settings (Export > Windows > Rcedit)."
+"Could not start rcedit executable. Configure rcedit path in the Editor "
+"Settings (Export > Windows > Rcedit), or disable \"Application > Modify "
+"Resources\" in the export preset."
 msgstr ""
 
 #: platform/windows/export/export.cpp
-msgid ""
-"rcedit failed to modify executable:\n"
-"%s"
-msgstr ""
+#, fuzzy
+msgid "rcedit failed to modify executable: %s."
+msgstr "Неправилно разширение."
 
 #: platform/windows/export/export.cpp
 #, fuzzy
@@ -20142,15 +20133,15 @@ msgstr "Неправилно име."
 
 #: platform/windows/export/export.cpp
 msgid ""
-"Could not start signtool executable, configure signtool path in the Editor "
-"Settings (Export > Windows > Signtool)."
+"Could not start signtool executable. Configure signtool path in the Editor "
+"Settings (Export > Windows > Signtool), or disable \"Codesign\" in the "
+"export preset."
 msgstr ""
 
 #: platform/windows/export/export.cpp
-msgid ""
-"Signtool failed to sign executable:\n"
-"%s"
-msgstr ""
+#, fuzzy
+msgid "Signtool failed to sign executable: %s."
+msgstr "Неправилно разширение."
 
 #: platform/windows/export/export.cpp
 #, fuzzy
@@ -25733,16 +25724,15 @@ msgstr "Цветове"
 #: scene/resources/default_theme/default_theme.cpp
 #, fuzzy
 msgid "Preset BG"
-msgstr "Конфигурация…"
+msgstr "Предварителна настройка BG"
 
 #: scene/resources/default_theme/default_theme.cpp
 msgid "Overbright Indicator"
 msgstr ""
 
 #: scene/resources/default_theme/default_theme.cpp
-#, fuzzy
 msgid "Preset FG"
-msgstr "Конфигурация…"
+msgstr "Предварителна настройка FG"
 
 #: scene/resources/default_theme/default_theme.cpp
 msgid "Preset BG Icon"

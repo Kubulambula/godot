@@ -407,10 +407,10 @@ protected:
 		List<Variant> keys;
 		p_versions.get_key_list(&keys);
 		for (const Variant &E : keys) {
-			StringName name = E;
+			StringName vname = E;
 			Ref<RDShaderSPIRV> bc = p_versions[E];
 			ERR_CONTINUE(bc.is_null());
-			versions[name] = bc;
+			versions[vname] = bc;
 		}
 
 		emit_changed();
@@ -443,8 +443,8 @@ public:
 
 	void add_id(const RID &p_id) { base.append_id(p_id); }
 	void clear_ids() { base.clear_ids(); }
-	Array get_ids() const {
-		Array ids;
+	TypedArray<RID> get_ids() const {
+		TypedArray<RID> ids;
 		for (uint32_t i = 0; i < base.get_id_count(); i++) {
 			ids.push_back(base.get_id(i));
 		}
@@ -452,7 +452,7 @@ public:
 	}
 
 protected:
-	void _set_ids(const Array &p_ids) {
+	void _set_ids(const TypedArray<RID> &p_ids) {
 		base.clear_ids();
 		for (int i = 0; i < p_ids.size(); i++) {
 			RID id = p_ids[i];
@@ -517,7 +517,7 @@ public:
 	RD_SETGET(bool, wireframe)
 	RD_SETGET(RD::PolygonCullMode, cull_mode)
 	RD_SETGET(RD::PolygonFrontFace, front_face)
-	RD_SETGET(bool, depth_bias_enable)
+	RD_SETGET(bool, depth_bias_enabled)
 	RD_SETGET(float, depth_bias_constant_factor)
 	RD_SETGET(float, depth_bias_clamp)
 	RD_SETGET(float, depth_bias_slope_factor)
@@ -531,7 +531,7 @@ protected:
 		RD_BIND(Variant::BOOL, RDPipelineRasterizationState, wireframe);
 		RD_BIND(Variant::INT, RDPipelineRasterizationState, cull_mode);
 		RD_BIND(Variant::INT, RDPipelineRasterizationState, front_face);
-		RD_BIND(Variant::BOOL, RDPipelineRasterizationState, depth_bias_enable);
+		RD_BIND(Variant::BOOL, RDPipelineRasterizationState, depth_bias_enabled);
 		RD_BIND(Variant::FLOAT, RDPipelineRasterizationState, depth_bias_constant_factor);
 		RD_BIND(Variant::FLOAT, RDPipelineRasterizationState, depth_bias_clamp);
 		RD_BIND(Variant::FLOAT, RDPipelineRasterizationState, depth_bias_slope_factor);

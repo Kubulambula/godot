@@ -5,7 +5,6 @@
 	</brief_description>
 	<description>
 		OpenType variations, simulated bold / slant, and additional font settings like OpenType features and extra spacing.
-
 		To use simulated bold font variant:
 		[codeblocks]
 		[gdscript]
@@ -29,10 +28,10 @@
 	<methods>
 		<method name="set_spacing">
 			<return type="void" />
-			<argument index="0" name="spacing" type="int" enum="TextServer.SpacingType" />
-			<argument index="1" name="value" type="int" />
+			<param index="0" name="spacing" type="int" enum="TextServer.SpacingType" />
+			<param index="1" name="value" type="int" />
 			<description>
-				Sets the spacing for [code]type[/code] (see [enum TextServer.SpacingType]) to [code]value[/code] in pixels (not relative to the font size).
+				Sets the spacing for [code]type[/code] (see [enum TextServer.SpacingType]) to [param value] in pixels (not relative to the font size).
 			</description>
 		</method>
 	</methods>

@@ -143,10 +143,10 @@ Array SpriteFrames::_get_animations() const {
 	get_animation_list(&sorted_names);
 	sorted_names.sort_custom<StringName::AlphCompare>();
 
-	for (const StringName &name : sorted_names) {
-		const Anim &anim = animations[name];
+	for (const StringName &anim_name : sorted_names) {
+		const Anim &anim = animations[anim_name];
 		Dictionary d;
-		d["name"] = name;
+		d["name"] = anim_name;
 		d["speed"] = anim.speed;
 		d["loop"] = anim.loop;
 		Array frames;
@@ -207,7 +207,7 @@ void SpriteFrames::_bind_methods() {
 
 	// `animations` property is for serialization.
 
-	ClassDB::bind_method(D_METHOD("_set_animations"), &SpriteFrames::_set_animations);
+	ClassDB::bind_method(D_METHOD("_set_animations", "animations"), &SpriteFrames::_set_animations);
 	ClassDB::bind_method(D_METHOD("_get_animations"), &SpriteFrames::_get_animations);
 
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "animations", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR | PROPERTY_USAGE_INTERNAL), "_set_animations", "_get_animations");

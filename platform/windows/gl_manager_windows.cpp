@@ -289,12 +289,7 @@ void GLManager_Windows::make_current() {
 }
 
 void GLManager_Windows::swap_buffers() {
-	// on other platforms, OpenGL swaps buffers for all windows (on all displays, really?)
-	// Windows swaps buffers on a per-window basis
-	// REVISIT: this could be structurally bad, should we have "dirty" flags then?
-	for (KeyValue<DisplayServer::WindowID, GLWindow> &entry : _windows) {
-		SwapBuffers(entry.value.hDC);
-	}
+	SwapBuffers(_current_window->hDC);
 }
 
 Error GLManager_Windows::initialize() {
@@ -342,6 +337,16 @@ void GLManager_Windows::set_use_vsync(bool p_use) {
 
 bool GLManager_Windows::is_using_vsync() const {
 	return use_vsync;
+}
+
+HDC GLManager_Windows::get_hdc(DisplayServer::WindowID p_window_id) {
+	return get_window(p_window_id).hDC;
+}
+
+HGLRC GLManager_Windows::get_hglrc(DisplayServer::WindowID p_window_id) {
+	const GLWindow &win = get_window(p_window_id);
+	const GLDisplay &disp = get_display(win.gldisplay_id);
+	return disp.hRC;
 }
 
 GLManager_Windows::GLManager_Windows(ContextType p_context_type) {

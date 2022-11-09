@@ -41,7 +41,6 @@
 #include "tts_ios.h"
 #import "view_controller.h"
 
-#import <Foundation/Foundation.h>
 #import <sys/utsname.h>
 
 static const float kDisplayServerIOSAcceleration = 1.f;
@@ -50,7 +49,7 @@ DisplayServerIOS *DisplayServerIOS::get_singleton() {
 	return (DisplayServerIOS *)DisplayServer::get_singleton();
 }
 
-DisplayServerIOS::DisplayServerIOS(const String &p_rendering_driver, WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i &p_resolution, Error &r_error) {
+DisplayServerIOS::DisplayServerIOS(const String &p_rendering_driver, WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, Error &r_error) {
 	rendering_driver = p_rendering_driver;
 
 	// Init TTS
@@ -62,7 +61,7 @@ DisplayServerIOS::DisplayServerIOS(const String &p_rendering_driver, WindowMode 
 	// Note that we should be checking "opengl3" as the driver, might never enable this seeing OpenGL is deprecated on iOS
 	// We are hardcoding the rendering_driver to "vulkan" down below
 
-	if (rendering_driver == "opengl_es") {
+	if (rendering_driver == "opengl3") {
 		bool gl_initialization_error = false;
 
 		// FIXME: Add Vulkan support via MoltenVK. Add fallback code back?
@@ -128,7 +127,7 @@ DisplayServerIOS::DisplayServerIOS(const String &p_rendering_driver, WindowMode 
 	}
 #endif
 
-	bool keep_screen_on = bool(GLOBAL_DEF("display/window/energy_saving/keep_screen_on", true));
+	bool keep_screen_on = bool(GLOBAL_GET("display/window/energy_saving/keep_screen_on"));
 	screen_set_keep_on(keep_screen_on);
 
 	Input::get_singleton()->set_event_dispatch_function(_dispatch_input_events);
@@ -152,8 +151,8 @@ DisplayServerIOS::~DisplayServerIOS() {
 #endif
 }
 
-DisplayServer *DisplayServerIOS::create_func(const String &p_rendering_driver, WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i &p_resolution, Error &r_error) {
-	return memnew(DisplayServerIOS(p_rendering_driver, p_mode, p_vsync_mode, p_flags, p_resolution, r_error));
+DisplayServer *DisplayServerIOS::create_func(const String &p_rendering_driver, WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, Error &r_error) {
+	return memnew(DisplayServerIOS(p_rendering_driver, p_mode, p_vsync_mode, p_flags, p_position, p_resolution, r_error));
 }
 
 Vector<String> DisplayServerIOS::get_rendering_drivers_func() {
@@ -163,7 +162,7 @@ Vector<String> DisplayServerIOS::get_rendering_drivers_func() {
 	drivers.push_back("vulkan");
 #endif
 #if defined(GLES3_ENABLED)
-	drivers.push_back("opengl_es");
+	drivers.push_back("opengl3");
 #endif
 
 	return drivers;
@@ -228,19 +227,20 @@ void DisplayServerIOS::_window_callback(const Callable &p_callable, const Varian
 // MARK: Touches
 
 void DisplayServerIOS::touch_press(int p_idx, int p_x, int p_y, bool p_pressed, bool p_double_click) {
-	if (!GLOBAL_DEF("debug/disable_touch", false)) {
+	if (!GLOBAL_GET("debug/disable_touch")) {
 		Ref<InputEventScreenTouch> ev;
 		ev.instantiate();
 
 		ev->set_index(p_idx);
 		ev->set_pressed(p_pressed);
 		ev->set_position(Vector2(p_x, p_y));
+		ev->set_double_tap(p_double_click);
 		perform_event(ev);
 	}
 }
 
 void DisplayServerIOS::touch_drag(int p_idx, int p_prev_x, int p_prev_y, int p_x, int p_y) {
-	if (!GLOBAL_DEF("debug/disable_touch", false)) {
+	if (!GLOBAL_GET("debug/disable_touch")) {
 		Ref<InputEventScreenDrag> ev;
 		ev.instantiate();
 		ev->set_index(p_idx);
@@ -336,8 +336,8 @@ bool DisplayServerIOS::tts_is_paused() const {
 	return [tts isPaused];
 }
 
-Array DisplayServerIOS::tts_get_voices() const {
-	ERR_FAIL_COND_V(!tts, Array());
+TypedArray<Dictionary> DisplayServerIOS::tts_get_voices() const {
+	ERR_FAIL_COND_V(!tts, TypedArray<Dictionary>());
 	return [tts getVoices];
 }
 
@@ -585,12 +585,44 @@ bool DisplayServerIOS::screen_is_touchscreen(int p_screen) const {
 	return true;
 }
 
-void DisplayServerIOS::virtual_keyboard_show(const String &p_existing_text, const Rect2 &p_screen_rect, bool p_multiline, int p_max_length, int p_cursor_start, int p_cursor_end) {
+void DisplayServerIOS::virtual_keyboard_show(const String &p_existing_text, const Rect2 &p_screen_rect, VirtualKeyboardType p_type, int p_max_length, int p_cursor_start, int p_cursor_end) {
 	NSString *existingString = [[NSString alloc] initWithUTF8String:p_existing_text.utf8().get_data()];
+
+	AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDefault;
+	AppDelegate.viewController.keyboardView.textContentType = nil;
+	switch (p_type) {
+		case KEYBOARD_TYPE_DEFAULT: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDefault;
+		} break;
+		case KEYBOARD_TYPE_MULTILINE: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDefault;
+		} break;
+		case KEYBOARD_TYPE_NUMBER: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeNumberPad;
+		} break;
+		case KEYBOARD_TYPE_NUMBER_DECIMAL: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDecimalPad;
+		} break;
+		case KEYBOARD_TYPE_PHONE: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypePhonePad;
+			AppDelegate.viewController.keyboardView.textContentType = UITextContentTypeTelephoneNumber;
+		} break;
+		case KEYBOARD_TYPE_EMAIL_ADDRESS: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeEmailAddress;
+			AppDelegate.viewController.keyboardView.textContentType = UITextContentTypeEmailAddress;
+		} break;
+		case KEYBOARD_TYPE_PASSWORD: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDefault;
+			AppDelegate.viewController.keyboardView.textContentType = UITextContentTypePassword;
+		} break;
+		case KEYBOARD_TYPE_URL: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeWebSearch;
+			AppDelegate.viewController.keyboardView.textContentType = UITextContentTypeURL;
+		} break;
+	}
 
 	[AppDelegate.viewController.keyboardView
 			becomeFirstResponderWithString:existingString
-								 multiline:p_multiline
 							   cursorStart:p_cursor_start
 								 cursorEnd:p_cursor_end];
 }

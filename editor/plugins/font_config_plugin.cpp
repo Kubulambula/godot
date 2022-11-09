@@ -100,11 +100,6 @@ bool EditorPropertyFontOTObject::_get(const StringName &p_name, Variant &r_ret) 
 	return false;
 }
 
-void EditorPropertyFontOTObject::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("property_can_revert", "name"), &EditorPropertyFontOTObject::property_can_revert);
-	ClassDB::bind_method(D_METHOD("property_get_revert", "name"), &EditorPropertyFontOTObject::property_get_revert);
-}
-
 void EditorPropertyFontOTObject::set_dict(const Dictionary &p_dict) {
 	dict = p_dict;
 }
@@ -121,7 +116,7 @@ Dictionary EditorPropertyFontOTObject::get_defaults() {
 	return defaults_dict;
 }
 
-bool EditorPropertyFontOTObject::property_can_revert(const String &p_name) {
+bool EditorPropertyFontOTObject::_property_can_revert(const StringName &p_name) const {
 	String name = p_name;
 
 	if (name.begins_with("keys")) {
@@ -136,18 +131,19 @@ bool EditorPropertyFontOTObject::property_can_revert(const String &p_name) {
 	return false;
 }
 
-Variant EditorPropertyFontOTObject::property_get_revert(const String &p_name) {
+bool EditorPropertyFontOTObject::_property_get_revert(const StringName &p_name, Variant &r_property) const {
 	String name = p_name;
 
 	if (name.begins_with("keys")) {
 		int key = name.get_slicec('/', 1).to_int();
 		if (defaults_dict.has(key)) {
 			Vector3i range = defaults_dict[key];
-			return range.z;
+			r_property = range.z;
+			return true;
 		}
 	}
 
-	return Variant();
+	return false;
 }
 
 /*************************************************************************/
@@ -158,7 +154,7 @@ void EditorPropertyFontMetaOverride::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			if (Object::cast_to<Button>(button_add)) {
+			if (button_add) {
 				button_add->set_icon(get_theme_icon(SNAME("Add"), SNAME("EditorIcons")));
 			}
 		} break;
@@ -264,7 +260,7 @@ void EditorPropertyFontMetaOverride::update_property() {
 		} else {
 			// Queue children for deletion, deleting immediately might cause errors.
 			for (int i = property_vbox->get_child_count() - 1; i >= 0; i--) {
-				property_vbox->get_child(i)->queue_delete();
+				property_vbox->get_child(i)->queue_free();
 			}
 			button_add = nullptr;
 		}
@@ -294,7 +290,7 @@ void EditorPropertyFontMetaOverride::update_property() {
 			} else {
 				prop->set_label(TranslationServer::get_singleton()->get_locale_name(name));
 			}
-			prop->set_tooltip(name);
+			prop->set_tooltip_text(name);
 			prop->set_selectable(false);
 
 			prop->connect("property_changed", callable_mp(this, &EditorPropertyFontMetaOverride::_property_changed));
@@ -461,7 +457,7 @@ void EditorPropertyOTVariation::update_property() {
 		} else {
 			// Queue children for deletion, deleting immediately might cause errors.
 			for (int i = property_vbox->get_child_count() - 1; i >= 0; i--) {
-				property_vbox->get_child(i)->queue_delete();
+				property_vbox->get_child(i)->queue_free();
 			}
 		}
 
@@ -491,7 +487,7 @@ void EditorPropertyOTVariation::update_property() {
 
 			String name = TS->tag_to_name(name_tag);
 			prop->set_label(name.capitalize());
-			prop->set_tooltip(name);
+			prop->set_tooltip_text(name);
 			prop->set_selectable(false);
 
 			prop->connect("property_changed", callable_mp(this, &EditorPropertyOTVariation::_property_changed));
@@ -553,7 +549,7 @@ void EditorPropertyOTFeatures::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			if (Object::cast_to<Button>(button_add)) {
+			if (button_add) {
 				button_add->set_icon(get_theme_icon(SNAME("Add"), SNAME("EditorIcons")));
 			}
 		} break;
@@ -626,6 +622,16 @@ void EditorPropertyOTFeatures::update_property() {
 		supported = fd->get_supported_feature_list();
 	}
 
+	if (supported.is_empty()) {
+		edit->set_text(vformat(TTR("No supported features")));
+		if (container) {
+			set_bottom_editor(nullptr);
+			memdelete(container);
+			button_add = nullptr;
+			container = nullptr;
+		}
+		return;
+	}
 	edit->set_text(vformat(TTR("Features (%d of %d set)"), dict.size(), supported.size()));
 
 	bool unfolded = get_edited_object()->editor_is_section_unfolded(get_edited_property());
@@ -656,7 +662,7 @@ void EditorPropertyOTFeatures::update_property() {
 		} else {
 			// Queue children for deletion, deleting immediately might cause errors.
 			for (int i = property_vbox->get_child_count() - 1; i >= 0; i--) {
-				property_vbox->get_child(i)->queue_delete();
+				property_vbox->get_child(i)->queue_free();
 			}
 			button_add = nullptr;
 		}
@@ -770,7 +776,7 @@ void EditorPropertyOTFeatures::update_property() {
 					disp_name = vformat("%s (%s)", disp_name, info["label"].operator String());
 				}
 				prop->set_label(disp_name);
-				prop->set_tooltip(name);
+				prop->set_tooltip_text(name);
 				prop->set_selectable(false);
 
 				prop->connect("property_changed", callable_mp(this, &EditorPropertyOTFeatures::_property_changed));
@@ -946,7 +952,7 @@ Size2 FontPreview::get_minimum_size() const {
 
 void FontPreview::set_data(const Ref<Font> &p_f) {
 	prev_font = p_f;
-	update();
+	queue_redraw();
 }
 
 FontPreview::FontPreview() {

@@ -66,8 +66,16 @@ public:
 		TEXTURE_REPEAT_MAX,
 	};
 
+	enum ClipChildrenMode {
+		CLIP_CHILDREN_DISABLED,
+		CLIP_CHILDREN_ONLY,
+		CLIP_CHILDREN_AND_DRAW,
+		CLIP_CHILDREN_MAX,
+	};
+
 private:
-	mutable SelfList<Node> xform_change;
+	mutable SelfList<Node>
+			xform_change;
 
 	RID canvas_item;
 	StringName canvas_group;
@@ -81,11 +89,11 @@ private:
 	List<CanvasItem *>::Element *C = nullptr;
 
 	int light_mask = 1;
+	uint32_t visibility_layer = 1;
 
 	Window *window = nullptr;
 	bool visible = true;
 	bool parent_visible_in_tree = false;
-	bool clip_children = false;
 	bool pending_update = false;
 	bool top_level = false;
 	bool drawing = false;
@@ -94,6 +102,8 @@ private:
 	bool use_parent_material = false;
 	bool notify_local_transform = false;
 	bool notify_transform = false;
+
+	ClipChildrenMode clip_children_mode = CLIP_CHILDREN_DISABLED;
 
 	RS::CanvasItemTextureFilter texture_filter_cache = RS::CANVAS_ITEM_TEXTURE_FILTER_LINEAR;
 	RS::CanvasItemTextureRepeat texture_repeat_cache = RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED;
@@ -110,7 +120,7 @@ private:
 	void _propagate_visibility_changed(bool p_parent_visible_in_tree);
 	void _handle_visibility_change(bool p_visible);
 
-	void _update_callback();
+	void _redraw_callback();
 
 	void _enter_canvas();
 	void _exit_canvas();
@@ -121,7 +131,9 @@ private:
 
 	static CanvasItem *current_item_drawn;
 	friend class Viewport;
+	void _refresh_texture_repeat_cache();
 	void _update_texture_repeat_changed(bool p_propagate);
+	void _refresh_texture_filter_cache();
 	void _update_texture_filter_changed(bool p_propagate);
 
 protected:
@@ -197,10 +209,11 @@ public:
 	void show();
 	void hide();
 
-	void update();
+	void queue_redraw();
+	void move_to_front();
 
-	void set_clip_children(bool p_enabled);
-	bool is_clipping_children() const;
+	void set_clip_children_mode(ClipChildrenMode p_clip_mode);
+	ClipChildrenMode get_clip_children_mode() const;
 
 	virtual void set_light_mask(int p_light_mask);
 	int get_light_mask() const;
@@ -210,6 +223,12 @@ public:
 
 	void set_self_modulate(const Color &p_self_modulate);
 	Color get_self_modulate() const;
+
+	void set_visibility_layer(uint32_t p_visibility_layer);
+	uint32_t get_visibility_layer() const;
+
+	void set_visibility_layer_bit(uint32_t p_visibility_layer, bool p_enable);
+	bool get_visibility_layer_bit(uint32_t p_visibility_layer) const;
 
 	/* DRAWING API */
 
@@ -226,6 +245,7 @@ public:
 	void draw_texture_rect(const Ref<Texture2D> &p_texture, const Rect2 &p_rect, bool p_tile = false, const Color &p_modulate = Color(1, 1, 1), bool p_transpose = false);
 	void draw_texture_rect_region(const Ref<Texture2D> &p_texture, const Rect2 &p_rect, const Rect2 &p_src_rect, const Color &p_modulate = Color(1, 1, 1), bool p_transpose = false, bool p_clip_uv = false);
 	void draw_msdf_texture_rect_region(const Ref<Texture2D> &p_texture, const Rect2 &p_rect, const Rect2 &p_src_rect, const Color &p_modulate = Color(1, 1, 1), double p_outline = 0.0, double p_pixel_range = 4.0);
+	void draw_lcd_texture_rect_region(const Ref<Texture2D> &p_texture, const Rect2 &p_rect, const Rect2 &p_src_rect, const Color &p_modulate = Color(1, 1, 1));
 	void draw_style_box(const Ref<StyleBox> &p_style_box, const Rect2 &p_rect);
 	void draw_primitive(const Vector<Point2> &p_points, const Vector<Color> &p_colors, const Vector<Point2> &p_uvs, Ref<Texture2D> p_texture = Ref<Texture2D>(), real_t p_width = 1);
 	void draw_polygon(const Vector<Point2> &p_points, const Vector<Color> &p_colors, const Vector<Point2> &p_uvs = Vector<Point2>(), Ref<Texture2D> p_texture = Ref<Texture2D>());
@@ -308,6 +328,9 @@ public:
 	virtual void set_texture_repeat(TextureRepeat p_texture_repeat);
 	TextureRepeat get_texture_repeat() const;
 
+	TextureFilter get_texture_filter_in_tree();
+	TextureRepeat get_texture_repeat_in_tree();
+
 	// Used by control nodes to retrieve the parent's anchorable area
 	virtual Rect2 get_anchorable_rect() const { return Rect2(0, 0, 0, 0); };
 
@@ -319,6 +342,7 @@ public:
 
 VARIANT_ENUM_CAST(CanvasItem::TextureFilter)
 VARIANT_ENUM_CAST(CanvasItem::TextureRepeat)
+VARIANT_ENUM_CAST(CanvasItem::ClipChildrenMode)
 
 class CanvasTexture : public Texture2D {
 	GDCLASS(CanvasTexture, Texture2D);

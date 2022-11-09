@@ -31,7 +31,6 @@
 #ifndef GROUPS_EDITOR_H
 #define GROUPS_EDITOR_H
 
-#include "core/object/undo_redo.h"
 #include "editor/scene_tree_editor.h"
 #include "scene/gui/button.h"
 #include "scene/gui/dialogs.h"
@@ -43,7 +42,7 @@
 class GroupDialog : public AcceptDialog {
 	GDCLASS(GroupDialog, AcceptDialog);
 
-	ConfirmationDialog *error = nullptr;
+	AcceptDialog *error = nullptr;
 
 	SceneTree *scene_tree = nullptr;
 	TreeItem *groups_root = nullptr;
@@ -68,8 +67,6 @@ class GroupDialog : public AcceptDialog {
 
 	String selected_group;
 
-	UndoRedo *undo_redo = nullptr;
-
 	void _group_selected();
 
 	void _remove_filter_changed(const String &p_filter);
@@ -87,8 +84,6 @@ class GroupDialog : public AcceptDialog {
 	void _modify_group_pressed(Object *p_item, int p_column, int p_id, MouseButton p_button);
 	void _delete_group_item(const String &p_name);
 
-	bool _can_edit(Node *p_node, String p_group);
-
 	void _load_groups(Node *p_current);
 	void _load_nodes(Node *p_current);
 
@@ -103,7 +98,6 @@ public:
 	};
 
 	void edit();
-	void set_undo_redo(UndoRedo *p_undoredo) { undo_redo = p_undoredo; }
 
 	GroupDialog();
 };
@@ -112,19 +106,24 @@ class GroupsEditor : public VBoxContainer {
 	GDCLASS(GroupsEditor, VBoxContainer);
 
 	Node *node = nullptr;
+	TreeItem *groups_root = nullptr;
 
 	GroupDialog *group_dialog = nullptr;
+	AcceptDialog *error = nullptr;
 
 	LineEdit *group_name = nullptr;
 	Button *add = nullptr;
 	Tree *tree = nullptr;
 
-	UndoRedo *undo_redo = nullptr;
+	String selected_group;
 
 	void update_tree();
 	void _add_group(const String &p_group = "");
 	void _modify_group(Object *p_item, int p_column, int p_id, MouseButton p_button);
 	void _group_name_changed(const String &p_new_text);
+
+	void _group_selected();
+	void _group_renamed();
 
 	void _show_group_dialog();
 
@@ -137,7 +136,6 @@ public:
 		COPY_GROUP,
 	};
 
-	void set_undo_redo(UndoRedo *p_undoredo) { undo_redo = p_undoredo; }
 	void set_current(Node *p_node);
 
 	GroupsEditor();

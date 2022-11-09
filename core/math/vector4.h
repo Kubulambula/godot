@@ -31,12 +31,14 @@
 #ifndef VECTOR4_H
 #define VECTOR4_H
 
-#include "core/math/math_defs.h"
+#include "core/error/error_macros.h"
 #include "core/math/math_funcs.h"
-#include "core/math/vector3.h"
-#include "core/string/ustring.h"
+
+class String;
 
 struct _NO_DISCARD_ Vector4 {
+	static const int AXIS_COUNT = 4;
+
 	enum Axis {
 		AXIS_X,
 		AXIS_Y,
@@ -62,12 +64,22 @@ struct _NO_DISCARD_ Vector4 {
 		DEV_ASSERT((unsigned int)p_axis < 4);
 		return components[p_axis];
 	}
+
+	Vector4::Axis min_axis_index() const;
+	Vector4::Axis max_axis_index() const;
+
 	_FORCE_INLINE_ real_t length_squared() const;
 	bool is_equal_approx(const Vector4 &p_vec4) const;
+	bool is_zero_approx() const;
+	bool is_finite() const;
 	real_t length() const;
 	void normalize();
 	Vector4 normalized() const;
 	bool is_normalized() const;
+
+	real_t distance_to(const Vector4 &p_to) const;
+	real_t distance_squared_to(const Vector4 &p_to) const;
+	Vector4 direction_to(const Vector4 &p_to) const;
 
 	Vector4 abs() const;
 	Vector4 sign() const;
@@ -75,9 +87,13 @@ struct _NO_DISCARD_ Vector4 {
 	Vector4 ceil() const;
 	Vector4 round() const;
 	Vector4 lerp(const Vector4 &p_to, const real_t p_weight) const;
+	Vector4 cubic_interpolate(const Vector4 &p_b, const Vector4 &p_pre_a, const Vector4 &p_post_b, const real_t p_weight) const;
+	Vector4 cubic_interpolate_in_time(const Vector4 &p_b, const Vector4 &p_pre_a, const Vector4 &p_post_b, const real_t p_weight, const real_t &p_b_t, const real_t &p_pre_a_t, const real_t &p_post_b_t) const;
 
-	Vector4::Axis min_axis_index() const;
-	Vector4::Axis max_axis_index() const;
+	Vector4 posmod(const real_t p_mod) const;
+	Vector4 posmodv(const Vector4 &p_modv) const;
+	void snap(const Vector4 &p_step);
+	Vector4 snapped(const Vector4 &p_step) const;
 	Vector4 clamp(const Vector4 &p_min, const Vector4 &p_max) const;
 
 	Vector4 inverse() const;
@@ -193,7 +209,7 @@ Vector4 Vector4::operator/(const Vector4 &p_vec4) const {
 }
 
 Vector4 Vector4::operator-() const {
-	return Vector4(x, y, z, w);
+	return Vector4(-x, -y, -z, -w);
 }
 
 Vector4 Vector4::operator*(const real_t &s) const {

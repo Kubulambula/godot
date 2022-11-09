@@ -85,6 +85,7 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 		FLAGS_DEFAULT_SPECULAR_MAP_USED = (1 << 27),
 
 		FLAGS_USE_MSDF = (1 << 28),
+		FLAGS_USE_LCD = (1 << 29),
 	};
 
 	enum {
@@ -122,6 +123,7 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 		PIPELINE_VARIANT_ATTRIBUTE_LINES,
 		PIPELINE_VARIANT_ATTRIBUTE_LINES_STRIP,
 		PIPELINE_VARIANT_ATTRIBUTE_POINTS,
+		PIPELINE_VARIANT_QUAD_LCD_BLEND,
 		PIPELINE_VARIANT_MAX
 	};
 	enum PipelineLightMode {
@@ -149,7 +151,7 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 		ShaderCompiler compiler;
 	} shader;
 
-	struct CanvasShaderData : public RendererRD::ShaderData {
+	struct CanvasShaderData : public RendererRD::MaterialStorage::ShaderData {
 		enum BlendMode { //used internally
 			BLEND_MODE_MIX,
 			BLEND_MODE_ADD,
@@ -174,16 +176,17 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 		HashMap<StringName, HashMap<int, RID>> default_texture_params;
 
 		bool uses_screen_texture = false;
+		bool uses_screen_texture_mipmaps = false;
 		bool uses_sdf = false;
 		bool uses_time = false;
 
 		virtual void set_code(const String &p_Code);
 		virtual void set_path_hint(const String &p_path);
-		virtual void set_default_texture_param(const StringName &p_name, RID p_texture, int p_index);
-		virtual void get_param_list(List<PropertyInfo> *p_param_list) const;
+		virtual void set_default_texture_parameter(const StringName &p_name, RID p_texture, int p_index);
+		virtual void get_shader_uniform_list(List<PropertyInfo> *p_param_list) const;
 		virtual void get_instance_param_list(List<RendererMaterialStorage::InstanceShaderParam> *p_param_list) const;
 
-		virtual bool is_param_texture(const StringName &p_param) const;
+		virtual bool is_parameter_texture(const StringName &p_param) const;
 		virtual bool is_animated() const;
 		virtual bool casts_shadows() const;
 		virtual Variant get_default_parameter(const StringName &p_parameter) const;
@@ -193,12 +196,12 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 		virtual ~CanvasShaderData();
 	};
 
-	RendererRD::ShaderData *_create_shader_func();
-	static RendererRD::ShaderData *_create_shader_funcs() {
+	RendererRD::MaterialStorage::ShaderData *_create_shader_func();
+	static RendererRD::MaterialStorage::ShaderData *_create_shader_funcs() {
 		return static_cast<RendererCanvasRenderRD *>(singleton)->_create_shader_func();
 	}
 
-	struct CanvasMaterialData : public RendererRD::MaterialData {
+	struct CanvasMaterialData : public RendererRD::MaterialStorage::MaterialData {
 		CanvasShaderData *shader_data = nullptr;
 		RID uniform_set;
 
@@ -208,8 +211,8 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 		virtual ~CanvasMaterialData();
 	};
 
-	RendererRD::MaterialData *_create_material_func(CanvasShaderData *p_shader);
-	static RendererRD::MaterialData *_create_material_funcs(RendererRD::ShaderData *p_shader) {
+	RendererRD::MaterialStorage::MaterialData *_create_material_func(CanvasShaderData *p_shader);
+	static RendererRD::MaterialStorage::MaterialData *_create_material_funcs(RendererRD::MaterialStorage::ShaderData *p_shader) {
 		return static_cast<RendererCanvasRenderRD *>(singleton)->_create_material_func(static_cast<CanvasShaderData *>(p_shader));
 	}
 
@@ -418,6 +421,8 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 
 	RID default_canvas_group_shader;
 	RID default_canvas_group_material;
+	RID default_clip_children_material;
+	RID default_clip_children_shader;
 
 	RS::CanvasItemTextureFilter default_filter = RS::CANVAS_ITEM_TEXTURE_FILTER_LINEAR;
 	RS::CanvasItemTextureRepeat default_repeat = RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED;
@@ -453,8 +458,6 @@ public:
 	void occluder_polygon_set_cull_mode(RID p_occluder, RS::CanvasOccluderPolygonCullMode p_mode);
 
 	void canvas_render_items(RID p_to_render_target, Item *p_item_list, const Color &p_modulate, Light *p_light_list, Light *p_directional_light_list, const Transform2D &p_canvas_transform, RS::CanvasItemTextureFilter p_default_filter, RS::CanvasItemTextureRepeat p_default_repeat, bool p_snap_2d_vertices_to_pixel, bool &r_sdf_used);
-
-	void canvas_debug_viewport_shadows(Light *p_lights_with_shadow) {}
 
 	virtual void set_shadow_texture_size(int p_size);
 

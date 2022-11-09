@@ -31,6 +31,8 @@
 #include "material.h"
 
 #include "core/config/engine.h"
+#include "core/config/project_settings.h"
+#include "core/error/error_macros.h"
 #include "core/version.h"
 #include "scene/main/scene_tree.h"
 #include "scene/scene_string_names.h"
@@ -71,12 +73,12 @@ RID Material::get_rid() const {
 	return material;
 }
 
-void Material::_validate_property(PropertyInfo &property) const {
-	if (!_can_do_next_pass() && property.name == "next_pass") {
-		property.usage = PROPERTY_USAGE_NONE;
+void Material::_validate_property(PropertyInfo &p_property) const {
+	if (!_can_do_next_pass() && p_property.name == "next_pass") {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
-	if (!_can_use_render_priority() && property.name == "render_priority") {
-		property.usage = PROPERTY_USAGE_NONE;
+	if (!_can_use_render_priority() && p_property.name == "render_priority") {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 }
 
@@ -105,18 +107,15 @@ Shader::Mode Material::get_shader_mode() const {
 }
 
 bool Material::_can_do_next_pass() const {
-	bool ret;
-	if (GDVIRTUAL_CALL(_can_do_next_pass, ret)) {
-		return ret;
-	}
-	return false;
+	bool ret = false;
+	GDVIRTUAL_CALL(_can_do_next_pass, ret);
+	return ret;
 }
+
 bool Material::_can_use_render_priority() const {
-	bool ret;
-	if (GDVIRTUAL_CALL(_can_use_render_priority, ret)) {
-		return ret;
-	}
-	return false;
+	bool ret = false;
+	GDVIRTUAL_CALL(_can_use_render_priority, ret);
+	return ret;
 }
 
 void Material::_bind_methods() {
@@ -154,18 +153,9 @@ Material::~Material() {
 
 bool ShaderMaterial::_set(const StringName &p_name, const Variant &p_value) {
 	if (shader.is_valid()) {
-		StringName pr = shader->remap_param(p_name);
-		if (!pr) {
-			String n = p_name;
-			if (n.find("param/") == 0) { //backwards compatibility
-				pr = n.substr(6, n.length());
-			}
-			if (n.find("shader_param/") == 0) { //backwards compatibility
-				pr = n.replace_first("shader_param/", "");
-			}
-		}
+		StringName pr = shader->remap_parameter(p_name);
 		if (pr) {
-			set_shader_param(pr, p_value);
+			set_shader_parameter(pr, p_value);
 			return true;
 		}
 	}
@@ -175,24 +165,9 @@ bool ShaderMaterial::_set(const StringName &p_name, const Variant &p_value) {
 
 bool ShaderMaterial::_get(const StringName &p_name, Variant &r_ret) const {
 	if (shader.is_valid()) {
-		StringName pr = shader->remap_param(p_name);
-		if (!pr) {
-			String n = p_name;
-			if (n.find("param/") == 0) { //backwards compatibility
-				pr = n.substr(6, n.length());
-			}
-			if (n.find("shader_param/") == 0) { //backwards compatibility
-				pr = n.replace_first("shader_param/", "");
-			}
-		}
-
+		StringName pr = shader->remap_parameter(p_name);
 		if (pr) {
-			HashMap<StringName, Variant>::ConstIterator E = param_cache.find(pr);
-			if (E) {
-				r_ret = E->value;
-			} else {
-				r_ret = Variant();
-			}
+			r_ret = get_shader_parameter(pr);
 			return true;
 		}
 	}
@@ -203,7 +178,7 @@ bool ShaderMaterial::_get(const StringName &p_name, Variant &r_ret) const {
 void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 	if (!shader.is_null()) {
 		List<PropertyInfo> list;
-		shader->get_param_list(&list, true);
+		shader->get_shader_uniform_list(&list, true);
 
 		HashMap<String, HashMap<String, List<PropertyInfo>>> groups;
 		{
@@ -233,7 +208,8 @@ void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 					if (!groups.has(last_group)) {
 						PropertyInfo info;
 						info.usage = PROPERTY_USAGE_GROUP;
-						info.name = last_group;
+						info.name = last_group.capitalize();
+						info.hint_string = "shader_parameter/";
 
 						List<PropertyInfo> none_subgroup;
 						none_subgroup.push_back(info);
@@ -247,7 +223,8 @@ void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 					if (!groups[last_group].has(last_subgroup)) {
 						PropertyInfo info;
 						info.usage = PROPERTY_USAGE_SUBGROUP;
-						info.name = last_subgroup;
+						info.name = last_subgroup.capitalize();
+						info.hint_string = "shader_parameter/";
 
 						List<PropertyInfo> subgroup;
 						subgroup.push_back(info);
@@ -267,41 +244,44 @@ void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 
 				PropertyInfo info;
 				info.usage = PROPERTY_USAGE_GROUP;
-				info.name = "Shader Param";
+				info.name = "Shader Parameters";
+				info.hint_string = "shader_parameter/";
 				groups["<None>"]["<None>"].push_back(info);
 			}
 
 			PropertyInfo info = E->get();
-			info.name = info.name;
+			info.name = "shader_parameter/" + info.name;
 			groups[last_group][last_subgroup].push_back(info);
 		}
 
-		// Sort groups alphabetically.
-		List<UniformProp> props;
+		List<String> group_names;
 		for (HashMap<String, HashMap<String, List<PropertyInfo>>>::Iterator group = groups.begin(); group; ++group) {
-			for (HashMap<String, List<PropertyInfo>>::Iterator subgroup = group->value.begin(); subgroup; ++subgroup) {
-				for (List<PropertyInfo>::Element *item = subgroup->value.front(); item; item = item->next()) {
-					if (subgroup->key == "<None>") {
-						props.push_back({ group->key, item->get() });
-					} else {
-						props.push_back({ group->key + "::" + subgroup->key, item->get() });
-					}
+			group_names.push_back(group->key);
+		}
+		group_names.sort();
+
+		for (const String &group_name : group_names) {
+			List<String> subgroup_names;
+			HashMap<String, List<PropertyInfo>> &subgroups = groups[group_name];
+			for (HashMap<String, List<PropertyInfo>>::Iterator subgroup = subgroups.begin(); subgroup; ++subgroup) {
+				subgroup_names.push_back(subgroup->key);
+			}
+			subgroup_names.sort();
+			for (const String &subgroup_name : subgroup_names) {
+				List<PropertyInfo> &prop_infos = subgroups[subgroup_name];
+				for (List<PropertyInfo>::Element *item = prop_infos.front(); item; item = item->next()) {
+					p_list->push_back(item->get());
 				}
 			}
-		}
-		props.sort_custom<UniformPropComparator>();
-
-		for (List<UniformProp>::Element *E = props.front(); E; E = E->next()) {
-			p_list->push_back(E->get().info);
 		}
 	}
 }
 
-bool ShaderMaterial::property_can_revert(const String &p_name) {
+bool ShaderMaterial::_property_can_revert(const StringName &p_name) const {
 	if (shader.is_valid()) {
-		StringName pr = shader->remap_param(p_name);
+		StringName pr = shader->remap_parameter(p_name);
 		if (pr) {
-			Variant default_value = RenderingServer::get_singleton()->shader_get_param_default(shader->get_rid(), pr);
+			Variant default_value = RenderingServer::get_singleton()->shader_get_parameter_default(shader->get_rid(), pr);
 			Variant current_value;
 			_get(p_name, current_value);
 			return default_value.get_type() != Variant::NIL && default_value != current_value;
@@ -310,15 +290,15 @@ bool ShaderMaterial::property_can_revert(const String &p_name) {
 	return false;
 }
 
-Variant ShaderMaterial::property_get_revert(const String &p_name) {
-	Variant r_ret;
+bool ShaderMaterial::_property_get_revert(const StringName &p_name, Variant &r_property) const {
 	if (shader.is_valid()) {
-		StringName pr = shader->remap_param(p_name);
+		StringName pr = shader->remap_parameter(p_name);
 		if (pr) {
-			r_ret = RenderingServer::get_singleton()->shader_get_param_default(shader->get_rid(), pr);
+			r_property = RenderingServer::get_singleton()->shader_get_parameter_default(shader->get_rid(), pr);
+			return true;
 		}
 	}
-	return r_ret;
+	return false;
 }
 
 void ShaderMaterial::set_shader(const Ref<Shader> &p_shader) {
@@ -349,7 +329,7 @@ Ref<Shader> ShaderMaterial::get_shader() const {
 	return shader;
 }
 
-void ShaderMaterial::set_shader_param(const StringName &p_param, const Variant &p_value) {
+void ShaderMaterial::set_shader_parameter(const StringName &p_param, const Variant &p_value) {
 	if (p_value.get_type() == Variant::NIL) {
 		param_cache.erase(p_param);
 		RS::get_singleton()->material_set_param(_get_material(), p_param, Variant());
@@ -369,7 +349,7 @@ void ShaderMaterial::set_shader_param(const StringName &p_param, const Variant &
 	}
 }
 
-Variant ShaderMaterial::get_shader_param(const StringName &p_param) const {
+Variant ShaderMaterial::get_shader_parameter(const StringName &p_param) const {
 	if (param_cache.has(p_param)) {
 		return param_cache[p_param];
 	} else {
@@ -384,22 +364,20 @@ void ShaderMaterial::_shader_changed() {
 void ShaderMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shader", "shader"), &ShaderMaterial::set_shader);
 	ClassDB::bind_method(D_METHOD("get_shader"), &ShaderMaterial::get_shader);
-	ClassDB::bind_method(D_METHOD("set_shader_param", "param", "value"), &ShaderMaterial::set_shader_param);
-	ClassDB::bind_method(D_METHOD("get_shader_param", "param"), &ShaderMaterial::get_shader_param);
-	ClassDB::bind_method(D_METHOD("property_can_revert", "name"), &ShaderMaterial::property_can_revert);
-	ClassDB::bind_method(D_METHOD("property_get_revert", "name"), &ShaderMaterial::property_get_revert);
+	ClassDB::bind_method(D_METHOD("set_shader_parameter", "param", "value"), &ShaderMaterial::set_shader_parameter);
+	ClassDB::bind_method(D_METHOD("get_shader_parameter", "param"), &ShaderMaterial::get_shader_parameter);
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shader", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_shader", "get_shader");
 }
 
 void ShaderMaterial::get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const {
 	String f = p_function.operator String();
-	if ((f == "get_shader_param" || f == "set_shader_param") && p_idx == 0) {
+	if ((f == "get_shader_parameter" || f == "set_shader_parameter") && p_idx == 0) {
 		if (shader.is_valid()) {
 			List<PropertyInfo> pl;
-			shader->get_param_list(&pl);
+			shader->get_shader_uniform_list(&pl);
 			for (const PropertyInfo &E : pl) {
-				r_options->push_back(E.name.replace_first("shader_param/", "").quote());
+				r_options->push_back(E.name.replace_first("shader_parameter/", "").quote());
 			}
 		}
 	}
@@ -922,6 +900,7 @@ void BaseMaterial3D::_update_shader() {
 			if (flags[FLAG_BILLBOARD_KEEP_SCALE]) {
 				code += "	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0), vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));\n";
 			}
+			code += "	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);\n";
 		} break;
 		case BILLBOARD_FIXED_Y: {
 			code += "	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(vec4(normalize(cross(vec3(0.0, 1.0, 0.0), INV_VIEW_MATRIX[2].xyz)), 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(normalize(cross(INV_VIEW_MATRIX[0].xyz, vec3(0.0, 1.0, 0.0))), 0.0), MODEL_MATRIX[3]);\n";
@@ -929,6 +908,7 @@ void BaseMaterial3D::_update_shader() {
 			if (flags[FLAG_BILLBOARD_KEEP_SCALE]) {
 				code += "	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));\n";
 			}
+			code += "	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);\n";
 		} break;
 		case BILLBOARD_PARTICLES: {
 			//make billboard
@@ -937,6 +917,8 @@ void BaseMaterial3D::_update_shader() {
 			code += "	mat_world = mat_world * mat4(vec4(cos(INSTANCE_CUSTOM.x), -sin(INSTANCE_CUSTOM.x), 0.0, 0.0), vec4(sin(INSTANCE_CUSTOM.x), cos(INSTANCE_CUSTOM.x), 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 0.0, 1.0));\n";
 			//set modelview
 			code += "	MODELVIEW_MATRIX = VIEW_MATRIX * mat_world;\n";
+			//set modelview normal
+			code += "	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);\n";
 
 			//handle animation
 			code += "	float h_frames = float(particles_anim_h_frames);\n";
@@ -947,7 +929,7 @@ void BaseMaterial3D::_update_shader() {
 			code += "		particle_frame = clamp(particle_frame, 0.0, particle_total_frames - 1.0);\n";
 			code += "	} else {\n";
 			code += "		particle_frame = mod(particle_frame, particle_total_frames);\n";
-			code += "	}";
+			code += "	}\n";
 			code += "	UV /= vec2(h_frames, v_frames);\n";
 			code += "	UV += vec2(mod(particle_frame, h_frames) / h_frames, floor((particle_frame + 0.5) / h_frames) / v_frames);\n";
 		} break;
@@ -1067,7 +1049,8 @@ void BaseMaterial3D::_update_shader() {
 			code += "		float num_layers = mix(float(heightmap_max_layers),float(heightmap_min_layers), abs(dot(vec3(0.0, 0.0, 1.0), view_dir)));\n";
 			code += "		float layer_depth = 1.0 / num_layers;\n";
 			code += "		float current_layer_depth = 0.0;\n";
-			code += "		vec2 P = view_dir.xy * heightmap_scale;\n";
+			// Multiply the heightmap scale by 0.01 to improve heightmap scale usability.
+			code += "		vec2 P = view_dir.xy * heightmap_scale * 0.01;\n";
 			code += "		vec2 delta = P / num_layers;\n";
 			code += "		vec2 ofs = base_uv;\n";
 			if (flags[FLAG_INVERT_HEIGHTMAP]) {
@@ -1103,7 +1086,8 @@ void BaseMaterial3D::_update_shader() {
 			}
 			// Use offset limiting to improve the appearance of non-deep parallax.
 			// This reduces the impression of depth, but avoids visible warping in the distance.
-			code += "		vec2 ofs = base_uv - view_dir.xy * depth * heightmap_scale;\n";
+			// Multiply the heightmap scale by 0.01 to improve heightmap scale usability.
+			code += "		vec2 ofs = base_uv - view_dir.xy * depth * heightmap_scale * 0.01;\n";
 		}
 
 		code += "		base_uv=ofs;\n";
@@ -1276,38 +1260,21 @@ void BaseMaterial3D::_update_shader() {
 		if ((distance_fade == DISTANCE_FADE_OBJECT_DITHER || distance_fade == DISTANCE_FADE_PIXEL_DITHER)) {
 			if (!RenderingServer::get_singleton()->is_low_end()) {
 				code += "	{\n";
+
 				if (distance_fade == DISTANCE_FADE_OBJECT_DITHER) {
 					code += "		float fade_distance = abs((VIEW_MATRIX * MODEL_MATRIX[3]).z);\n";
 
 				} else {
-					code += "		float fade_distance=-VERTEX.z;\n";
+					code += "		float fade_distance = -VERTEX.z;\n";
 				}
+				// Use interleaved gradient noise, which is fast but still looks good.
+				code += "		const vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);";
+				code += "		float fade = clamp(smoothstep(distance_fade_min, distance_fade_max, fade_distance), 0.0, 1.0);\n";
+				// Use a hard cap to prevent a few stray pixels from remaining when past the fade-out distance.
+				code += "		if (fade < 0.001 || fade < fract(magic.z * fract(dot(FRAGCOORD.xy, magic.xy)))) {\n";
+				code += "			discard;\n";
+				code += "		}\n";
 
-				code += "		float fade=clamp(smoothstep(distance_fade_min,distance_fade_max,fade_distance),0.0,1.0);\n";
-				code += "		int x = int(FRAGCOORD.x) % 4;\n";
-				code += "		int y = int(FRAGCOORD.y) % 4;\n";
-				code += "		int index = x + y * 4;\n";
-				code += "		float limit = 0.0;\n\n";
-				code += "		if (x < 8) {\n";
-				code += "			if (index == 0) limit = 0.0625;\n";
-				code += "			if (index == 1) limit = 0.5625;\n";
-				code += "			if (index == 2) limit = 0.1875;\n";
-				code += "			if (index == 3) limit = 0.6875;\n";
-				code += "			if (index == 4) limit = 0.8125;\n";
-				code += "			if (index == 5) limit = 0.3125;\n";
-				code += "			if (index == 6) limit = 0.9375;\n";
-				code += "			if (index == 7) limit = 0.4375;\n";
-				code += "			if (index == 8) limit = 0.25;\n";
-				code += "			if (index == 9) limit = 0.75;\n";
-				code += "			if (index == 10) limit = 0.125;\n";
-				code += "			if (index == 11) limit = 0.625;\n";
-				code += "			if (index == 12) limit = 1.0;\n";
-				code += "			if (index == 13) limit = 0.5;\n";
-				code += "			if (index == 14) limit = 0.875;\n";
-				code += "			if (index == 15) limit = 0.375;\n";
-				code += "		}\n\n";
-				code += "	if (fade < limit)\n";
-				code += "		discard;\n";
 				code += "	}\n\n";
 			}
 
@@ -1521,13 +1488,27 @@ Color BaseMaterial3D::get_emission() const {
 	return emission;
 }
 
-void BaseMaterial3D::set_emission_energy(float p_emission_energy) {
-	emission_energy = p_emission_energy;
-	RS::get_singleton()->material_set_param(_get_material(), shader_names->emission_energy, p_emission_energy);
+void BaseMaterial3D::set_emission_energy_multiplier(float p_emission_energy_multiplier) {
+	emission_energy_multiplier = p_emission_energy_multiplier;
+	if (GLOBAL_GET("rendering/lights_and_shadows/use_physical_light_units")) {
+		RS::get_singleton()->material_set_param(_get_material(), shader_names->emission_energy, p_emission_energy_multiplier * emission_intensity);
+	} else {
+		RS::get_singleton()->material_set_param(_get_material(), shader_names->emission_energy, p_emission_energy_multiplier);
+	}
 }
 
-float BaseMaterial3D::get_emission_energy() const {
-	return emission_energy;
+float BaseMaterial3D::get_emission_energy_multiplier() const {
+	return emission_energy_multiplier;
+}
+
+void BaseMaterial3D::set_emission_intensity(float p_emission_intensity) {
+	ERR_FAIL_COND_EDMSG(!GLOBAL_GET("rendering/lights_and_shadows/use_physical_light_units"), "Cannot set material emission intensity when Physical Light Units disabled.");
+	emission_intensity = p_emission_intensity;
+	RS::get_singleton()->material_set_param(_get_material(), shader_names->emission_energy, emission_energy_multiplier * emission_intensity);
+}
+
+float BaseMaterial3D::get_emission_intensity() const {
+	return emission_intensity;
 }
 
 void BaseMaterial3D::set_normal_scale(float p_normal_scale) {
@@ -1884,61 +1865,65 @@ void BaseMaterial3D::_validate_high_end(const String &text, PropertyInfo &proper
 	}
 }
 
-void BaseMaterial3D::_validate_property(PropertyInfo &property) const {
-	_validate_feature("normal", FEATURE_NORMAL_MAPPING, property);
-	_validate_feature("emission", FEATURE_EMISSION, property);
-	_validate_feature("rim", FEATURE_RIM, property);
-	_validate_feature("clearcoat", FEATURE_CLEARCOAT, property);
-	_validate_feature("anisotropy", FEATURE_ANISOTROPY, property);
-	_validate_feature("ao", FEATURE_AMBIENT_OCCLUSION, property);
-	_validate_feature("heightmap", FEATURE_HEIGHT_MAPPING, property);
-	_validate_feature("subsurf_scatter", FEATURE_SUBSURFACE_SCATTERING, property);
-	_validate_feature("backlight", FEATURE_BACKLIGHT, property);
-	_validate_feature("refraction", FEATURE_REFRACTION, property);
-	_validate_feature("detail", FEATURE_DETAIL, property);
+void BaseMaterial3D::_validate_property(PropertyInfo &p_property) const {
+	_validate_feature("normal", FEATURE_NORMAL_MAPPING, p_property);
+	_validate_feature("emission", FEATURE_EMISSION, p_property);
+	_validate_feature("rim", FEATURE_RIM, p_property);
+	_validate_feature("clearcoat", FEATURE_CLEARCOAT, p_property);
+	_validate_feature("anisotropy", FEATURE_ANISOTROPY, p_property);
+	_validate_feature("ao", FEATURE_AMBIENT_OCCLUSION, p_property);
+	_validate_feature("heightmap", FEATURE_HEIGHT_MAPPING, p_property);
+	_validate_feature("subsurf_scatter", FEATURE_SUBSURFACE_SCATTERING, p_property);
+	_validate_feature("backlight", FEATURE_BACKLIGHT, p_property);
+	_validate_feature("refraction", FEATURE_REFRACTION, p_property);
+	_validate_feature("detail", FEATURE_DETAIL, p_property);
 
-	_validate_high_end("refraction", property);
-	_validate_high_end("subsurf_scatter", property);
-	_validate_high_end("heightmap", property);
+	_validate_high_end("refraction", p_property);
+	_validate_high_end("subsurf_scatter", p_property);
+	_validate_high_end("heightmap", p_property);
 
-	if (property.name.begins_with("particles_anim_") && billboard_mode != BILLBOARD_PARTICLES) {
-		property.usage = PROPERTY_USAGE_NONE;
+	if (p_property.name == "emission_intensity" && !GLOBAL_GET("rendering/lights_and_shadows/use_physical_light_units")) {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 
-	if (property.name == "billboard_keep_scale" && billboard_mode == BILLBOARD_DISABLED) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name.begins_with("particles_anim_") && billboard_mode != BILLBOARD_PARTICLES) {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 
-	if (property.name == "grow_amount" && !grow_enabled) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name == "billboard_keep_scale" && billboard_mode == BILLBOARD_DISABLED) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
-	if (property.name == "point_size" && !flags[FLAG_USE_POINT_SIZE]) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name == "grow_amount" && !grow_enabled) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
-	if (property.name == "proximity_fade_distance" && !proximity_fade_enabled) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name == "point_size" && !flags[FLAG_USE_POINT_SIZE]) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
-	if (property.name == "msdf_pixel_range" && !flags[FLAG_ALBEDO_TEXTURE_MSDF]) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name == "proximity_fade_distance" && !proximity_fade_enabled) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
-	if (property.name == "msdf_outline_size" && !flags[FLAG_ALBEDO_TEXTURE_MSDF]) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name == "msdf_pixel_range" && !flags[FLAG_ALBEDO_TEXTURE_MSDF]) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
-	if ((property.name == "distance_fade_max_distance" || property.name == "distance_fade_min_distance") && distance_fade == DISTANCE_FADE_DISABLED) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name == "msdf_outline_size" && !flags[FLAG_ALBEDO_TEXTURE_MSDF]) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
-	if ((property.name == "uv1_triplanar_sharpness" || property.name == "uv1_world_triplanar") && !flags[FLAG_UV1_USE_TRIPLANAR]) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if ((p_property.name == "distance_fade_max_distance" || p_property.name == "distance_fade_min_distance") && distance_fade == DISTANCE_FADE_DISABLED) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
-	if ((property.name == "uv2_triplanar_sharpness" || property.name == "uv2_world_triplanar") && !flags[FLAG_UV2_USE_TRIPLANAR]) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if ((p_property.name == "uv1_triplanar_sharpness" || p_property.name == "uv1_world_triplanar") && !flags[FLAG_UV1_USE_TRIPLANAR]) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+	}
+
+	if ((p_property.name == "uv2_triplanar_sharpness" || p_property.name == "uv2_world_triplanar") && !flags[FLAG_UV2_USE_TRIPLANAR]) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
 	// you can only enable anti-aliasing (in materials) on alpha scissor and alpha hash
@@ -1947,96 +1932,96 @@ void BaseMaterial3D::_validate_property(PropertyInfo &property) const {
 	const bool alpha_aa_enabled = (alpha_antialiasing_mode != ALPHA_ANTIALIASING_OFF) && can_select_aa;
 
 	// alpha scissor slider isn't needed when alpha antialiasing is enabled
-	if (property.name == "alpha_scissor_threshold" && transparency != TRANSPARENCY_ALPHA_SCISSOR) {
-		property.usage = PROPERTY_USAGE_NONE;
+	if (p_property.name == "alpha_scissor_threshold" && transparency != TRANSPARENCY_ALPHA_SCISSOR) {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 
 	// alpha hash scale slider is only needed if transparency is alpha hash
-	if (property.name == "alpha_hash_scale" && transparency != TRANSPARENCY_ALPHA_HASH) {
-		property.usage = PROPERTY_USAGE_NONE;
+	if (p_property.name == "alpha_hash_scale" && transparency != TRANSPARENCY_ALPHA_HASH) {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 
-	if (property.name == "alpha_antialiasing_mode" && !can_select_aa) {
-		property.usage = PROPERTY_USAGE_NONE;
+	if (p_property.name == "alpha_antialiasing_mode" && !can_select_aa) {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 
 	// we can't choose an antialiasing mode if alpha isn't possible
-	if (property.name == "alpha_antialiasing_edge" && !alpha_aa_enabled) {
-		property.usage = PROPERTY_USAGE_NONE;
+	if (p_property.name == "alpha_antialiasing_edge" && !alpha_aa_enabled) {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 
-	if (property.name == "blend_mode" && alpha_aa_enabled) {
-		property.usage = PROPERTY_USAGE_NONE;
+	if (p_property.name == "blend_mode" && alpha_aa_enabled) {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 
-	if ((property.name == "heightmap_min_layers" || property.name == "heightmap_max_layers") && !deep_parallax) {
-		property.usage = PROPERTY_USAGE_NONE;
+	if ((p_property.name == "heightmap_min_layers" || p_property.name == "heightmap_max_layers") && !deep_parallax) {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 
-	if (flags[FLAG_SUBSURFACE_MODE_SKIN] && (property.name == "subsurf_scatter_transmittance_color" || property.name == "subsurf_scatter_transmittance_texture")) {
-		property.usage = PROPERTY_USAGE_NONE;
+	if (flags[FLAG_SUBSURFACE_MODE_SKIN] && (p_property.name == "subsurf_scatter_transmittance_color" || p_property.name == "subsurf_scatter_transmittance_texture")) {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 
 	if (orm) {
-		if (property.name == "shading_mode") {
+		if (p_property.name == "shading_mode") {
 			// Vertex not supported in ORM mode, since no individual roughness.
-			property.hint_string = "Unshaded,Per-Pixel";
+			p_property.hint_string = "Unshaded,Per-Pixel";
 		}
-		if (property.name.begins_with("roughness") || property.name.begins_with("metallic") || property.name.begins_with("ao_texture")) {
-			property.usage = PROPERTY_USAGE_NONE;
+		if (p_property.name.begins_with("roughness") || p_property.name.begins_with("metallic") || p_property.name.begins_with("ao_texture")) {
+			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 
 	} else {
-		if (property.name == "orm_texture") {
-			property.usage = PROPERTY_USAGE_NONE;
+		if (p_property.name == "orm_texture") {
+			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 	}
 
 	if (shading_mode != SHADING_MODE_PER_PIXEL) {
 		if (shading_mode != SHADING_MODE_PER_VERTEX) {
 			//these may still work per vertex
-			if (property.name.begins_with("ao")) {
-				property.usage = PROPERTY_USAGE_NONE;
+			if (p_property.name.begins_with("ao")) {
+				p_property.usage = PROPERTY_USAGE_NONE;
 			}
-			if (property.name.begins_with("emission")) {
-				property.usage = PROPERTY_USAGE_NONE;
-			}
-
-			if (property.name.begins_with("metallic")) {
-				property.usage = PROPERTY_USAGE_NONE;
-			}
-			if (property.name.begins_with("rim")) {
-				property.usage = PROPERTY_USAGE_NONE;
+			if (p_property.name.begins_with("emission")) {
+				p_property.usage = PROPERTY_USAGE_NONE;
 			}
 
-			if (property.name.begins_with("roughness")) {
-				property.usage = PROPERTY_USAGE_NONE;
+			if (p_property.name.begins_with("metallic")) {
+				p_property.usage = PROPERTY_USAGE_NONE;
+			}
+			if (p_property.name.begins_with("rim")) {
+				p_property.usage = PROPERTY_USAGE_NONE;
 			}
 
-			if (property.name.begins_with("subsurf_scatter")) {
-				property.usage = PROPERTY_USAGE_NONE;
+			if (p_property.name.begins_with("roughness")) {
+				p_property.usage = PROPERTY_USAGE_NONE;
+			}
+
+			if (p_property.name.begins_with("subsurf_scatter")) {
+				p_property.usage = PROPERTY_USAGE_NONE;
 			}
 		}
 
 		//these definitely only need per pixel
-		if (property.name.begins_with("anisotropy")) {
-			property.usage = PROPERTY_USAGE_NONE;
+		if (p_property.name.begins_with("anisotropy")) {
+			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 
-		if (property.name.begins_with("clearcoat")) {
-			property.usage = PROPERTY_USAGE_NONE;
+		if (p_property.name.begins_with("clearcoat")) {
+			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 
-		if (property.name.begins_with("normal")) {
-			property.usage = PROPERTY_USAGE_NONE;
+		if (p_property.name.begins_with("normal")) {
+			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 
-		if (property.name.begins_with("backlight")) {
-			property.usage = PROPERTY_USAGE_NONE;
+		if (p_property.name.begins_with("backlight")) {
+			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 
-		if (property.name.begins_with("transmittance")) {
-			property.usage = PROPERTY_USAGE_NONE;
+		if (p_property.name.begins_with("transmittance")) {
+			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 	}
 }
@@ -2069,8 +2054,9 @@ Vector3 BaseMaterial3D::get_uv1_offset() const {
 }
 
 void BaseMaterial3D::set_uv1_triplanar_blend_sharpness(float p_sharpness) {
-	uv1_triplanar_sharpness = p_sharpness;
-	RS::get_singleton()->material_set_param(_get_material(), shader_names->uv1_blend_sharpness, p_sharpness);
+	// Negative values or values higher than 150 can result in NaNs, leading to broken rendering.
+	uv1_triplanar_sharpness = CLAMP(p_sharpness, 0.0, 150.0);
+	RS::get_singleton()->material_set_param(_get_material(), shader_names->uv1_blend_sharpness, uv1_triplanar_sharpness);
 }
 
 float BaseMaterial3D::get_uv1_triplanar_blend_sharpness() const {
@@ -2096,8 +2082,9 @@ Vector3 BaseMaterial3D::get_uv2_offset() const {
 }
 
 void BaseMaterial3D::set_uv2_triplanar_blend_sharpness(float p_sharpness) {
-	uv2_triplanar_sharpness = p_sharpness;
-	RS::get_singleton()->material_set_param(_get_material(), shader_names->uv2_blend_sharpness, p_sharpness);
+	// Negative values or values higher than 150 can result in NaNs, leading to broken rendering.
+	uv2_triplanar_sharpness = CLAMP(p_sharpness, 0.0, 150.0);
+	RS::get_singleton()->material_set_param(_get_material(), shader_names->uv2_blend_sharpness, uv2_triplanar_sharpness);
 }
 
 float BaseMaterial3D::get_uv2_triplanar_blend_sharpness() const {
@@ -2358,7 +2345,7 @@ void BaseMaterial3D::set_on_top_of_alpha() {
 	set_flag(FLAG_DISABLE_DEPTH_TEST, true);
 }
 
-void BaseMaterial3D::set_proximity_fade(bool p_enable) {
+void BaseMaterial3D::set_proximity_fade_enabled(bool p_enable) {
 	proximity_fade_enabled = p_enable;
 	_queue_shader_change();
 	notify_property_list_changed();
@@ -2478,8 +2465,11 @@ void BaseMaterial3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_emission", "emission"), &BaseMaterial3D::set_emission);
 	ClassDB::bind_method(D_METHOD("get_emission"), &BaseMaterial3D::get_emission);
 
-	ClassDB::bind_method(D_METHOD("set_emission_energy", "emission_energy"), &BaseMaterial3D::set_emission_energy);
-	ClassDB::bind_method(D_METHOD("get_emission_energy"), &BaseMaterial3D::get_emission_energy);
+	ClassDB::bind_method(D_METHOD("set_emission_energy_multiplier", "emission_energy_multiplier"), &BaseMaterial3D::set_emission_energy_multiplier);
+	ClassDB::bind_method(D_METHOD("get_emission_energy_multiplier"), &BaseMaterial3D::get_emission_energy_multiplier);
+
+	ClassDB::bind_method(D_METHOD("set_emission_intensity", "emission_energy_multiplier"), &BaseMaterial3D::set_emission_intensity);
+	ClassDB::bind_method(D_METHOD("get_emission_intensity"), &BaseMaterial3D::get_emission_intensity);
 
 	ClassDB::bind_method(D_METHOD("set_normal_scale", "normal_scale"), &BaseMaterial3D::set_normal_scale);
 	ClassDB::bind_method(D_METHOD("get_normal_scale"), &BaseMaterial3D::get_normal_scale);
@@ -2631,7 +2621,7 @@ void BaseMaterial3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_refraction_texture_channel", "channel"), &BaseMaterial3D::set_refraction_texture_channel);
 	ClassDB::bind_method(D_METHOD("get_refraction_texture_channel"), &BaseMaterial3D::get_refraction_texture_channel);
 
-	ClassDB::bind_method(D_METHOD("set_proximity_fade", "enabled"), &BaseMaterial3D::set_proximity_fade);
+	ClassDB::bind_method(D_METHOD("set_proximity_fade_enabled", "enabled"), &BaseMaterial3D::set_proximity_fade_enabled);
 	ClassDB::bind_method(D_METHOD("is_proximity_fade_enabled"), &BaseMaterial3D::is_proximity_fade_enabled);
 
 	ClassDB::bind_method(D_METHOD("set_proximity_fade_distance", "distance"), &BaseMaterial3D::set_proximity_fade_distance);
@@ -2654,7 +2644,7 @@ void BaseMaterial3D::_bind_methods() {
 
 	ADD_GROUP("Transparency", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "transparency", PROPERTY_HINT_ENUM, "Disabled,Alpha,Alpha Scissor,Alpha Hash,Depth Pre-Pass"), "set_transparency", "get_transparency");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "alpha_scissor_threshold", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_alpha_scissor_threshold", "get_alpha_scissor_threshold");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "alpha_scissor_threshold", PROPERTY_HINT_RANGE, "0,1,0.001"), "set_alpha_scissor_threshold", "get_alpha_scissor_threshold");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "alpha_hash_scale", PROPERTY_HINT_RANGE, "0,2,0.01"), "set_alpha_hash_scale", "get_alpha_hash_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "alpha_antialiasing_mode", PROPERTY_HINT_ENUM, "Disabled,Alpha Edge Blend,Alpha Edge Clip"), "set_alpha_antialiasing", "get_alpha_antialiasing");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "alpha_antialiasing_edge", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_alpha_antialiasing_edge", "get_alpha_antialiasing_edge");
@@ -2696,7 +2686,9 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_GROUP("Emission", "emission_");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "emission_enabled"), "set_feature", "get_feature", FEATURE_EMISSION);
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "emission", PROPERTY_HINT_COLOR_NO_ALPHA), "set_emission", "get_emission");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "emission_energy", PROPERTY_HINT_RANGE, "0,16,0.01,or_greater"), "set_emission_energy", "get_emission_energy");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "emission_energy_multiplier", PROPERTY_HINT_RANGE, "0,16,0.01,or_greater"), "set_emission_energy_multiplier", "get_emission_energy_multiplier");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "emission_intensity", PROPERTY_HINT_RANGE, "0,100000.0,0.01,or_greater,suffix:nt"), "set_emission_intensity", "get_emission_intensity");
+
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "emission_operator", PROPERTY_HINT_ENUM, "Add,Multiply"), "set_emission_operator", "get_emission_operator");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "emission_on_uv2"), "set_flag", "get_flag", FLAG_EMISSION_ON_UV2);
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "emission_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_EMISSION);
@@ -2813,7 +2805,7 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "point_size", PROPERTY_HINT_RANGE, "0.1,128,0.1,suffix:px"), "set_point_size", "get_point_size");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "use_particle_trails"), "set_flag", "get_flag", FLAG_PARTICLE_TRAILS_MODE);
 	ADD_GROUP("Proximity Fade", "proximity_fade_");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "proximity_fade_enable"), "set_proximity_fade", "is_proximity_fade_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "proximity_fade_enabled"), "set_proximity_fade_enabled", "is_proximity_fade_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "proximity_fade_distance", PROPERTY_HINT_RANGE, "0,4096,0.01,suffix:m"), "set_proximity_fade_distance", "get_proximity_fade_distance");
 	ADD_GROUP("MSDF", "msdf_");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "msdf_pixel_range", PROPERTY_HINT_RANGE, "1,100,1"), "set_msdf_pixel_range", "get_msdf_pixel_range");
@@ -2958,14 +2950,14 @@ BaseMaterial3D::BaseMaterial3D(bool p_orm) :
 	set_roughness(1.0);
 	set_metallic(0.0);
 	set_emission(Color(0, 0, 0));
-	set_emission_energy(1.0);
+	set_emission_energy_multiplier(1.0);
 	set_normal_scale(1);
 	set_rim(1.0);
 	set_rim_tint(0.5);
 	set_clearcoat(1);
 	set_clearcoat_roughness(0.5);
 	set_anisotropy(0);
-	set_heightmap_scale(0.05);
+	set_heightmap_scale(5.0);
 	set_subsurface_scattering_strength(0);
 	set_backlight(Color(0, 0, 0));
 	set_transmittance_color(Color(1, 1, 1, 1));
@@ -2986,7 +2978,9 @@ BaseMaterial3D::BaseMaterial3D(bool p_orm) :
 
 	set_transparency(TRANSPARENCY_DISABLED);
 	set_alpha_antialiasing(ALPHA_ANTIALIASING_OFF);
-	set_alpha_scissor_threshold(0.05);
+	// Alpha scissor threshold of 0.5 matches the glTF specification and Label3D default.
+	// <https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#_material_alphacutoff>
+	set_alpha_scissor_threshold(0.5);
 	set_alpha_hash_scale(1.0);
 	set_alpha_antialiasing_edge(0.3);
 
@@ -3109,6 +3103,8 @@ bool StandardMaterial3D::_set(const StringName &p_name, const Variant &p_value) 
 			{ "depth_flip_binormal", "heightmap_flip_binormal" },
 			{ "depth_texture", "heightmap_texture" },
 
+			{ "emission_energy", "emission_energy_multiplier" },
+
 			{ nullptr, nullptr },
 		};
 
@@ -3124,8 +3120,6 @@ bool StandardMaterial3D::_set(const StringName &p_name, const Variant &p_value) 
 		WARN_PRINT("Godot 3.x SpatialMaterial remapped parameter not found: " + String(p_name));
 		return true;
 	}
-
-	return false;
 }
 
 #endif // DISABLE_DEPRECATED

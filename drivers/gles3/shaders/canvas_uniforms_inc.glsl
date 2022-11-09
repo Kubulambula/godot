@@ -25,6 +25,7 @@
 #define FLAGS_DEFAULT_SPECULAR_MAP_USED uint(1 << 27)
 
 #define FLAGS_USE_MSDF uint(1 << 28)
+#define FLAGS_USE_LCD uint(1 << 29)
 
 // must be always 128 bytes long
 struct DrawData {
@@ -81,6 +82,7 @@ layout(std140) uniform CanvasData { //ubo:0
 	uint pad2;
 };
 
+#ifndef DISABLE_LIGHTING
 #define LIGHT_FLAGS_BLEND_MASK uint(3 << 16)
 #define LIGHT_FLAGS_BLEND_MODE_ADD uint(0 << 16)
 #define LIGHT_FLAGS_BLEND_MODE_SUB uint(1 << 16)
@@ -111,9 +113,9 @@ struct Light {
 };
 
 layout(std140) uniform LightData { //ubo:2
-	Light light_data[MAX_LIGHTS];
+	Light light_array[MAX_LIGHTS];
 };
-
+#endif // DISABLE_LIGHTING
 layout(std140) uniform DrawDataInstances { //ubo:3
 
 	DrawData draw_data[MAX_DRAW_DATA_INSTANCES];

@@ -99,8 +99,6 @@ protected:
 
 	int mode = MODE_EDIT;
 
-	UndoRedo *undo_redo = nullptr;
-
 	virtual void _menu_option(int p_option);
 	void _wip_changed();
 	void _wip_close();

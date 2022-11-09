@@ -57,10 +57,17 @@ void Fog::fog_volume_initialize(RID p_rid) {
 	fog_volume_owner.initialize_rid(p_rid, FogVolume());
 }
 
-void Fog::fog_free(RID p_rid) {
+void Fog::fog_volume_free(RID p_rid) {
 	FogVolume *fog_volume = fog_volume_owner.get_or_null(p_rid);
 	fog_volume->dependency.deleted_notify(p_rid);
 	fog_volume_owner.free(p_rid);
+}
+
+Dependency *Fog::fog_volume_get_dependency(RID p_fog_volume) const {
+	FogVolume *fog_volume = fog_volume_owner.get_or_null(p_fog_volume);
+	ERR_FAIL_NULL_V(fog_volume, nullptr);
+
+	return &fog_volume->dependency;
 }
 
 void Fog::fog_volume_set_shape(RID p_fog_volume, RS::FogVolumeShape p_shape) {
@@ -122,8 +129,6 @@ AABB Fog::fog_volume_get_aabb(RID p_fog_volume) const {
 			return AABB(Vector3(-1, -1, -1), Vector3(2, 2, 2));
 		}
 	}
-
-	return AABB();
 }
 
 Vector3 Fog::fog_volume_get_extents(RID p_fog_volume) const {
@@ -138,30 +143,30 @@ Vector3 Fog::fog_volume_get_extents(RID p_fog_volume) const {
 bool Fog::FogMaterialData::update_parameters(const HashMap<StringName, Variant> &p_parameters, bool p_uniform_dirty, bool p_textures_dirty) {
 	uniform_set_updated = true;
 
-	return update_parameters_uniform_set(p_parameters, p_uniform_dirty, p_textures_dirty, shader_data->uniforms, shader_data->ubo_offsets.ptr(), shader_data->texture_uniforms, shader_data->default_texture_params, shader_data->ubo_size, uniform_set, Fog::get_singleton()->volumetric_fog.shader.version_get_shader(shader_data->version, 0), VolumetricFogShader::FogSet::FOG_SET_MATERIAL);
+	return update_parameters_uniform_set(p_parameters, p_uniform_dirty, p_textures_dirty, shader_data->uniforms, shader_data->ubo_offsets.ptr(), shader_data->texture_uniforms, shader_data->default_texture_params, shader_data->ubo_size, uniform_set, Fog::get_singleton()->volumetric_fog.shader.version_get_shader(shader_data->version, 0), VolumetricFogShader::FogSet::FOG_SET_MATERIAL, true);
 }
 
 Fog::FogMaterialData::~FogMaterialData() {
 	free_parameters_uniform_set(uniform_set);
 }
 
-RendererRD::ShaderData *Fog::_create_fog_shader_func() {
+RendererRD::MaterialStorage::ShaderData *Fog::_create_fog_shader_func() {
 	FogShaderData *shader_data = memnew(FogShaderData);
 	return shader_data;
 }
 
-RendererRD::ShaderData *Fog::_create_fog_shader_funcs() {
+RendererRD::MaterialStorage::ShaderData *Fog::_create_fog_shader_funcs() {
 	return Fog::get_singleton()->_create_fog_shader_func();
 };
 
-RendererRD::MaterialData *Fog::_create_fog_material_func(FogShaderData *p_shader) {
+RendererRD::MaterialStorage::MaterialData *Fog::_create_fog_material_func(FogShaderData *p_shader) {
 	FogMaterialData *material_data = memnew(FogMaterialData);
 	material_data->shader_data = p_shader;
 	//update will happen later anyway so do nothing.
 	return material_data;
 }
 
-RendererRD::MaterialData *Fog::_create_fog_material_funcs(RendererRD::ShaderData *p_shader) {
+RendererRD::MaterialStorage::MaterialData *Fog::_create_fog_material_funcs(RendererRD::MaterialStorage::ShaderData *p_shader) {
 	return Fog::get_singleton()->_create_fog_material_func(static_cast<FogShaderData *>(p_shader));
 };
 
@@ -190,8 +195,8 @@ void Fog::init_fog_shader(uint32_t p_max_directional_lights, int p_roughness_lay
 		volumetric_fog_modes.push_back("");
 		volumetric_fog.shader.initialize(volumetric_fog_modes);
 
-		material_storage->shader_set_data_request_function(RendererRD::SHADER_TYPE_FOG, _create_fog_shader_funcs);
-		material_storage->material_set_data_request_function(RendererRD::SHADER_TYPE_FOG, _create_fog_material_funcs);
+		material_storage->shader_set_data_request_function(RendererRD::MaterialStorage::SHADER_TYPE_FOG, _create_fog_shader_funcs);
+		material_storage->material_set_data_request_function(RendererRD::MaterialStorage::SHADER_TYPE_FOG, _create_fog_material_funcs);
 		volumetric_fog.volume_ubo = RD::get_singleton()->uniform_buffer_create(sizeof(VolumetricFogShader::VolumeUBO));
 	}
 
@@ -246,7 +251,7 @@ ALBEDO = vec3(1.0);
 		material_storage->material_initialize(volumetric_fog.default_material);
 		material_storage->material_set_shader(volumetric_fog.default_material, volumetric_fog.default_shader);
 
-		FogMaterialData *md = static_cast<FogMaterialData *>(material_storage->material_get_data(volumetric_fog.default_material, RendererRD::SHADER_TYPE_FOG));
+		FogMaterialData *md = static_cast<FogMaterialData *>(material_storage->material_get_data(volumetric_fog.default_material, RendererRD::MaterialStorage::SHADER_TYPE_FOG));
 		volumetric_fog.default_shader_rd = volumetric_fog.shader.version_get_shader(md->shader_data->version, 0);
 
 		Vector<RD::Uniform> uniforms;
@@ -361,7 +366,7 @@ void Fog::FogShaderData::set_code(const String &p_code) {
 	valid = true;
 }
 
-void Fog::FogShaderData::set_default_texture_param(const StringName &p_name, RID p_texture, int p_index) {
+void Fog::FogShaderData::set_default_texture_parameter(const StringName &p_name, RID p_texture, int p_index) {
 	if (!p_texture.is_valid()) {
 		if (default_texture_params.has(p_name) && default_texture_params[p_name].has(p_index)) {
 			default_texture_params[p_name].erase(p_index);
@@ -378,7 +383,7 @@ void Fog::FogShaderData::set_default_texture_param(const StringName &p_name, RID
 	}
 }
 
-void Fog::FogShaderData::get_param_list(List<PropertyInfo> *p_param_list) const {
+void Fog::FogShaderData::get_shader_uniform_list(List<PropertyInfo> *p_param_list) const {
 	RBMap<int, StringName> order;
 
 	for (const KeyValue<StringName, ShaderLanguage::ShaderNode::Uniform> &E : uniforms) {
@@ -430,7 +435,7 @@ void Fog::FogShaderData::get_instance_param_list(List<RendererMaterialStorage::I
 	}
 }
 
-bool Fog::FogShaderData::is_param_texture(const StringName &p_param) const {
+bool Fog::FogShaderData::is_parameter_texture(const StringName &p_param) const {
 	if (!uniforms.has(p_param)) {
 		return false;
 	}
@@ -473,7 +478,7 @@ Fog::FogShaderData::~FogShaderData() {
 ////////////////////////////////////////////////////////////////////////////////
 // Volumetric Fog
 
-Fog::VolumetricFog::VolumetricFog(const Vector3i &fog_size, RID p_sky_shader) {
+void Fog::VolumetricFog::init(const Vector3i &fog_size, RID p_sky_shader) {
 	width = fog_size.x;
 	height = fog_size.y;
 	depth = fog_size.z;
@@ -500,7 +505,7 @@ Fog::VolumetricFog::VolumetricFog(const Vector3i &fog_size, RID p_sky_shader) {
 	fog_map = RD::get_singleton()->texture_create(tf, RD::TextureView());
 	RD::get_singleton()->set_resource_name(fog_map, "Fog map");
 
-#if defined(OSX_ENABLED) || defined(IPHONE_ENABLED)
+#if defined(MACOS_ENABLED) || defined(IOS_ENABLED)
 	Vector<uint8_t> dm;
 	dm.resize(fog_size.x * fog_size.y * fog_size.z * 4);
 	dm.fill(0);
@@ -591,6 +596,8 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 	RENDER_TIMESTAMP("> Volumetric Fog");
 	RD::get_singleton()->draw_command_begin_label("Volumetric Fog");
 
+	Ref<VolumetricFog> fog = p_settings.vfog;
+
 	if (p_fog_volumes.size() > 0) {
 		RD::get_singleton()->draw_command_begin_label("Render Volumetric Fog Volumes");
 
@@ -623,9 +630,9 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 		params.z_far = z_far;
 		params.time = p_settings.time;
 
-		params.fog_volume_size[0] = p_settings.vfog->width;
-		params.fog_volume_size[1] = p_settings.vfog->height;
-		params.fog_volume_size[2] = p_settings.vfog->depth;
+		params.fog_volume_size[0] = fog->width;
+		params.fog_volume_size[1] = fog->height;
+		params.fog_volume_size[2] = fog->depth;
 
 		params.use_temporal_reprojection = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_temporal_reprojection(p_settings.env);
 		params.temporal_frame = RSG::rasterizer->get_frame_number() % VolumetricFog::MAX_TEMPORAL_FRAMES;
@@ -638,18 +645,18 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 
 		RD::get_singleton()->buffer_update(volumetric_fog.volume_ubo, 0, sizeof(VolumetricFogShader::VolumeUBO), &params, RD::BARRIER_MASK_COMPUTE);
 
-		if (p_settings.vfog->fog_uniform_set.is_null() || !RD::get_singleton()->uniform_set_is_valid(p_settings.vfog->fog_uniform_set)) {
+		if (fog->fog_uniform_set.is_null() || !RD::get_singleton()->uniform_set_is_valid(fog->fog_uniform_set)) {
 			Vector<RD::Uniform> uniforms;
 
 			{
 				RD::Uniform u;
-#if defined(OSX_ENABLED) || defined(IPHONE_ENABLED)
+#if defined(MACOS_ENABLED) || defined(IOS_ENABLED)
 				u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
 #else
 				u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
 #endif
 				u.binding = 1;
-				u.append_id(p_settings.vfog->emissive_map);
+				u.append_id(fog->emissive_map);
 				uniforms.push_back(u);
 			}
 
@@ -663,29 +670,29 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 
 			{
 				RD::Uniform u;
-#if defined(OSX_ENABLED) || defined(IPHONE_ENABLED)
+#if defined(MACOS_ENABLED) || defined(IOS_ENABLED)
 				u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
 #else
 				u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
 #endif
 				u.binding = 3;
-				u.append_id(p_settings.vfog->density_map);
+				u.append_id(fog->density_map);
 				uniforms.push_back(u);
 			}
 
 			{
 				RD::Uniform u;
-#if defined(OSX_ENABLED) || defined(IPHONE_ENABLED)
+#if defined(MACOS_ENABLED) || defined(IOS_ENABLED)
 				u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
 #else
 				u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
 #endif
 				u.binding = 4;
-				u.append_id(p_settings.vfog->light_map);
+				u.append_id(fog->light_map);
 				uniforms.push_back(u);
 			}
 
-			p_settings.vfog->fog_uniform_set = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.default_shader_rd, VolumetricFogShader::FogSet::FOG_SET_UNIFORMS);
+			fog->fog_uniform_set = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.default_shader_rd, VolumetricFogShader::FogSet::FOG_SET_UNIFORMS);
 		}
 
 		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
@@ -701,7 +708,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			FogMaterialData *material = nullptr;
 
 			if (fog_material.is_valid()) {
-				material = static_cast<FogMaterialData *>(material_storage->material_get_data(fog_material, RendererRD::SHADER_TYPE_FOG));
+				material = static_cast<FogMaterialData *>(material_storage->material_get_data(fog_material, RendererRD::MaterialStorage::SHADER_TYPE_FOG));
 				if (!material || !material->shader_data->valid) {
 					material = nullptr;
 				}
@@ -709,7 +716,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 
 			if (!material) {
 				fog_material = volumetric_fog.default_material;
-				material = static_cast<FogMaterialData *>(material_storage->material_get_data(fog_material, RendererRD::SHADER_TYPE_FOG));
+				material = static_cast<FogMaterialData *>(material_storage->material_get_data(fog_material, RendererRD::MaterialStorage::SHADER_TYPE_FOG));
 			}
 
 			ERR_FAIL_COND(!material);
@@ -731,7 +738,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			if (volume_type != RS::FOG_VOLUME_SHAPE_WORLD) {
 				// Local fog volume.
 				Vector3i points[8];
-				Vector3 fog_size = Vector3(p_settings.vfog->width, p_settings.vfog->height, p_settings.vfog->depth);
+				Vector3 fog_size = Vector3(fog->width, fog->height, fog->depth);
 				float volumetric_fog_detail_spread = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_detail_spread(p_settings.env);
 				points[0] = _point_get_position_in_froxel_volume(fog_volume_instance->transform.xform(Vector3(extents.x, extents.y, extents.z)), fog_end, fog_near_size, fog_far_size, volumetric_fog_detail_spread, fog_size, p_cam_transform);
 				points[1] = _point_get_position_in_froxel_volume(fog_volume_instance->transform.xform(Vector3(-extents.x, extents.y, extents.z)), fog_end, fog_near_size, fog_far_size, volumetric_fog_detail_spread, fog_size, p_cam_transform);
@@ -742,7 +749,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 				points[6] = _point_get_position_in_froxel_volume(fog_volume_instance->transform.xform(Vector3(extents.x, -extents.y, -extents.z)), fog_end, fog_near_size, fog_far_size, volumetric_fog_detail_spread, fog_size, p_cam_transform);
 				points[7] = _point_get_position_in_froxel_volume(fog_volume_instance->transform.xform(Vector3(-extents.x, -extents.y, -extents.z)), fog_end, fog_near_size, fog_far_size, volumetric_fog_detail_spread, fog_size, p_cam_transform);
 
-				min = Vector3i(int32_t(p_settings.vfog->width) - 1, int32_t(p_settings.vfog->height) - 1, int32_t(p_settings.vfog->depth) - 1);
+				min = Vector3i(int32_t(fog->width) - 1, int32_t(fog->height) - 1, int32_t(fog->depth) - 1);
 				max = Vector3i(1, 1, 1);
 
 				for (int j = 0; j < 8; j++) {
@@ -753,9 +760,9 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 				kernel_size = max - min;
 			} else {
 				// Volume type global runs on all cells
-				extents = Vector3(p_settings.vfog->width, p_settings.vfog->height, p_settings.vfog->depth);
+				extents = Vector3(fog->width, fog->height, fog->depth);
 				min = Vector3i(0, 0, 0);
-				kernel_size = Vector3i(int32_t(p_settings.vfog->width), int32_t(p_settings.vfog->height), int32_t(p_settings.vfog->depth));
+				kernel_size = Vector3i(int32_t(fog->width), int32_t(fog->height), int32_t(fog->depth));
 			}
 
 			if (kernel_size.x == 0 || kernel_size.y == 0 || kernel_size.z == 0) {
@@ -777,7 +784,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 
 			RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, shader_data->pipeline);
 
-			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, p_settings.vfog->fog_uniform_set, VolumetricFogShader::FogSet::FOG_SET_UNIFORMS);
+			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, fog->fog_uniform_set, VolumetricFogShader::FogSet::FOG_SET_UNIFORMS);
 			RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(VolumetricFogShader::FogPushConstant));
 			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, volumetric_fog.base_uniform_set, VolumetricFogShader::FogSet::FOG_SET_BASE);
 			if (material->uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(material->uniform_set)) { // Material may not have a uniform set.
@@ -795,7 +802,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 		RD::get_singleton()->compute_list_end();
 	}
 
-	if (p_settings.vfog->process_uniform_set_density.is_null() || !RD::get_singleton()->uniform_set_is_valid(p_settings.vfog->process_uniform_set_density)) {
+	if (fog->process_uniform_set_density.is_null() || !RD::get_singleton()->uniform_set_is_valid(fog->process_uniform_set_density)) {
 		//re create uniform set if needed
 		Vector<RD::Uniform> uniforms;
 		Vector<RD::Uniform> copy_uniforms;
@@ -805,7 +812,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
 			u.binding = 1;
 			if (p_settings.shadow_atlas_depth.is_null()) {
-				u.append_id(texture_storage->texture_rd_get_default(RendererRD::DEFAULT_RD_TEXTURE_BLACK));
+				u.append_id(texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK));
 			} else {
 				u.append_id(p_settings.shadow_atlas_depth);
 			}
@@ -821,7 +828,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			if (p_settings.directional_shadow_depth.is_valid()) {
 				u.append_id(p_settings.directional_shadow_depth);
 			} else {
-				u.append_id(texture_storage->texture_rd_get_default(RendererRD::DEFAULT_RD_TEXTURE_BLACK));
+				u.append_id(texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK));
 			}
 			uniforms.push_back(u);
 			copy_uniforms.push_back(u);
@@ -875,7 +882,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			RD::Uniform u;
 			u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
 			u.binding = 8;
-			u.append_id(p_settings.vfog->light_density_map);
+			u.append_id(fog->light_density_map);
 			uniforms.push_back(u);
 			copy_uniforms.push_back(u);
 		}
@@ -884,7 +891,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			RD::Uniform u;
 			u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
 			u.binding = 9;
-			u.append_id(p_settings.vfog->fog_map);
+			u.append_id(fog->fog_map);
 			uniforms.push_back(u);
 		}
 
@@ -892,7 +899,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			RD::Uniform u;
 			u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
 			u.binding = 9;
-			u.append_id(p_settings.vfog->prev_light_density_map);
+			u.append_id(fog->prev_light_density_map);
 			copy_uniforms.push_back(u);
 		}
 
@@ -909,7 +916,7 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			RD::Uniform u;
 			u.uniform_type = RD::UNIFORM_TYPE_UNIFORM_BUFFER;
 			u.binding = 11;
-			u.append_id(p_settings.voxel_gl_buffer);
+			u.append_id(p_settings.voxel_gi_buffer);
 			uniforms.push_back(u);
 			copy_uniforms.push_back(u);
 		}
@@ -944,41 +951,41 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			RD::Uniform u;
 			u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
 			u.binding = 15;
-			u.append_id(p_settings.vfog->prev_light_density_map);
+			u.append_id(fog->prev_light_density_map);
 			uniforms.push_back(u);
 		}
 		{
 			RD::Uniform u;
-#if defined(OSX_ENABLED) || defined(IPHONE_ENABLED)
+#if defined(MACOS_ENABLED) || defined(IOS_ENABLED)
 			u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
 #else
 			u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
 #endif
 			u.binding = 16;
-			u.append_id(p_settings.vfog->density_map);
+			u.append_id(fog->density_map);
 			uniforms.push_back(u);
 		}
 		{
 			RD::Uniform u;
-#if defined(OSX_ENABLED) || defined(IPHONE_ENABLED)
+#if defined(MACOS_ENABLED) || defined(IOS_ENABLED)
 			u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
 #else
 			u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
 #endif
 			u.binding = 17;
-			u.append_id(p_settings.vfog->light_map);
+			u.append_id(fog->light_map);
 			uniforms.push_back(u);
 		}
 
 		{
 			RD::Uniform u;
-#if defined(OSX_ENABLED) || defined(IPHONE_ENABLED)
+#if defined(MACOS_ENABLED) || defined(IOS_ENABLED)
 			u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
 #else
 			u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
 #endif
 			u.binding = 18;
-			u.append_id(p_settings.vfog->emissive_map);
+			u.append_id(fog->emissive_map);
 			uniforms.push_back(u);
 		}
 
@@ -986,15 +993,15 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			RD::Uniform u;
 			u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
 			u.binding = 19;
-			RID radiance_texture = texture_storage->texture_rd_get_default(p_settings.is_using_radiance_cubemap_array ? RendererRD::DEFAULT_RD_TEXTURE_CUBEMAP_ARRAY_BLACK : RendererRD::DEFAULT_RD_TEXTURE_CUBEMAP_BLACK);
+			RID radiance_texture = texture_storage->texture_rd_get_default(p_settings.is_using_radiance_cubemap_array ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_CUBEMAP_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_CUBEMAP_BLACK);
 			RID sky_texture = RendererSceneRenderRD::get_singleton()->environment_get_sky(p_settings.env).is_valid() ? p_settings.sky->sky_get_radiance_texture_rd(RendererSceneRenderRD::get_singleton()->environment_get_sky(p_settings.env)) : RID();
 			u.append_id(sky_texture.is_valid() ? sky_texture : radiance_texture);
 			uniforms.push_back(u);
 		}
 
-		p_settings.vfog->copy_uniform_set = RD::get_singleton()->uniform_set_create(copy_uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_COPY), 0);
+		fog->copy_uniform_set = RD::get_singleton()->uniform_set_create(copy_uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_COPY), 0);
 
-		p_settings.vfog->process_uniform_set = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_FOG), 0);
+		fog->process_uniform_set = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_FOG), 0);
 
 		RID aux7 = uniforms.write[7].get_id(0);
 		RID aux8 = uniforms.write[8].get_id(0);
@@ -1002,17 +1009,17 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 		uniforms.write[7].set_id(0, aux8);
 		uniforms.write[8].set_id(0, aux7);
 
-		p_settings.vfog->process_uniform_set2 = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_FOG), 0);
+		fog->process_uniform_set2 = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_FOG), 0);
 
 		uniforms.remove_at(8);
 		uniforms.write[7].set_id(0, aux7);
-		p_settings.vfog->process_uniform_set_density = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_DENSITY), 0);
+		fog->process_uniform_set_density = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_DENSITY), 0);
 	}
 
-	bool using_sdfgi = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_gi_inject(p_settings.env) > 0.0001 && RendererSceneRenderRD::get_singleton()->environment_get_sdfgi_enabled(p_settings.env) && (p_settings.sdfgi != nullptr);
+	bool using_sdfgi = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_gi_inject(p_settings.env) > 0.0001 && RendererSceneRenderRD::get_singleton()->environment_get_sdfgi_enabled(p_settings.env) && (p_settings.sdfgi.is_valid());
 
 	if (using_sdfgi) {
-		if (p_settings.vfog->sdfgi_uniform_set.is_null() || !RD::get_singleton()->uniform_set_is_valid(p_settings.vfog->sdfgi_uniform_set)) {
+		if (fog->sdfgi_uniform_set.is_null() || !RD::get_singleton()->uniform_set_is_valid(fog->sdfgi_uniform_set)) {
 			Vector<RD::Uniform> uniforms;
 
 			{
@@ -1039,12 +1046,12 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 				uniforms.push_back(u);
 			}
 
-			p_settings.vfog->sdfgi_uniform_set = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_DENSITY_WITH_SDFGI), 1);
+			fog->sdfgi_uniform_set = RD::get_singleton()->uniform_set_create(uniforms, volumetric_fog.process_shader.version_get_shader(volumetric_fog.process_shader_version, VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_DENSITY_WITH_SDFGI), 1);
 		}
 	}
 
-	p_settings.vfog->length = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_length(p_settings.env);
-	p_settings.vfog->spread = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_detail_spread(p_settings.env);
+	fog->length = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_length(p_settings.env);
+	fog->spread = RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_detail_spread(p_settings.env);
 
 	VolumetricFogShader::ParamsUBO params;
 
@@ -1079,9 +1086,9 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 	params.ambient_color[2] = ambient_color.b;
 	params.sky_contribution = RendererSceneRenderRD::get_singleton()->environment_get_ambient_sky_contribution(p_settings.env);
 
-	params.fog_volume_size[0] = p_settings.vfog->width;
-	params.fog_volume_size[1] = p_settings.vfog->height;
-	params.fog_volume_size[2] = p_settings.vfog->depth;
+	params.fog_volume_size[0] = fog->width;
+	params.fog_volume_size[1] = fog->height;
+	params.fog_volume_size[2] = fog->depth;
 
 	params.directional_light_count = p_directional_light_count;
 
@@ -1149,19 +1156,19 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 
 	RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, volumetric_fog.process_pipelines[using_sdfgi ? VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_DENSITY_WITH_SDFGI : VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_DENSITY]);
 
-	RD::get_singleton()->compute_list_bind_uniform_set(compute_list, p_settings.vfog->process_uniform_set_density, 0);
+	RD::get_singleton()->compute_list_bind_uniform_set(compute_list, fog->process_uniform_set_density, 0);
 
 	if (using_sdfgi) {
-		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, p_settings.vfog->sdfgi_uniform_set, 1);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, fog->sdfgi_uniform_set, 1);
 	}
-	RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_settings.vfog->width, p_settings.vfog->height, p_settings.vfog->depth);
+	RD::get_singleton()->compute_list_dispatch_threads(compute_list, fog->width, fog->height, fog->depth);
 	RD::get_singleton()->compute_list_add_barrier(compute_list);
 
 	// Copy fog to history buffer
 	if (RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_temporal_reprojection(p_settings.env)) {
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, volumetric_fog.process_pipelines[VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_COPY]);
-		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, p_settings.vfog->copy_uniform_set, 0);
-		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_settings.vfog->width, p_settings.vfog->height, p_settings.vfog->depth);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, fog->copy_uniform_set, 0);
+		RD::get_singleton()->compute_list_dispatch_threads(compute_list, fog->width, fog->height, fog->depth);
 		RD::get_singleton()->compute_list_add_barrier(compute_list);
 	}
 	RD::get_singleton()->draw_command_end_label();
@@ -1172,8 +1179,8 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 		RENDER_TIMESTAMP("Filter Fog");
 
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, volumetric_fog.process_pipelines[VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_FILTER]);
-		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, p_settings.vfog->process_uniform_set, 0);
-		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_settings.vfog->width, p_settings.vfog->height, p_settings.vfog->depth);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, fog->process_uniform_set, 0);
+		RD::get_singleton()->compute_list_dispatch_threads(compute_list, fog->width, fog->height, fog->depth);
 
 		RD::get_singleton()->compute_list_end();
 		//need restart for buffer update
@@ -1183,8 +1190,8 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 
 		compute_list = RD::get_singleton()->compute_list_begin();
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, volumetric_fog.process_pipelines[VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_FILTER]);
-		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, p_settings.vfog->process_uniform_set2, 0);
-		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_settings.vfog->width, p_settings.vfog->height, p_settings.vfog->depth);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, fog->process_uniform_set2, 0);
+		RD::get_singleton()->compute_list_dispatch_threads(compute_list, fog->width, fog->height, fog->depth);
 
 		RD::get_singleton()->compute_list_add_barrier(compute_list);
 		RD::get_singleton()->draw_command_end_label();
@@ -1194,8 +1201,8 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 	RD::get_singleton()->draw_command_begin_label("Integrate Fog");
 
 	RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, volumetric_fog.process_pipelines[VolumetricFogShader::VOLUMETRIC_FOG_PROCESS_SHADER_FOG]);
-	RD::get_singleton()->compute_list_bind_uniform_set(compute_list, p_settings.vfog->process_uniform_set, 0);
-	RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_settings.vfog->width, p_settings.vfog->height, 1);
+	RD::get_singleton()->compute_list_bind_uniform_set(compute_list, fog->process_uniform_set, 0);
+	RD::get_singleton()->compute_list_dispatch_threads(compute_list, fog->width, fog->height, 1);
 
 	RD::get_singleton()->compute_list_end(RD::BARRIER_MASK_RASTER);
 

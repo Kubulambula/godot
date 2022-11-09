@@ -5,9 +5,9 @@
 	</brief_description>
 	<description>
 		WebXR is an open standard that allows creating VR and AR applications that run in the web browser.
-		As such, this interface is only available when running in an HTML5 export.
+		As such, this interface is only available when running in Web exports.
 		WebXR supports a wide range of devices, from the very capable (like Valve Index, HTC Vive, Oculus Rift and Quest) down to the much less capable (like Google Cardboard, Oculus Go, GearVR, or plain smartphones).
-		Since WebXR is based on Javascript, it makes extensive use of callbacks, which means that [WebXRInterface] is forced to use signals, where other AR/VR interfaces would instead use functions that return a result immediately. This makes [WebXRInterface] quite a bit more complicated to initialize than other AR/VR interfaces.
+		Since WebXR is based on JavaScript, it makes extensive use of callbacks, which means that [WebXRInterface] is forced to use signals, where other AR/VR interfaces would instead use functions that return a result immediately. This makes [WebXRInterface] quite a bit more complicated to initialize than other AR/VR interfaces.
 		Here's the minimum code required to start an immersive VR session:
 		[codeblock]
 		extends Node3D
@@ -18,16 +18,16 @@
 		func _ready():
 		    # We assume this node has a button as a child.
 		    # This button is for the user to consent to entering immersive VR mode.
-		    $Button.connect("pressed", self, "_on_Button_pressed")
+		    $Button.pressed.connect(self._on_Button_pressed)
 
 		    webxr_interface = XRServer.find_interface("WebXR")
 		    if webxr_interface:
 		        # WebXR uses a lot of asynchronous callbacks, so we connect to various
 		        # signals in order to receive them.
-		        webxr_interface.connect("session_supported", self, "_webxr_session_supported")
-		        webxr_interface.connect("session_started", self, "_webxr_session_started")
-		        webxr_interface.connect("session_ended", self, "_webxr_session_ended")
-		        webxr_interface.connect("session_failed", self, "_webxr_session_failed")
+		        webxr_interface.session_supported.connect(self._webxr_session_supported)
+		        webxr_interface.session_started.connect(self._webxr_session_started)
+		        webxr_interface.session_ended.connect(self._webxr_session_ended)
+		        webxr_interface.session_failed.connect(self._webxr_session_failed)
 
 		        # This returns immediately - our _webxr_session_supported() method
 		        # (which we connected to the "session_supported" signal above) will
@@ -96,7 +96,7 @@
 	<methods>
 		<method name="get_controller" qualifiers="const">
 			<return type="XRPositionalTracker" />
-			<argument index="0" name="controller_id" type="int" />
+			<param index="0" name="controller_id" type="int" />
 			<description>
 				Gets an [XRPositionalTracker] for the given [code]controller_id[/code].
 				In the context of WebXR, a "controller" can be an advanced VR controller like the Oculus Touch or Index controllers, or even a tap on the screen, a spoken voice command or a button press on the device itself. When a non-traditional controller is used, interpret the position and orientation of the [XRPositionalTracker] as a ray pointing at the object the user wishes to interact with.
@@ -111,7 +111,7 @@
 		</method>
 		<method name="is_session_supported">
 			<return type="void" />
-			<argument index="0" name="session_mode" type="String" />
+			<param index="0" name="session_mode" type="String" />
 			<description>
 				Checks if the given [code]session_mode[/code] is supported by the user's browser.
 				Possible values come from [url=https://developer.mozilla.org/en-US/docs/Web/API/XRSessionMode]WebXR's XRSessionMode[/url], including: [code]"immersive-vr"[/code], [code]"immersive-ar"[/code], and [code]"inline"[/code].
@@ -166,21 +166,21 @@
 			</description>
 		</signal>
 		<signal name="select">
-			<argument index="0" name="controller_id" type="int" />
+			<param index="0" name="controller_id" type="int" />
 			<description>
 				Emitted after one of the "controllers" has finished its "primary action".
 				Use [method get_controller] to get more information about the controller.
 			</description>
 		</signal>
 		<signal name="selectend">
-			<argument index="0" name="controller_id" type="int" />
+			<param index="0" name="controller_id" type="int" />
 			<description>
 				Emitted when one of the "controllers" has finished its "primary action".
 				Use [method get_controller] to get more information about the controller.
 			</description>
 		</signal>
 		<signal name="selectstart">
-			<argument index="0" name="controller_id" type="int" />
+			<param index="0" name="controller_id" type="int" />
 			<description>
 				Emitted when one of the "controllers" has started its "primary action".
 				Use [method get_controller] to get more information about the controller.
@@ -193,7 +193,7 @@
 			</description>
 		</signal>
 		<signal name="session_failed">
-			<argument index="0" name="message" type="String" />
+			<param index="0" name="message" type="String" />
 			<description>
 				Emitted by [method XRInterface.initialize] if the session fails to start.
 				[code]message[/code] may optionally contain an error message from WebXR, or an empty string if no message is available.
@@ -206,28 +206,28 @@
 			</description>
 		</signal>
 		<signal name="session_supported">
-			<argument index="0" name="session_mode" type="String" />
-			<argument index="1" name="supported" type="bool" />
+			<param index="0" name="session_mode" type="String" />
+			<param index="1" name="supported" type="bool" />
 			<description>
 				Emitted by [method is_session_supported] to indicate if the given [code]session_mode[/code] is supported or not.
 			</description>
 		</signal>
 		<signal name="squeeze">
-			<argument index="0" name="controller_id" type="int" />
+			<param index="0" name="controller_id" type="int" />
 			<description>
 				Emitted after one of the "controllers" has finished its "primary squeeze action".
 				Use [method get_controller] to get more information about the controller.
 			</description>
 		</signal>
 		<signal name="squeezeend">
-			<argument index="0" name="controller_id" type="int" />
+			<param index="0" name="controller_id" type="int" />
 			<description>
 				Emitted when one of the "controllers" has finished its "primary squeeze action".
 				Use [method get_controller] to get more information about the controller.
 			</description>
 		</signal>
 		<signal name="squeezestart">
-			<argument index="0" name="controller_id" type="int" />
+			<param index="0" name="controller_id" type="int" />
 			<description>
 				Emitted when one of the "controllers" has started its "primary squeeze action".
 				Use [method get_controller] to get more information about the controller.

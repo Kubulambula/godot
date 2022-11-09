@@ -30,7 +30,7 @@
 
 #include "dir_access_unix.h"
 
-#if defined(UNIX_ENABLED) || defined(LIBC_FILEIO_ENABLED)
+#if defined(UNIX_ENABLED)
 
 #include "core/os/memory.h"
 #include "core/os/os.h"
@@ -41,10 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifndef ANDROID_ENABLED
 #include <sys/statvfs.h>
-#endif
 
 #ifdef HAVE_MNTENT
 #include <mntent.h>
@@ -69,12 +66,12 @@ bool DirAccessUnix::file_exists(String p_file) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_file.is_relative_path()) {
-		p_file = current_dir.plus_file(p_file);
+		p_file = current_dir.path_join(p_file);
 	}
 
 	p_file = fix_path(p_file);
 
-	struct stat flags;
+	struct stat flags = {};
 	bool success = (stat(p_file.utf8().get_data(), &flags) == 0);
 
 	if (success && S_ISDIR(flags.st_mode)) {
@@ -88,12 +85,12 @@ bool DirAccessUnix::dir_exists(String p_dir) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_dir.is_relative_path()) {
-		p_dir = get_current_dir().plus_file(p_dir);
+		p_dir = get_current_dir().path_join(p_dir);
 	}
 
 	p_dir = fix_path(p_dir);
 
-	struct stat flags;
+	struct stat flags = {};
 	bool success = (stat(p_dir.utf8().get_data(), &flags) == 0);
 
 	return (success && S_ISDIR(flags.st_mode));
@@ -103,7 +100,7 @@ bool DirAccessUnix::is_readable(String p_dir) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_dir.is_relative_path()) {
-		p_dir = get_current_dir().plus_file(p_dir);
+		p_dir = get_current_dir().path_join(p_dir);
 	}
 
 	p_dir = fix_path(p_dir);
@@ -114,7 +111,7 @@ bool DirAccessUnix::is_writable(String p_dir) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_dir.is_relative_path()) {
-		p_dir = get_current_dir().plus_file(p_dir);
+		p_dir = get_current_dir().path_join(p_dir);
 	}
 
 	p_dir = fix_path(p_dir);
@@ -123,12 +120,12 @@ bool DirAccessUnix::is_writable(String p_dir) {
 
 uint64_t DirAccessUnix::get_modified_time(String p_file) {
 	if (p_file.is_relative_path()) {
-		p_file = current_dir.plus_file(p_file);
+		p_file = current_dir.path_join(p_file);
 	}
 
 	p_file = fix_path(p_file);
 
-	struct stat flags;
+	struct stat flags = {};
 	bool success = (stat(p_file.utf8().get_data(), &flags) == 0);
 
 	if (success) {
@@ -159,9 +156,9 @@ String DirAccessUnix::get_next() {
 	// known if it points to a directory. stat() will resolve the link
 	// for us.
 	if (entry->d_type == DT_UNKNOWN || entry->d_type == DT_LNK) {
-		String f = current_dir.plus_file(fname);
+		String f = current_dir.path_join(fname);
 
-		struct stat flags;
+		struct stat flags = {};
 		if (stat(f.utf8().get_data(), &flags) == 0) {
 			_cisdir = S_ISDIR(flags.st_mode);
 		} else {
@@ -315,7 +312,7 @@ Error DirAccessUnix::make_dir(String p_dir) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_dir.is_relative_path()) {
-		p_dir = get_current_dir().plus_file(p_dir);
+		p_dir = get_current_dir().path_join(p_dir);
 	}
 
 	p_dir = fix_path(p_dir);
@@ -350,7 +347,7 @@ Error DirAccessUnix::change_dir(String p_dir) {
 	// try_dir is the directory we are trying to change into
 	String try_dir = "";
 	if (p_dir.is_relative_path()) {
-		String next_dir = current_dir.plus_file(p_dir);
+		String next_dir = current_dir.path_join(p_dir);
 		next_dir = next_dir.simplify_path();
 		try_dir = next_dir;
 	} else {
@@ -394,13 +391,13 @@ String DirAccessUnix::get_current_dir(bool p_include_drive) const {
 
 Error DirAccessUnix::rename(String p_path, String p_new_path) {
 	if (p_path.is_relative_path()) {
-		p_path = get_current_dir().plus_file(p_path);
+		p_path = get_current_dir().path_join(p_path);
 	}
 
 	p_path = fix_path(p_path);
 
 	if (p_new_path.is_relative_path()) {
-		p_new_path = get_current_dir().plus_file(p_new_path);
+		p_new_path = get_current_dir().path_join(p_new_path);
 	}
 
 	p_new_path = fix_path(p_new_path);
@@ -410,12 +407,12 @@ Error DirAccessUnix::rename(String p_path, String p_new_path) {
 
 Error DirAccessUnix::remove(String p_path) {
 	if (p_path.is_relative_path()) {
-		p_path = get_current_dir().plus_file(p_path);
+		p_path = get_current_dir().path_join(p_path);
 	}
 
 	p_path = fix_path(p_path);
 
-	struct stat flags;
+	struct stat flags = {};
 	if ((stat(p_path.utf8().get_data(), &flags) != 0)) {
 		return FAILED;
 	}
@@ -429,12 +426,12 @@ Error DirAccessUnix::remove(String p_path) {
 
 bool DirAccessUnix::is_link(String p_file) {
 	if (p_file.is_relative_path()) {
-		p_file = get_current_dir().plus_file(p_file);
+		p_file = get_current_dir().path_join(p_file);
 	}
 
 	p_file = fix_path(p_file);
 
-	struct stat flags;
+	struct stat flags = {};
 	if ((lstat(p_file.utf8().get_data(), &flags) != 0)) {
 		return FAILED;
 	}
@@ -444,7 +441,7 @@ bool DirAccessUnix::is_link(String p_file) {
 
 String DirAccessUnix::read_link(String p_file) {
 	if (p_file.is_relative_path()) {
-		p_file = get_current_dir().plus_file(p_file);
+		p_file = get_current_dir().path_join(p_file);
 	}
 
 	p_file = fix_path(p_file);
@@ -461,7 +458,7 @@ String DirAccessUnix::read_link(String p_file) {
 
 Error DirAccessUnix::create_link(String p_source, String p_target) {
 	if (p_target.is_relative_path()) {
-		p_target = get_current_dir().plus_file(p_target);
+		p_target = get_current_dir().path_join(p_target);
 	}
 
 	p_source = fix_path(p_source);
@@ -475,17 +472,12 @@ Error DirAccessUnix::create_link(String p_source, String p_target) {
 }
 
 uint64_t DirAccessUnix::get_space_left() {
-#ifndef NO_STATVFS
 	struct statvfs vfs;
 	if (statvfs(current_dir.utf8().get_data(), &vfs) != 0) {
 		return 0;
 	}
 
 	return (uint64_t)vfs.f_bavail * (uint64_t)vfs.f_frsize;
-#else
-	// FIXME: Implement this.
-	return 0;
-#endif
 }
 
 String DirAccessUnix::get_filesystem_type() const {
@@ -516,4 +508,4 @@ DirAccessUnix::~DirAccessUnix() {
 	list_dir_end();
 }
 
-#endif // UNIX_ENABLED || LIBC_FILEIO_ENABLED
+#endif // UNIX_ENABLED

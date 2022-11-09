@@ -184,9 +184,9 @@ void EditorHelp::_class_desc_input(const Ref<InputEvent> &p_input) {
 void EditorHelp::_class_desc_resized(bool p_force_update_theme) {
 	// Add extra horizontal margins for better readability.
 	// The margins increase as the width of the editor help container increases.
-	Ref<Font> doc_code_font = get_theme_font(SNAME("doc_source"), SNAME("EditorFonts"));
+	Ref<Font> font = get_theme_font(SNAME("doc_source"), SNAME("EditorFonts"));
 	int font_size = get_theme_font_size(SNAME("doc_source_size"), SNAME("EditorFonts"));
-	real_t char_width = doc_code_font->get_char_size('x', font_size).width;
+	real_t char_width = font->get_char_size('x', font_size).width;
 	const int new_display_margin = MAX(30 * EDSCALE, get_parent_anchorable_rect().size.width - char_width * 120 * EDSCALE) * 0.5;
 	if (display_margin != new_display_margin || p_force_update_theme) {
 		display_margin = new_display_margin;
@@ -239,6 +239,27 @@ void EditorHelp::_add_type(const String &p_type, const String &p_enum) {
 	class_desc->pop();
 }
 
+void EditorHelp::_add_type_icon(const String &p_type, int p_size) {
+	Ref<Texture2D> icon;
+	if (has_theme_icon(p_type, SNAME("EditorIcons"))) {
+		icon = get_theme_icon(p_type, SNAME("EditorIcons"));
+	} else if (ClassDB::class_exists(p_type) && ClassDB::is_parent_class(p_type, "Object")) {
+		icon = get_theme_icon(SNAME("Object"), SNAME("EditorIcons"));
+	} else {
+		icon = get_theme_icon(SNAME("ArrowRight"), SNAME("EditorIcons"));
+	}
+
+	Vector2i size = Vector2i(icon->get_width(), icon->get_height());
+	if (p_size > 0) {
+		// Ensures icon scales proportionally on both axis, based on icon height.
+		float ratio = p_size / float(size.height);
+		size.width *= ratio;
+		size.height *= ratio;
+	}
+
+	class_desc->add_image(icon, size.width, size.height);
+}
+
 String EditorHelp::_fix_constant(const String &p_constant) const {
 	if (p_constant.strip_edges() == "4294967295") {
 		return "0xFFFFFFFF";
@@ -254,6 +275,23 @@ String EditorHelp::_fix_constant(const String &p_constant) const {
 
 	return p_constant;
 }
+
+// Macros for assigning the deprecation/experimental information to class members
+#define DEPRECATED_DOC_TAG                                                                  \
+	class_desc->push_color(get_theme_color(SNAME("error_color"), SNAME("Editor")));         \
+	Ref<Texture2D> error_icon = get_theme_icon(SNAME("StatusError"), SNAME("EditorIcons")); \
+	class_desc->add_text(" ");                                                              \
+	class_desc->add_image(error_icon, error_icon->get_width(), error_icon->get_height());   \
+	class_desc->add_text(" (" + TTR("Deprecated") + ")");                                   \
+	class_desc->pop();
+
+#define EXPERIMENTAL_DOC_TAG                                                                    \
+	class_desc->push_color(get_theme_color(SNAME("warning_color"), SNAME("Editor")));           \
+	Ref<Texture2D> warning_icon = get_theme_icon(SNAME("NodeWarning"), SNAME("EditorIcons"));   \
+	class_desc->add_text(" ");                                                                  \
+	class_desc->add_image(warning_icon, warning_icon->get_width(), warning_icon->get_height()); \
+	class_desc->add_text(" (" + TTR("Experimental") + ")");                                     \
+	class_desc->pop();
 
 void EditorHelp::_add_method(const DocData::MethodDoc &p_method, bool p_overview) {
 	method_line[p_method.name] = class_desc->get_paragraph_count() - 2; //gets overridden if description
@@ -330,9 +368,38 @@ void EditorHelp::_add_method(const DocData::MethodDoc &p_method, bool p_overview
 	class_desc->pop();
 	if (!p_method.qualifiers.is_empty()) {
 		class_desc->push_color(qualifier_color);
-		class_desc->add_text(" ");
-		_add_text(p_method.qualifiers);
+
+		PackedStringArray qualifiers = p_method.qualifiers.split_spaces();
+		for (const String &qualifier : qualifiers) {
+			String hint;
+			if (qualifier == "vararg") {
+				hint = TTR("This method supports a variable number of arguments.");
+			} else if (qualifier == "virtual") {
+				hint = TTR("This method is called by the engine.\nIt can be overridden to customize built-in behavior.");
+			} else if (qualifier == "const") {
+				hint = TTR("This method has no side effects.\nIt does not modify the object in any way.");
+			} else if (qualifier == "static") {
+				hint = TTR("This method does not need an instance to be called.\nIt can be called directly using the class name.");
+			}
+
+			class_desc->add_text(" ");
+			if (!hint.is_empty()) {
+				class_desc->push_hint(hint);
+				class_desc->add_text(qualifier);
+				class_desc->pop();
+			} else {
+				class_desc->add_text(qualifier);
+			}
+		}
 		class_desc->pop();
+	}
+
+	if (p_method.is_deprecated) {
+		DEPRECATED_DOC_TAG;
+	}
+
+	if (p_method.is_experimental) {
+		EXPERIMENTAL_DOC_TAG;
 	}
 
 	if (p_overview) {
@@ -366,13 +433,13 @@ Error EditorHelp::_goto_desc(const String &p_class, int p_vscr) {
 }
 
 void EditorHelp::_update_method_list(const Vector<DocData::MethodDoc> p_methods, bool &r_method_descrpitons) {
-	Ref<Font> doc_code_font = get_theme_font(SNAME("doc_source"), SNAME("EditorFonts"));
+	Ref<Font> font = get_theme_font(SNAME("doc_source"), SNAME("EditorFonts"));
 	class_desc->pop(); // title font size
 	class_desc->pop(); // title font
 	class_desc->pop(); // title color
 
 	class_desc->add_newline();
-	class_desc->push_font(doc_code_font);
+	class_desc->push_font(font);
 	class_desc->push_indent(1);
 	class_desc->push_table(2);
 	class_desc->set_table_column_expand(1, true);
@@ -433,9 +500,8 @@ void EditorHelp::_update_method_list(const Vector<DocData::MethodDoc> p_methods,
 }
 
 void EditorHelp::_update_method_descriptions(const DocData::ClassDoc p_classdoc, const Vector<DocData::MethodDoc> p_methods, const String &p_method_type) {
-	Ref<Font> doc_font = get_theme_font(SNAME("doc"), SNAME("EditorFonts"));
-	Ref<Font> doc_bold_font = get_theme_font(SNAME("doc_bold"), SNAME("EditorFonts"));
-	Ref<Font> doc_code_font = get_theme_font(SNAME("doc_source"), SNAME("EditorFonts"));
+	Ref<Font> font = get_theme_font(SNAME("doc"), SNAME("EditorFonts"));
+	Ref<Font> code_font = get_theme_font(SNAME("doc_source"), SNAME("EditorFonts"));
 	String link_color_text = title_color.to_html(false);
 	class_desc->pop(); // title font size
 	class_desc->pop(); // title font
@@ -455,7 +521,7 @@ void EditorHelp::_update_method_descriptions(const DocData::ClassDoc p_classdoc,
 		}
 
 		for (int i = 0; i < methods_filtered.size(); i++) {
-			class_desc->push_font(doc_code_font);
+			class_desc->push_font(code_font);
 			_add_method(methods_filtered[i], false);
 			class_desc->pop();
 
@@ -463,7 +529,7 @@ void EditorHelp::_update_method_descriptions(const DocData::ClassDoc p_classdoc,
 			class_desc->add_newline();
 
 			class_desc->push_color(text_color);
-			class_desc->push_font(doc_font);
+			class_desc->push_font(font);
 			class_desc->push_indent(1);
 			if (methods_filtered[i].errors_returned.size()) {
 				class_desc->append_text(TTR("Error codes returned:"));
@@ -530,22 +596,13 @@ void EditorHelp::_update_doc() {
 
 	DocData::ClassDoc cd = doc->class_list[edited_class]; // Make a copy, so we can sort without worrying.
 
-	Ref<Texture2D> icon;
-	if (has_theme_icon(edited_class, SNAME("EditorIcons"))) {
-		icon = get_theme_icon(edited_class, SNAME("EditorIcons"));
-	} else if (ClassDB::class_exists(edited_class) && ClassDB::is_parent_class(edited_class, "Object")) {
-		icon = get_theme_icon(SNAME("Object"), SNAME("EditorIcons"));
-	} else {
-		icon = get_theme_icon(SNAME("ArrowRight"), SNAME("EditorIcons"));
-	}
-
 	// Class name
 	section_line.push_back(Pair<String, int>(TTR("Top"), 0));
 	class_desc->push_font(doc_title_font);
 	class_desc->push_font_size(doc_title_font_size);
 	class_desc->push_color(title_color);
 	class_desc->add_text(TTR("Class:") + " ");
-	class_desc->add_image(icon, icon->get_width(), icon->get_height());
+	_add_type_icon(edited_class, doc_title_font_size);
 	class_desc->add_text(" ");
 	class_desc->push_color(headline_color);
 	_add_text(edited_class);
@@ -553,7 +610,20 @@ void EditorHelp::_update_doc() {
 	class_desc->pop(); // color
 	class_desc->pop(); // font size
 	class_desc->pop(); // font
+
+	if (cd.is_deprecated) {
+		class_desc->add_text(" ");
+		Ref<Texture2D> error_icon = get_theme_icon(SNAME("StatusError"), SNAME("EditorIcons"));
+		class_desc->add_image(error_icon, error_icon->get_width(), error_icon->get_height());
+	}
+	if (cd.is_experimental) {
+		class_desc->add_text(" ");
+		Ref<Texture2D> warning_icon = get_theme_icon(SNAME("NodeWarning"), SNAME("EditorIcons"));
+		class_desc->add_image(warning_icon, warning_icon->get_width(), warning_icon->get_height());
+	}
 	class_desc->add_newline();
+
+	const String non_breaking_space = String::chr(160);
 
 	// Inheritance tree
 
@@ -566,6 +636,8 @@ void EditorHelp::_update_doc() {
 		String inherits = cd.inherits;
 
 		while (!inherits.is_empty()) {
+			_add_type_icon(inherits);
+			class_desc->add_text(non_breaking_space); // Otherwise icon borrows hyperlink from _add_type().
 			_add_type(inherits);
 
 			inherits = doc->class_list[inherits].inherits;
@@ -597,7 +669,8 @@ void EditorHelp::_update_doc() {
 				if (prev) {
 					class_desc->add_text(" , ");
 				}
-
+				_add_type_icon(E.value.name);
+				class_desc->add_text(non_breaking_space); // Otherwise icon borrows hyperlink from _add_type().
 				_add_type(E.value.name);
 				prev = true;
 			}
@@ -608,6 +681,26 @@ void EditorHelp::_update_doc() {
 			class_desc->pop();
 			class_desc->add_newline();
 		}
+	}
+
+	// Note if deprecated.
+	if (cd.is_deprecated) {
+		Ref<Texture2D> error_icon = get_theme_icon(SNAME("StatusError"), SNAME("EditorIcons"));
+		class_desc->push_color(get_theme_color(SNAME("error_color"), SNAME("Editor")));
+		class_desc->add_image(error_icon, error_icon->get_width(), error_icon->get_height());
+		class_desc->add_text(String(" ") + TTR("This class is marked as deprecated. It will be removed in future versions."));
+		class_desc->pop();
+		class_desc->add_newline();
+	}
+
+	// Note if experimental.
+	if (cd.is_experimental) {
+		Ref<Texture2D> warning_icon = get_theme_icon(SNAME("NodeWarning"), SNAME("EditorIcons"));
+		class_desc->push_color(get_theme_color(SNAME("warning_color"), SNAME("Editor")));
+		class_desc->add_image(warning_icon, warning_icon->get_width(), warning_icon->get_height());
+		class_desc->add_text(String(" ") + TTR("This class is marked as experimental. It is subject to likely change or possible removal in future versions. Use at your own discretion."));
+		class_desc->pop();
+		class_desc->add_newline();
 	}
 
 	class_desc->add_newline();
@@ -800,6 +893,13 @@ void EditorHelp::_update_doc() {
 				class_desc->pop();
 			}
 
+			if (cd.properties[i].is_deprecated) {
+				DEPRECATED_DOC_TAG;
+			}
+			if (cd.properties[i].is_experimental) {
+				EXPERIMENTAL_DOC_TAG;
+			}
+
 			class_desc->pop();
 			class_desc->pop(); // cell
 
@@ -848,7 +948,7 @@ void EditorHelp::_update_doc() {
 	bool constructor_descriptions = false;
 	bool method_descriptions = false;
 	bool operator_descriptions = false;
-	bool sort_methods = EditorSettings::get_singleton()->get("text_editor/help/sort_functions_alphabetically");
+	bool sort_methods = EDITOR_GET("text_editor/help/sort_functions_alphabetically");
 
 	Vector<DocData::MethodDoc> methods;
 
@@ -1049,6 +1149,14 @@ void EditorHelp::_update_doc() {
 
 			class_desc->push_color(symbol_color);
 			class_desc->add_text(")");
+
+			if (cd.signals[i].is_deprecated) {
+				DEPRECATED_DOC_TAG;
+			}
+			if (cd.signals[i].is_experimental) {
+				EXPERIMENTAL_DOC_TAG;
+			}
+
 			class_desc->pop();
 			class_desc->pop(); // end monofont
 			if (!cd.signals[i].description.strip_edges().is_empty()) {
@@ -1170,6 +1278,14 @@ void EditorHelp::_update_doc() {
 					class_desc->pop();
 					class_desc->pop();
 
+					if (enum_list[i].is_deprecated) {
+						DEPRECATED_DOC_TAG;
+					}
+
+					if (enum_list[i].is_experimental) {
+						EXPERIMENTAL_DOC_TAG;
+					}
+
 					class_desc->add_newline();
 
 					if (!enum_list[i].description.strip_edges().is_empty()) {
@@ -1240,6 +1356,14 @@ void EditorHelp::_update_doc() {
 				class_desc->pop();
 
 				class_desc->pop();
+
+				if (constants[i].is_deprecated) {
+					DEPRECATED_DOC_TAG;
+				}
+
+				if (constants[i].is_experimental) {
+					EXPERIMENTAL_DOC_TAG;
+				}
 
 				class_desc->add_newline();
 
@@ -1419,6 +1543,13 @@ void EditorHelp::_update_doc() {
 				class_desc->push_color(symbol_color);
 				class_desc->add_text("]");
 				class_desc->pop(); // color
+			}
+
+			if (cd.properties[i].is_deprecated) {
+				DEPRECATED_DOC_TAG;
+			}
+			if (cd.properties[i].is_experimental) {
+				EXPERIMENTAL_DOC_TAG;
 			}
 
 			if (cd.is_script_doc && (!cd.properties[i].setter.is_empty() || !cd.properties[i].getter.is_empty())) {
@@ -1645,19 +1776,19 @@ void EditorHelp::_help_callback(const String &p_topic) {
 	}
 }
 
-static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt) {
+static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt, Control *p_owner_node) {
 	DocTools *doc = EditorHelp::get_doc_data();
 	String base_path;
 
-	Ref<Font> doc_font = p_rt->get_theme_font(SNAME("doc"), SNAME("EditorFonts"));
-	Ref<Font> doc_bold_font = p_rt->get_theme_font(SNAME("doc_bold"), SNAME("EditorFonts"));
-	Ref<Font> doc_italic_font = p_rt->get_theme_font(SNAME("doc_italic"), SNAME("EditorFonts"));
-	Ref<Font> doc_code_font = p_rt->get_theme_font(SNAME("doc_source"), SNAME("EditorFonts"));
-	Ref<Font> doc_kbd_font = p_rt->get_theme_font(SNAME("doc_keyboard"), SNAME("EditorFonts"));
+	Ref<Font> doc_font = p_owner_node->get_theme_font(SNAME("doc"), SNAME("EditorFonts"));
+	Ref<Font> doc_bold_font = p_owner_node->get_theme_font(SNAME("doc_bold"), SNAME("EditorFonts"));
+	Ref<Font> doc_italic_font = p_owner_node->get_theme_font(SNAME("doc_italic"), SNAME("EditorFonts"));
+	Ref<Font> doc_code_font = p_owner_node->get_theme_font(SNAME("doc_source"), SNAME("EditorFonts"));
+	Ref<Font> doc_kbd_font = p_owner_node->get_theme_font(SNAME("doc_keyboard"), SNAME("EditorFonts"));
 
-	Color link_color = p_rt->get_theme_color(SNAME("link_color"), SNAME("EditorHelp"));
-	Color code_color = p_rt->get_theme_color(SNAME("code_color"), SNAME("EditorHelp"));
-	Color kbd_color = p_rt->get_theme_color(SNAME("kbd_color"), SNAME("EditorHelp"));
+	Color link_color = p_owner_node->get_theme_color(SNAME("link_color"), SNAME("EditorHelp"));
+	Color code_color = p_owner_node->get_theme_color(SNAME("code_color"), SNAME("EditorHelp"));
+	Color kbd_color = p_owner_node->get_theme_color(SNAME("kbd_color"), SNAME("EditorHelp"));
 
 	String bbcode = p_bbcode.dedent().replace("\t", "").replace("\r", "").strip_edges();
 
@@ -1785,7 +1916,7 @@ static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt) {
 			p_rt->add_text("[");
 			pos = brk_pos + 1;
 
-		} else if (tag.begins_with("method ") || tag.begins_with("member ") || tag.begins_with("signal ") || tag.begins_with("enum ") || tag.begins_with("constant ") || tag.begins_with("theme_item ")) {
+		} else if (tag.begins_with("method ") || tag.begins_with("member ") || tag.begins_with("signal ") || tag.begins_with("enum ") || tag.begins_with("constant ") || tag.begins_with("annotation ") || tag.begins_with("theme_item ")) {
 			const int tag_end = tag.find(" ");
 			const String link_tag = tag.substr(0, tag_end);
 			const String link_target = tag.substr(tag_end + 1, tag.length()).lstrip(" ");
@@ -1801,6 +1932,21 @@ static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt) {
 			p_rt->pop();
 			p_rt->pop();
 			p_rt->pop();
+			pos = brk_end + 1;
+
+		} else if (tag.begins_with("param ")) {
+			const int tag_end = tag.find(" ");
+			const String param_name = tag.substr(tag_end + 1, tag.length()).lstrip(" ");
+
+			// Use monospace font with translucent background color to make code easier to distinguish from other text.
+			p_rt->push_font(doc_code_font);
+			p_rt->push_bgcolor(Color(0.5, 0.5, 0.5, 0.15));
+			p_rt->push_color(code_color);
+			p_rt->add_text(param_name);
+			p_rt->pop();
+			p_rt->pop();
+			p_rt->pop();
+
 			pos = brk_end + 1;
 
 		} else if (doc->class_list.has(tag)) {
@@ -1899,7 +2045,7 @@ static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt) {
 			}
 			String image = bbcode.substr(brk_end + 1, end - brk_end - 1);
 
-			Ref<Texture2D> texture = ResourceLoader::load(base_path.plus_file(image), "Texture2D");
+			Ref<Texture2D> texture = ResourceLoader::load(base_path.path_join(image), "Texture2D");
 			if (texture.is_valid()) {
 				p_rt->add_image(texture);
 			}
@@ -1916,7 +2062,7 @@ static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt) {
 		} else if (tag.begins_with("font=")) {
 			String fnt = tag.substr(5, tag.length());
 
-			Ref<Font> font = ResourceLoader::load(base_path.plus_file(fnt), "Font");
+			Ref<Font> font = ResourceLoader::load(base_path.path_join(fnt), "Font");
 			if (font.is_valid()) {
 				p_rt->push_font(font);
 			} else {
@@ -1934,7 +2080,7 @@ static void _add_text_to_rt(const String &p_bbcode, RichTextLabel *p_rt) {
 }
 
 void EditorHelp::_add_text(const String &p_bbcode) {
-	_add_text_to_rt(p_bbcode, class_desc);
+	_add_text_to_rt(p_bbcode, class_desc, this);
 }
 
 Thread EditorHelp::thread;
@@ -2063,7 +2209,7 @@ void EditorHelp::update_toggle_scripts_button() {
 	} else {
 		toggle_scripts_button->set_icon(get_theme_icon(ScriptEditor::get_singleton()->is_scripts_panel_toggled() ? SNAME("Back") : SNAME("Forward"), SNAME("EditorIcons")));
 	}
-	toggle_scripts_button->set_tooltip(vformat("%s (%s)", TTR("Toggle Scripts Panel"), ED_GET_SHORTCUT("script_editor/toggle_scripts_panel")->get_as_text()));
+	toggle_scripts_button->set_tooltip_text(vformat("%s (%s)", TTR("Toggle Scripts Panel"), ED_GET_SHORTCUT("script_editor/toggle_scripts_panel")->get_as_text()));
 }
 
 void EditorHelp::_bind_methods() {
@@ -2160,11 +2306,10 @@ void EditorHelpBit::_bind_methods() {
 
 void EditorHelpBit::_notification(int p_what) {
 	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
 			rich_text->add_theme_color_override("selection_color", get_theme_color(SNAME("selection_color"), SNAME("EditorHelp")));
 			rich_text->clear();
-			_add_text_to_rt(text, rich_text);
+			_add_text_to_rt(text, rich_text, this);
 			rich_text->reset_size(); // Force recalculating size after parsing bbcode.
 		} break;
 	}
@@ -2173,14 +2318,13 @@ void EditorHelpBit::_notification(int p_what) {
 void EditorHelpBit::set_text(const String &p_text) {
 	text = p_text;
 	rich_text->clear();
-	_add_text_to_rt(text, rich_text);
+	_add_text_to_rt(text, rich_text, this);
 }
 
 EditorHelpBit::EditorHelpBit() {
 	rich_text = memnew(RichTextLabel);
 	add_child(rich_text);
 	rich_text->connect("meta_clicked", callable_mp(this, &EditorHelpBit::_meta_clicked));
-	rich_text->set_override_selected_font_color(false);
 	rich_text->set_fit_content_height(true);
 	set_custom_minimum_size(Size2(0, 50 * EDSCALE));
 }

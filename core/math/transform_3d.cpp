@@ -31,7 +31,7 @@
 #include "transform_3d.h"
 
 #include "core/math/math_funcs.h"
-#include "core/string/print_string.h"
+#include "core/string/ustring.h"
 
 void Transform3D::affine_invert() {
 	basis.invert();
@@ -62,7 +62,15 @@ void Transform3D::rotate(const Vector3 &p_axis, real_t p_angle) {
 }
 
 Transform3D Transform3D::rotated(const Vector3 &p_axis, real_t p_angle) const {
-	return Transform3D(Basis(p_axis, p_angle), Vector3()) * (*this);
+	// Equivalent to left multiplication
+	Basis p_basis(p_axis, p_angle);
+	return Transform3D(p_basis * basis, p_basis.xform(origin));
+}
+
+Transform3D Transform3D::rotated_local(const Vector3 &p_axis, real_t p_angle) const {
+	// Equivalent to right multiplication
+	Basis p_basis(p_axis, p_angle);
+	return Transform3D(basis * p_basis, origin);
 }
 
 void Transform3D::rotate_basis(const Vector3 &p_axis, real_t p_angle) {
@@ -86,9 +94,7 @@ void Transform3D::set_look_at(const Vector3 &p_eye, const Vector3 &p_target, con
 	origin = p_eye;
 }
 
-Transform3D Transform3D::spherical_interpolate_with(const Transform3D &p_transform, real_t p_c) const {
-	/* not sure if very "efficient" but good enough? */
-
+Transform3D Transform3D::interpolate_with(const Transform3D &p_transform, real_t p_c) const {
 	Transform3D interp;
 
 	Vector3 src_scale = basis.get_scale();
@@ -105,24 +111,19 @@ Transform3D Transform3D::spherical_interpolate_with(const Transform3D &p_transfo
 	return interp;
 }
 
-Transform3D Transform3D::interpolate_with(const Transform3D &p_transform, real_t p_c) const {
-	Transform3D interp;
-
-	interp.basis = basis.lerp(p_transform.basis, p_c);
-	interp.origin = origin.lerp(p_transform.origin, p_c);
-
-	return interp;
-}
-
 void Transform3D::scale(const Vector3 &p_scale) {
 	basis.scale(p_scale);
 	origin *= p_scale;
 }
 
 Transform3D Transform3D::scaled(const Vector3 &p_scale) const {
-	Transform3D t = *this;
-	t.scale(p_scale);
-	return t;
+	// Equivalent to left multiplication
+	return Transform3D(basis.scaled(p_scale), origin * p_scale);
+}
+
+Transform3D Transform3D::scaled_local(const Vector3 &p_scale) const {
+	// Equivalent to right multiplication
+	return Transform3D(basis.scaled_local(p_scale), origin);
 }
 
 void Transform3D::scale_basis(const Vector3 &p_scale) {
@@ -139,10 +140,14 @@ void Transform3D::translate_local(const Vector3 &p_translation) {
 	}
 }
 
+Transform3D Transform3D::translated(const Vector3 &p_translation) const {
+	// Equivalent to left multiplication
+	return Transform3D(basis, origin + p_translation);
+}
+
 Transform3D Transform3D::translated_local(const Vector3 &p_translation) const {
-	Transform3D t = *this;
-	t.translate_local(p_translation);
-	return t;
+	// Equivalent to right multiplication
+	return Transform3D(basis, origin + basis.xform(p_translation));
 }
 
 void Transform3D::orthonormalize() {
@@ -167,6 +172,10 @@ Transform3D Transform3D::orthogonalized() const {
 
 bool Transform3D::is_equal_approx(const Transform3D &p_transform) const {
 	return basis.is_equal_approx(p_transform.basis) && origin.is_equal_approx(p_transform.origin);
+}
+
+bool Transform3D::is_finite() const {
+	return basis.is_finite() && origin.is_finite();
 }
 
 bool Transform3D::operator==(const Transform3D &p_transform) const {

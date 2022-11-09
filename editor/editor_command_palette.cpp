@@ -32,6 +32,7 @@
 #include "core/os/keyboard.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
+#include "editor/editor_settings.h"
 #include "scene/gui/control.h"
 #include "scene/gui/tree.h"
 
@@ -129,7 +130,7 @@ void EditorCommandPalette::_update_command_search(const String &search_text) {
 		ti->set_metadata(0, entries[i].key_name);
 		ti->set_text_alignment(1, HORIZONTAL_ALIGNMENT_RIGHT);
 		ti->set_text(1, shortcut_text);
-		Color c = Color(1, 1, 1, 0.5);
+		Color c = get_theme_color(SNAME("font_color"), SNAME("Editor")) * Color(1, 1, 1, 0.5);
 		ti->set_custom_color(1, c);
 	}
 
@@ -225,7 +226,7 @@ void EditorCommandPalette::_add_command(String p_command_name, String p_key_name
 void EditorCommandPalette::execute_command(String &p_command_key) {
 	ERR_FAIL_COND_MSG(!commands.has(p_command_key), p_command_key + " not found.");
 	commands[p_command_key].last_used = OS::get_singleton()->get_unix_time();
-	commands[p_command_key].callable.call_deferredp(nullptr, 0);
+	commands[p_command_key].callable.call_deferred();
 	_save_history();
 }
 

@@ -208,6 +208,7 @@ private:
 	friend class ViewportTexture;
 
 	Viewport *parent = nullptr;
+	Viewport *gui_parent = nullptr; // Whose gui.tooltip_popup it is.
 
 	AudioListener2D *audio_listener_2d = nullptr;
 	Camera2D *camera_2d = nullptr;
@@ -297,7 +298,8 @@ private:
 	bool positional_shadow_atlas_16_bits = true;
 	PositionalShadowAtlasQuadrantSubdiv positional_shadow_atlas_quadrant_subdiv[4];
 
-	MSAA msaa = MSAA_DISABLED;
+	MSAA msaa_2d = MSAA_DISABLED;
+	MSAA msaa_3d = MSAA_DISABLED;
 	ScreenSpaceAA screen_space_aa = SCREEN_SPACE_AA_DISABLED;
 	bool use_taa = false;
 
@@ -314,6 +316,8 @@ private:
 
 	SDFOversize sdf_oversize = SDF_OVERSIZE_120_PERCENT;
 	SDFScale sdf_scale = SDF_SCALE_50_PERCENT;
+
+	uint32_t canvas_cull_mask = 0xffffffff; // by default show everything
 
 	enum SubWindowDrag {
 		SUB_WINDOW_DRAG_DISABLED,
@@ -460,6 +464,7 @@ private:
 	void _sub_window_update(Window *p_window);
 	void _sub_window_grab_focus(Window *p_window);
 	void _sub_window_remove(Window *p_window);
+	int _sub_window_find(Window *p_window);
 	bool _sub_windows_forward_input(const Ref<InputEvent> &p_event);
 	SubWindowResize _sub_window_get_resize_margin(Window *p_subwindow, const Point2 &p_point);
 
@@ -522,8 +527,11 @@ public:
 	void set_positional_shadow_atlas_quadrant_subdiv(int p_quadrant, PositionalShadowAtlasQuadrantSubdiv p_subdiv);
 	PositionalShadowAtlasQuadrantSubdiv get_positional_shadow_atlas_quadrant_subdiv(int p_quadrant) const;
 
-	void set_msaa(MSAA p_msaa);
-	MSAA get_msaa() const;
+	void set_msaa_2d(MSAA p_msaa);
+	MSAA get_msaa_2d() const;
+
+	void set_msaa_3d(MSAA p_msaa);
+	MSAA get_msaa_3d() const;
 
 	void set_screen_space_aa(ScreenSpaceAA p_screen_space_aa);
 	ScreenSpaceAA get_screen_space_aa() const;
@@ -576,7 +584,7 @@ public:
 	void gui_release_focus();
 	Control *gui_get_focus_owner();
 
-	TypedArray<String> get_configuration_warnings() const override;
+	PackedStringArray get_configuration_warnings() const override;
 
 	void set_debug_draw(DebugDraw p_debug_draw);
 	DebugDraw get_debug_draw() const;
@@ -632,6 +640,12 @@ public:
 	Window *get_base_window() const;
 
 	void pass_mouse_focus_to(Viewport *p_viewport, Control *p_control);
+
+	void set_canvas_cull_mask(uint32_t p_layers);
+	uint32_t get_canvas_cull_mask() const;
+
+	void set_canvas_cull_mask_bit(uint32_t p_layer, bool p_enable);
+	bool get_canvas_cull_mask_bit(uint32_t p_layer) const;
 
 	virtual Transform2D get_screen_transform() const;
 
@@ -709,7 +723,7 @@ public:
 	bool is_using_xr();
 #endif // _3D_DISABLED
 
-	virtual void _validate_property(PropertyInfo &property) const override;
+	void _validate_property(PropertyInfo &p_property) const;
 	Viewport();
 	~Viewport();
 };

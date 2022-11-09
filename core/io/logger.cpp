@@ -31,6 +31,7 @@
 #include "logger.h"
 
 #include "core/config/project_settings.h"
+#include "core/core_globals.h"
 #include "core/io/dir_access.h"
 #include "core/os/os.h"
 #include "core/os/time.h"
@@ -41,7 +42,7 @@
 #endif
 
 bool Logger::should_log(bool p_err) {
-	return (!p_err || _print_error_enabled) && (p_err || _print_line_enabled);
+	return (!p_err || CoreGlobals::print_error_enabled) && (p_err || CoreGlobals::print_line_enabled);
 }
 
 bool Logger::_flush_stdout_on_print = true;
@@ -86,7 +87,7 @@ void Logger::log_error(const char *p_function, const char *p_file, int p_line, c
 	} else {
 		logf_error("USER %s: %s\n", err_type, err_details);
 	}
-	logf_error("   at: %s (%s:%i) - %s\n", p_function, p_file, p_line, p_code);
+	logf_error("   at: %s (%s:%i)\n", p_function, p_file, p_line);
 }
 
 void Logger::logf(const char *p_format, ...) {

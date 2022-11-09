@@ -140,7 +140,7 @@ void OpenXRActionSetEditor::_on_remove_action(Object *p_action_editor) {
 	// And remove it....
 	action_map->remove_action(action->get_name_with_set()); // remove it from the set and any interaction profile it relates to
 	actions_vb->remove_child(action_editor);
-	action_editor->queue_delete();
+	action_editor->queue_free();
 
 	// Let action map editor know so we can update our interaction profiles
 	emit_signal("action_removed");
@@ -199,13 +199,13 @@ OpenXRActionSetEditor::OpenXRActionSetEditor(Ref<OpenXRActionMap> p_action_map, 
 	action_set_hb->add_child(action_set_priority);
 
 	add_action = memnew(Button);
-	add_action->set_tooltip("Add Action.");
+	add_action->set_tooltip_text("Add Action.");
 	add_action->connect("pressed", callable_mp(this, &OpenXRActionSetEditor::_on_add_action));
 	add_action->set_flat(true);
 	action_set_hb->add_child(add_action);
 
 	rem_action_set = memnew(Button);
-	rem_action_set->set_tooltip("Remove Action Set.");
+	rem_action_set->set_tooltip_text("Remove Action Set.");
 	rem_action_set->connect("pressed", callable_mp(this, &OpenXRActionSetEditor::_on_remove_action_set));
 	rem_action_set->set_flat(true);
 	action_set_hb->add_child(rem_action_set);

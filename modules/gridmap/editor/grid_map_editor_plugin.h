@@ -39,6 +39,7 @@
 #include "scene/gui/slider.h"
 #include "scene/gui/spin_box.h"
 
+class EditorUndoRedoManager;
 class Node3DEditorPlugin;
 
 class GridMapEditor : public VBoxContainer {
@@ -62,7 +63,7 @@ class GridMapEditor : public VBoxContainer {
 		DISPLAY_LIST
 	};
 
-	UndoRedo *undo_redo = nullptr;
+	Ref<EditorUndoRedoManager> undo_redo;
 	InputAction input_action = INPUT_NONE;
 	Panel *panel = nullptr;
 	MenuButton *options = nullptr;
@@ -240,7 +241,7 @@ protected:
 	void _notification(int p_what);
 
 public:
-	virtual EditorPlugin::AfterGUIInput forward_spatial_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event) override { return grid_map_editor->forward_spatial_input_event(p_camera, p_event); }
+	virtual EditorPlugin::AfterGUIInput forward_3d_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event) override { return grid_map_editor->forward_spatial_input_event(p_camera, p_event); }
 	virtual String get_name() const override { return "GridMap"; }
 	bool has_main_screen() const override { return false; }
 	virtual void edit(Object *p_object) override;

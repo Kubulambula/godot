@@ -32,6 +32,7 @@
 
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
+#include "editor/editor_undo_redo_manager.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/flow_container.h"
 #include "scene/gui/separator.h"
@@ -88,17 +89,17 @@ void GradientTexture2DEditorRect::gui_input(const Ref<InputEvent> &p_event) {
 
 void GradientTexture2DEditorRect::set_texture(Ref<GradientTexture2D> &p_texture) {
 	texture = p_texture;
-	texture->connect("changed", callable_mp((CanvasItem *)this, &CanvasItem::update));
+	texture->connect("changed", callable_mp((CanvasItem *)this, &CanvasItem::queue_redraw));
 }
 
 void GradientTexture2DEditorRect::set_snap_enabled(bool p_snap_enabled) {
 	snap_enabled = p_snap_enabled;
-	update();
+	queue_redraw();
 }
 
 void GradientTexture2DEditorRect::set_snap_size(float p_snap_size) {
 	snap_size = p_snap_size;
-	update();
+	queue_redraw();
 }
 
 void GradientTexture2DEditorRect::_notification(int p_what) {
@@ -120,13 +121,12 @@ void GradientTexture2DEditorRect::_notification(int p_what) {
 			Size2 rect_size = get_size();
 
 			// Get the size and position to draw the texture and handles at.
-			size = Size2(texture->get_width() * rect_size.height / texture->get_height(), rect_size.height);
-			if (size.width > rect_size.width) {
-				size.width = rect_size.width;
-				size.height = texture->get_height() * size.width / texture->get_width();
-			}
-			offset = ((rect_size - size + handle_size) / 2).round();
-			size -= handle_size;
+			// Subtract handle sizes so they stay inside the preview, but keep the texture's aspect ratio.
+			Size2 available_size = rect_size - handle_size;
+			Size2 ratio = available_size / texture->get_size();
+			size = MIN(ratio.x, ratio.y) * texture->get_size();
+			offset = ((rect_size - size) / 2).round();
+
 			checkerboard->set_rect(Rect2(offset, size));
 
 			draw_set_transform(offset);
@@ -175,12 +175,13 @@ void GradientTexture2DEditorRect::_notification(int p_what) {
 }
 
 GradientTexture2DEditorRect::GradientTexture2DEditorRect() {
-	undo_redo = EditorNode::get_singleton()->get_undo_redo();
+	undo_redo = EditorNode::get_undo_redo();
 
 	checkerboard = memnew(TextureRect);
 	checkerboard->set_stretch_mode(TextureRect::STRETCH_TILE);
+	checkerboard->set_ignore_texture_size(true);
 	checkerboard->set_draw_behind_parent(true);
-	add_child(checkerboard);
+	add_child(checkerboard, false, INTERNAL_MODE_FRONT);
 
 	set_custom_minimum_size(Size2(0, 250 * EDSCALE));
 }
@@ -222,20 +223,20 @@ void GradientTexture2DEditor::_notification(int p_what) {
 }
 
 GradientTexture2DEditor::GradientTexture2DEditor() {
-	undo_redo = EditorNode::get_singleton()->get_undo_redo();
+	undo_redo = EditorNode::get_undo_redo();
 
 	HFlowContainer *toolbar = memnew(HFlowContainer);
 	add_child(toolbar);
 
 	reverse_button = memnew(Button);
-	reverse_button->set_tooltip(TTR("Swap Gradient Fill Points"));
+	reverse_button->set_tooltip_text(TTR("Swap Gradient Fill Points"));
 	toolbar->add_child(reverse_button);
 	reverse_button->connect("pressed", callable_mp(this, &GradientTexture2DEditor::_reverse_button_pressed));
 
 	toolbar->add_child(memnew(VSeparator));
 
 	snap_button = memnew(Button);
-	snap_button->set_tooltip(TTR("Toggle Grid Snap"));
+	snap_button->set_tooltip_text(TTR("Toggle Grid Snap"));
 	snap_button->set_toggle_mode(true);
 	toolbar->add_child(snap_button);
 	snap_button->connect("toggled", callable_mp(this, &GradientTexture2DEditor::_set_snap_enabled));

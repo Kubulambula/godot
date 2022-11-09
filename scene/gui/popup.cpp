@@ -68,31 +68,45 @@ void Popup::_deinitialize_visible_parents() {
 	}
 }
 
+void Popup::_update_theme_item_cache() {
+	Window::_update_theme_item_cache();
+
+	theme_cache.panel_style = get_theme_stylebox(SNAME("panel"));
+}
+
 void Popup::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_VISIBILITY_CHANGED: {
-			if (is_visible()) {
-				_initialize_visible_parents();
-			} else {
-				_deinitialize_visible_parents();
-				emit_signal(SNAME("popup_hide"));
-				popped_up = false;
+			if (!is_in_edited_scene_root()) {
+				if (is_visible()) {
+					_initialize_visible_parents();
+				} else {
+					_deinitialize_visible_parents();
+					emit_signal(SNAME("popup_hide"));
+					popped_up = false;
+				}
 			}
 		} break;
 
 		case NOTIFICATION_WM_WINDOW_FOCUS_IN: {
-			if (has_focus()) {
-				popped_up = true;
+			if (!is_in_edited_scene_root()) {
+				if (has_focus()) {
+					popped_up = true;
+				}
 			}
 		} break;
 
 		case NOTIFICATION_EXIT_TREE: {
-			_deinitialize_visible_parents();
+			if (!is_in_edited_scene_root()) {
+				_deinitialize_visible_parents();
+			}
 		} break;
 
 		case NOTIFICATION_WM_CLOSE_REQUEST:
 		case NOTIFICATION_APPLICATION_FOCUS_OUT: {
-			_close_pressed();
+			if (!is_in_edited_scene_root()) {
+				_close_pressed();
+			}
 		} break;
 	}
 }
@@ -120,52 +134,62 @@ void Popup::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("popup_hide"));
 }
 
+void Popup::_validate_property(PropertyInfo &p_property) const {
+	if (
+			p_property.name == "transient" ||
+			p_property.name == "exclusive" ||
+			p_property.name == "popup_window" ||
+			p_property.name == "unfocusable") {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+	}
+}
+
 Rect2i Popup::_popup_adjust_rect() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), Rect2());
-	Rect2i parent = get_usable_parent_rect();
+	Rect2i parent_rect = get_usable_parent_rect();
 
-	if (parent == Rect2i()) {
+	if (parent_rect == Rect2i()) {
 		return Rect2i();
 	}
 
 	Rect2i current(get_position(), get_size());
 
-	if (current.position.x + current.size.x > parent.position.x + parent.size.x) {
-		current.position.x = parent.position.x + parent.size.x - current.size.x;
+	if (current.position.x + current.size.x > parent_rect.position.x + parent_rect.size.x) {
+		current.position.x = parent_rect.position.x + parent_rect.size.x - current.size.x;
 	}
 
-	if (current.position.x < parent.position.x) {
-		current.position.x = parent.position.x;
+	if (current.position.x < parent_rect.position.x) {
+		current.position.x = parent_rect.position.x;
 	}
 
-	if (current.position.y + current.size.y > parent.position.y + parent.size.y) {
-		current.position.y = parent.position.y + parent.size.y - current.size.y;
+	if (current.position.y + current.size.y > parent_rect.position.y + parent_rect.size.y) {
+		current.position.y = parent_rect.position.y + parent_rect.size.y - current.size.y;
 	}
 
-	if (current.position.y < parent.position.y) {
-		current.position.y = parent.position.y;
+	if (current.position.y < parent_rect.position.y) {
+		current.position.y = parent_rect.position.y;
 	}
 
-	if (current.size.y > parent.size.y) {
-		current.size.y = parent.size.y;
+	if (current.size.y > parent_rect.size.y) {
+		current.size.y = parent_rect.size.y;
 	}
 
-	if (current.size.x > parent.size.x) {
-		current.size.x = parent.size.x;
+	if (current.size.x > parent_rect.size.x) {
+		current.size.x = parent_rect.size.x;
 	}
 
 	// Early out if max size not set.
-	Size2i max_size = get_max_size();
-	if (max_size <= Size2()) {
+	Size2i popup_max_size = get_max_size();
+	if (popup_max_size <= Size2()) {
 		return current;
 	}
 
-	if (current.size.x > max_size.x) {
-		current.size.x = max_size.x;
+	if (current.size.x > popup_max_size.x) {
+		current.size.x = popup_max_size.x;
 	}
 
-	if (current.size.y > max_size.y) {
-		current.size.y = max_size.y;
+	if (current.size.y > popup_max_size.y) {
+		current.size.y = popup_max_size.y;
 	}
 
 	return current;
@@ -186,8 +210,6 @@ Popup::~Popup() {
 }
 
 Size2 PopupPanel::_get_contents_minimum_size() const {
-	Ref<StyleBox> p = get_theme_stylebox(SNAME("panel"), get_class_name());
-
 	Size2 ms;
 
 	for (int i = 0; i < get_child_count(); i++) {
@@ -205,14 +227,12 @@ Size2 PopupPanel::_get_contents_minimum_size() const {
 		ms.y = MAX(cms.y, ms.y);
 	}
 
-	return ms + p->get_minimum_size();
+	return ms + theme_cache.panel_style->get_minimum_size();
 }
 
 void PopupPanel::_update_child_rects() {
-	Ref<StyleBox> p = get_theme_stylebox(SNAME("panel"), get_class_name());
-
-	Vector2 cpos(p->get_offset());
-	Vector2 csize(get_size() - p->get_minimum_size());
+	Vector2 cpos(theme_cache.panel_style->get_offset());
+	Vector2 csize(get_size() - theme_cache.panel_style->get_minimum_size());
 
 	for (int i = 0; i < get_child_count(); i++) {
 		Control *c = Object::cast_to<Control>(get_child(i));
@@ -234,15 +254,17 @@ void PopupPanel::_update_child_rects() {
 	}
 }
 
+void PopupPanel::_update_theme_item_cache() {
+	Popup::_update_theme_item_cache();
+
+	theme_cache.panel_style = get_theme_stylebox(SNAME("panel"));
+}
+
 void PopupPanel::_notification(int p_what) {
 	switch (p_what) {
+		case NOTIFICATION_READY:
 		case NOTIFICATION_THEME_CHANGED: {
-			panel->add_theme_style_override("panel", get_theme_stylebox(SNAME("panel"), get_class_name()));
-		} break;
-
-		case NOTIFICATION_ENTER_TREE:
-		case NOTIFICATION_READY: {
-			panel->add_theme_style_override("panel", get_theme_stylebox(SNAME("panel"), get_class_name()));
+			panel->add_theme_style_override("panel", theme_cache.panel_style);
 			_update_child_rects();
 		} break;
 

@@ -29,6 +29,7 @@
 /*************************************************************************/
 
 #include "servers/text_server.h"
+#include "core/variant/typed_array.h"
 #include "servers/rendering_server.h"
 
 TextServerManager *TextServerManager::singleton = nullptr;
@@ -103,8 +104,8 @@ Ref<TextServer> TextServerManager::find_interface(const String &p_name) const {
 	return interfaces[idx];
 }
 
-Array TextServerManager::get_interfaces() const {
-	Array ret;
+TypedArray<Dictionary> TextServerManager::get_interfaces() const {
+	TypedArray<Dictionary> ret;
 
 	for (int i = 0; i < interfaces.size(); i++) {
 		Dictionary iface_info;
@@ -222,8 +223,8 @@ void TextServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("font_set_style_name", "font_rid", "name"), &TextServer::font_set_style_name);
 	ClassDB::bind_method(D_METHOD("font_get_style_name", "font_rid"), &TextServer::font_get_style_name);
 
-	ClassDB::bind_method(D_METHOD("font_set_antialiased", "font_rid", "antialiased"), &TextServer::font_set_antialiased);
-	ClassDB::bind_method(D_METHOD("font_is_antialiased", "font_rid"), &TextServer::font_is_antialiased);
+	ClassDB::bind_method(D_METHOD("font_set_antialiasing", "font_rid", "antialiasing"), &TextServer::font_set_antialiasing);
+	ClassDB::bind_method(D_METHOD("font_get_antialiasing", "font_rid"), &TextServer::font_get_antialiasing);
 
 	ClassDB::bind_method(D_METHOD("font_set_generate_mipmaps", "font_rid", "generate_mipmaps"), &TextServer::font_set_generate_mipmaps);
 	ClassDB::bind_method(D_METHOD("font_get_generate_mipmaps", "font_rid"), &TextServer::font_get_generate_mipmaps);
@@ -446,12 +447,28 @@ void TextServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("string_get_word_breaks", "string", "language"), &TextServer::string_get_word_breaks, DEFVAL(""));
 
+	ClassDB::bind_method(D_METHOD("is_confusable", "string", "dict"), &TextServer::is_confusable);
+	ClassDB::bind_method(D_METHOD("spoof_check", "string"), &TextServer::spoof_check);
+
 	ClassDB::bind_method(D_METHOD("strip_diacritics", "string"), &TextServer::strip_diacritics);
+	ClassDB::bind_method(D_METHOD("is_valid_identifier", "string"), &TextServer::is_valid_identifier);
 
 	ClassDB::bind_method(D_METHOD("string_to_upper", "string", "language"), &TextServer::string_to_upper, DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("string_to_lower", "string", "language"), &TextServer::string_to_lower, DEFVAL(""));
 
 	ClassDB::bind_method(D_METHOD("parse_structured_text", "parser_type", "args", "text"), &TextServer::parse_structured_text);
+
+	/* Font AA */
+	BIND_ENUM_CONSTANT(FONT_ANTIALIASING_NONE);
+	BIND_ENUM_CONSTANT(FONT_ANTIALIASING_GRAY);
+	BIND_ENUM_CONSTANT(FONT_ANTIALIASING_LCD);
+
+	BIND_ENUM_CONSTANT(FONT_LCD_SUBPIXEL_LAYOUT_NONE);
+	BIND_ENUM_CONSTANT(FONT_LCD_SUBPIXEL_LAYOUT_HRGB);
+	BIND_ENUM_CONSTANT(FONT_LCD_SUBPIXEL_LAYOUT_HBGR);
+	BIND_ENUM_CONSTANT(FONT_LCD_SUBPIXEL_LAYOUT_VRGB);
+	BIND_ENUM_CONSTANT(FONT_LCD_SUBPIXEL_LAYOUT_VBGR);
+	BIND_ENUM_CONSTANT(FONT_LCD_SUBPIXEL_LAYOUT_MAX);
 
 	/* Direction */
 	BIND_ENUM_CONSTANT(DIRECTION_AUTO);
@@ -482,6 +499,7 @@ void TextServer::_bind_methods() {
 	BIND_BITFIELD_FLAG(BREAK_WORD_BOUND);
 	BIND_BITFIELD_FLAG(BREAK_GRAPHEME_BOUND);
 	BIND_BITFIELD_FLAG(BREAK_ADAPTIVE);
+	BIND_BITFIELD_FLAG(BREAK_TRIM_EDGE_SPACES);
 
 	/* VisibleCharactersBehavior */
 	BIND_ENUM_CONSTANT(VC_CHARS_BEFORE_SHAPING);
@@ -517,6 +535,7 @@ void TextServer::_bind_methods() {
 	BIND_BITFIELD_FLAG(GRAPHEME_IS_PUNCTUATION);
 	BIND_BITFIELD_FLAG(GRAPHEME_IS_UNDERSCORE);
 	BIND_BITFIELD_FLAG(GRAPHEME_IS_CONNECTED);
+	BIND_BITFIELD_FLAG(GRAPHEME_IS_SAFE_TO_INSERT_TATWEEL);
 
 	/* Hinting */
 	BIND_ENUM_CONSTANT(HINTING_NONE);
@@ -545,6 +564,8 @@ void TextServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(FEATURE_FONT_VARIABLE);
 	BIND_ENUM_CONSTANT(FEATURE_CONTEXT_SENSITIVE_CASE_CONVERSION);
 	BIND_ENUM_CONSTANT(FEATURE_USE_SUPPORT_DATA);
+	BIND_ENUM_CONSTANT(FEATURE_UNICODE_IDENTIFIERS);
+	BIND_ENUM_CONSTANT(FEATURE_UNICODE_SECURITY);
 
 	/* FT Contour Point Types */
 	BIND_ENUM_CONSTANT(CONTOUR_CURVE_TAG_ON);
@@ -661,24 +682,44 @@ PackedInt32Array TextServer::shaped_text_get_line_breaks_adv(const RID &p_shaped
 
 	real_t width = 0.f;
 	int line_start = MAX(p_start, range.x);
+	int prev_safe_break = 0;
 	int last_safe_break = -1;
+	int word_count = 0;
 	int chunk = 0;
+	bool trim_next = false;
 
 	int l_size = shaped_text_get_glyph_count(p_shaped);
 	const Glyph *l_gl = const_cast<TextServer *>(this)->shaped_text_sort_logical(p_shaped);
 
 	for (int i = 0; i < l_size; i++) {
 		if (l_gl[i].start < p_start) {
+			prev_safe_break = i + 1;
 			continue;
 		}
 		if (l_gl[i].count > 0) {
 			if ((p_width[chunk] > 0) && (width + l_gl[i].advance > p_width[chunk]) && (last_safe_break >= 0)) {
-				lines.push_back(line_start);
-				lines.push_back(l_gl[last_safe_break].end);
+				if (p_break_flags.has_flag(BREAK_TRIM_EDGE_SPACES)) {
+					int start_pos = prev_safe_break;
+					int end_pos = last_safe_break;
+					while (trim_next && (start_pos < end_pos) && ((l_gl[start_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+						start_pos += l_gl[start_pos].count;
+					}
+					while ((start_pos < end_pos) && ((l_gl[end_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[end_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[end_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+						end_pos -= l_gl[end_pos].count;
+					}
+					lines.push_back(l_gl[start_pos].start);
+					lines.push_back(l_gl[end_pos].end);
+					trim_next = true;
+				} else {
+					lines.push_back(line_start);
+					lines.push_back(l_gl[last_safe_break].end);
+				}
 				line_start = l_gl[last_safe_break].end;
+				prev_safe_break = last_safe_break + 1;
 				i = last_safe_break;
 				last_safe_break = -1;
 				width = 0;
+				word_count = 0;
 				chunk++;
 				if (chunk >= p_width.size()) {
 					chunk = 0;
@@ -690,9 +731,24 @@ PackedInt32Array TextServer::shaped_text_get_line_breaks_adv(const RID &p_shaped
 			}
 			if (p_break_flags.has_flag(BREAK_MANDATORY)) {
 				if ((l_gl[i].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD) {
-					lines.push_back(line_start);
-					lines.push_back(l_gl[i].end);
+					if (p_break_flags.has_flag(BREAK_TRIM_EDGE_SPACES)) {
+						int start_pos = prev_safe_break;
+						int end_pos = i;
+						while (trim_next && (start_pos < end_pos) && ((l_gl[start_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+							start_pos += l_gl[start_pos].count;
+						}
+						while ((start_pos < end_pos) && ((l_gl[end_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[end_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[end_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+							end_pos -= l_gl[end_pos].count;
+						}
+						lines.push_back(l_gl[start_pos].start);
+						lines.push_back(l_gl[end_pos].end);
+						trim_next = false;
+					} else {
+						lines.push_back(line_start);
+						lines.push_back(l_gl[i].end);
+					}
 					line_start = l_gl[i].end;
+					prev_safe_break = i + 1;
 					last_safe_break = -1;
 					width = 0;
 					chunk = 0;
@@ -705,9 +761,10 @@ PackedInt32Array TextServer::shaped_text_get_line_breaks_adv(const RID &p_shaped
 			if (p_break_flags.has_flag(BREAK_WORD_BOUND)) {
 				if ((l_gl[i].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT) {
 					last_safe_break = i;
+					word_count++;
 				}
 			}
-			if (p_break_flags.has_flag(BREAK_GRAPHEME_BOUND)) {
+			if (p_break_flags.has_flag(BREAK_GRAPHEME_BOUND) && word_count == 0) {
 				last_safe_break = i;
 			}
 		}
@@ -715,8 +772,17 @@ PackedInt32Array TextServer::shaped_text_get_line_breaks_adv(const RID &p_shaped
 	}
 
 	if (l_size > 0) {
-		if (lines.size() == 0 || lines[lines.size() - 1] < range.y) {
-			lines.push_back(line_start);
+		if (lines.size() == 0 || (lines[lines.size() - 1] < range.y && prev_safe_break < l_size)) {
+			if (p_break_flags.has_flag(BREAK_TRIM_EDGE_SPACES)) {
+				int start_pos = (prev_safe_break < l_size) ? prev_safe_break : l_size - 1;
+				int end_pos = l_size - 1;
+				while (trim_next && (start_pos < end_pos) && ((l_gl[start_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+					start_pos += l_gl[start_pos].count;
+				}
+				lines.push_back(l_gl[start_pos].start);
+			} else {
+				lines.push_back(line_start);
+			}
 			lines.push_back(range.y);
 		}
 	} else {
@@ -735,21 +801,39 @@ PackedInt32Array TextServer::shaped_text_get_line_breaks(const RID &p_shaped, do
 
 	double width = 0.f;
 	int line_start = MAX(p_start, range.x);
+	int prev_safe_break = 0;
 	int last_safe_break = -1;
 	int word_count = 0;
+	bool trim_next = false;
 
 	int l_size = shaped_text_get_glyph_count(p_shaped);
 	const Glyph *l_gl = const_cast<TextServer *>(this)->shaped_text_sort_logical(p_shaped);
 
 	for (int i = 0; i < l_size; i++) {
 		if (l_gl[i].start < p_start) {
+			prev_safe_break = i + 1;
 			continue;
 		}
 		if (l_gl[i].count > 0) {
 			if ((p_width > 0) && (width + l_gl[i].advance * l_gl[i].repeat > p_width) && (last_safe_break >= 0)) {
-				lines.push_back(line_start);
-				lines.push_back(l_gl[last_safe_break].end);
+				if (p_break_flags.has_flag(BREAK_TRIM_EDGE_SPACES)) {
+					int start_pos = prev_safe_break;
+					int end_pos = last_safe_break;
+					while (trim_next && (start_pos < end_pos) && ((l_gl[start_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+						start_pos += l_gl[start_pos].count;
+					}
+					while ((start_pos < end_pos) && ((l_gl[end_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[end_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[end_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+						end_pos -= l_gl[end_pos].count;
+					}
+					lines.push_back(l_gl[start_pos].start);
+					lines.push_back(l_gl[end_pos].end);
+					trim_next = true;
+				} else {
+					lines.push_back(line_start);
+					lines.push_back(l_gl[last_safe_break].end);
+				}
 				line_start = l_gl[last_safe_break].end;
+				prev_safe_break = last_safe_break + 1;
 				i = last_safe_break;
 				last_safe_break = -1;
 				width = 0;
@@ -758,9 +842,24 @@ PackedInt32Array TextServer::shaped_text_get_line_breaks(const RID &p_shaped, do
 			}
 			if (p_break_flags.has_flag(BREAK_MANDATORY)) {
 				if ((l_gl[i].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD) {
-					lines.push_back(line_start);
-					lines.push_back(l_gl[i].end);
+					if (p_break_flags.has_flag(BREAK_TRIM_EDGE_SPACES)) {
+						int start_pos = prev_safe_break;
+						int end_pos = i;
+						while (trim_next && (start_pos < end_pos) && ((l_gl[start_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+							start_pos += l_gl[start_pos].count;
+						}
+						while ((start_pos < end_pos) && ((l_gl[end_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[end_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[end_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+							end_pos -= l_gl[end_pos].count;
+						}
+						trim_next = false;
+						lines.push_back(l_gl[start_pos].start);
+						lines.push_back(l_gl[end_pos].end);
+					} else {
+						lines.push_back(line_start);
+						lines.push_back(l_gl[i].end);
+					}
 					line_start = l_gl[i].end;
+					prev_safe_break = i + 1;
 					last_safe_break = -1;
 					width = 0;
 					continue;
@@ -783,8 +882,17 @@ PackedInt32Array TextServer::shaped_text_get_line_breaks(const RID &p_shaped, do
 	}
 
 	if (l_size > 0) {
-		if (lines.size() == 0 || lines[lines.size() - 1] < range.y) {
-			lines.push_back(line_start);
+		if (lines.size() == 0 || (lines[lines.size() - 1] < range.y && prev_safe_break < l_size)) {
+			if (p_break_flags.has_flag(BREAK_TRIM_EDGE_SPACES)) {
+				int start_pos = (prev_safe_break < l_size) ? prev_safe_break : l_size - 1;
+				int end_pos = l_size - 1;
+				while (trim_next && (start_pos < end_pos) && ((l_gl[start_pos].flags & GRAPHEME_IS_SPACE) == GRAPHEME_IS_SPACE || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_HARD) == GRAPHEME_IS_BREAK_HARD || (l_gl[start_pos].flags & GRAPHEME_IS_BREAK_SOFT) == GRAPHEME_IS_BREAK_SOFT)) {
+					start_pos += l_gl[start_pos].count;
+				}
+				lines.push_back(l_gl[start_pos].start);
+			} else {
+				lines.push_back(line_start);
+			}
 			lines.push_back(range.y);
 		}
 	} else {
@@ -848,6 +956,11 @@ CaretInfo TextServer::shaped_text_get_carets(const RID &p_shaped, int64_t p_posi
 		if (glyphs[i].count > 0) {
 			// Caret before grapheme (top / left).
 			if (p_position == glyphs[i].start && ((glyphs[i].flags & GRAPHEME_IS_VIRTUAL) != GRAPHEME_IS_VIRTUAL)) {
+				real_t advance = 0.f;
+				for (int j = 0; j < glyphs[i].count; j++) {
+					advance += glyphs[i + j].advance * glyphs[i + j].repeat;
+				}
+				real_t char_adv = advance / (real_t)(glyphs[i].end - glyphs[i].start);
 				Rect2 cr;
 				if (orientation == ORIENTATION_HORIZONTAL) {
 					if (glyphs[i].start == range.x) {
@@ -859,15 +972,11 @@ CaretInfo TextServer::shaped_text_get_carets(const RID &p_shaped, int64_t p_posi
 					cr.position.x = off;
 					if ((glyphs[i].flags & GRAPHEME_IS_RTL) == GRAPHEME_IS_RTL) {
 						caret.t_dir = DIRECTION_RTL;
-						for (int j = 0; j < glyphs[i].count; j++) {
-							cr.position.x += glyphs[i + j].advance * glyphs[i + j].repeat;
-							cr.size.x -= glyphs[i + j].advance * glyphs[i + j].repeat;
-						}
+						cr.position.x += advance;
+						cr.size.x = -char_adv;
 					} else {
 						caret.t_dir = DIRECTION_LTR;
-						for (int j = 0; j < glyphs[i].count; j++) {
-							cr.size.x += glyphs[i + j].advance * glyphs[i + j].repeat;
-						}
+						cr.size.x = char_adv;
 					}
 				} else {
 					if (glyphs[i].start == range.x) {
@@ -879,21 +988,22 @@ CaretInfo TextServer::shaped_text_get_carets(const RID &p_shaped, int64_t p_posi
 					cr.position.y = off;
 					if ((glyphs[i].flags & GRAPHEME_IS_RTL) == GRAPHEME_IS_RTL) {
 						caret.t_dir = DIRECTION_RTL;
-						for (int j = 0; j < glyphs[i].count; j++) {
-							cr.position.y += glyphs[i + j].advance * glyphs[i + j].repeat;
-							cr.size.y -= glyphs[i + j].advance * glyphs[i + j].repeat;
-						}
+						cr.position.y += advance;
+						cr.size.y = -char_adv;
 					} else {
 						caret.t_dir = DIRECTION_LTR;
-						for (int j = 0; j < glyphs[i].count; j++) {
-							cr.size.y += glyphs[i + j].advance * glyphs[i + j].repeat;
-						}
+						cr.size.y = char_adv;
 					}
 				}
 				caret.t_caret = cr;
 			}
 			// Caret after grapheme (bottom / right).
 			if (p_position == glyphs[i].end && ((glyphs[i].flags & GRAPHEME_IS_VIRTUAL) != GRAPHEME_IS_VIRTUAL)) {
+				real_t advance = 0.f;
+				for (int j = 0; j < glyphs[i].count; j++) {
+					advance += glyphs[i + j].advance * glyphs[i + j].repeat;
+				}
+				real_t char_adv = advance / (real_t)(glyphs[i].end - glyphs[i].start);
 				Rect2 cr;
 				if (orientation == ORIENTATION_HORIZONTAL) {
 					if (glyphs[i].end == range.y) {
@@ -906,15 +1016,11 @@ CaretInfo TextServer::shaped_text_get_carets(const RID &p_shaped, int64_t p_posi
 					cr.position.x = off;
 					if ((glyphs[i].flags & GRAPHEME_IS_RTL) != GRAPHEME_IS_RTL) {
 						caret.l_dir = DIRECTION_LTR;
-						for (int j = 0; j < glyphs[i].count; j++) {
-							cr.position.x += glyphs[i + j].advance * glyphs[i + j].repeat;
-							cr.size.x -= glyphs[i + j].advance * glyphs[i + j].repeat;
-						}
+						cr.position.x += advance;
+						cr.size.x = -char_adv;
 					} else {
 						caret.l_dir = DIRECTION_RTL;
-						for (int j = 0; j < glyphs[i].count; j++) {
-							cr.size.x += glyphs[i + j].advance * glyphs[i + j].repeat;
-						}
+						cr.size.x = char_adv;
 					}
 				} else {
 					cr.size.y = 1.0f;
@@ -928,15 +1034,12 @@ CaretInfo TextServer::shaped_text_get_carets(const RID &p_shaped, int64_t p_posi
 					cr.position.y = off;
 					if ((glyphs[i].flags & GRAPHEME_IS_RTL) != GRAPHEME_IS_RTL) {
 						caret.l_dir = DIRECTION_LTR;
-						for (int j = 0; j < glyphs[i].count; j++) {
-							cr.position.y += glyphs[i + j].advance * glyphs[i + j].repeat;
-							cr.size.y -= glyphs[i + j].advance * glyphs[i + j].repeat;
-						}
+						cr.position.y += advance;
+						cr.size.y = -char_adv;
 					} else {
 						caret.l_dir = DIRECTION_RTL;
-						for (int j = 0; j < glyphs[i].count; j++) {
-							cr.size.y += glyphs[i + j].advance * glyphs[i + j].repeat;
-						}
+						cr.position.x += advance;
+						cr.size.y = char_adv;
 					}
 				}
 				caret.l_caret = cr;
@@ -950,22 +1053,24 @@ CaretInfo TextServer::shaped_text_get_carets(const RID &p_shaped, int64_t p_posi
 				real_t char_adv = advance / (real_t)(glyphs[i].end - glyphs[i].start);
 				Rect2 cr;
 				if (orientation == ORIENTATION_HORIZONTAL) {
-					cr.size.x = 1.0f;
 					cr.size.y = height * 2;
 					cr.position.y = -ascent;
 					if ((glyphs[i].flags & GRAPHEME_IS_RTL) == GRAPHEME_IS_RTL) {
 						cr.position.x = off + char_adv * (glyphs[i].end - p_position);
+						cr.size.x = -char_adv;
 					} else {
 						cr.position.x = off + char_adv * (p_position - glyphs[i].start);
+						cr.size.x = char_adv;
 					}
 				} else {
-					cr.size.y = 1.0f;
 					cr.size.x = height * 2;
 					cr.position.x = -ascent;
 					if ((glyphs[i].flags & GRAPHEME_IS_RTL) == GRAPHEME_IS_RTL) {
 						cr.position.y = off + char_adv * (glyphs[i].end - p_position);
+						cr.size.y = -char_adv;
 					} else {
 						cr.position.y = off + char_adv * (p_position - glyphs[i].start);
+						cr.size.y = char_adv;
 					}
 				}
 				caret.t_caret = cr;
@@ -1578,8 +1683,8 @@ String TextServer::strip_diacritics(const String &p_string) const {
 	return result;
 }
 
-Array TextServer::parse_structured_text(StructuredTextParser p_parser_type, const Array &p_args, const String &p_text) const {
-	Array ret;
+TypedArray<Vector2i> TextServer::parse_structured_text(StructuredTextParser p_parser_type, const Array &p_args, const String &p_text) const {
+	TypedArray<Vector2i> ret;
 	switch (p_parser_type) {
 		case STRUCTURED_TEXT_URI: {
 			int prev = 0;
@@ -1620,7 +1725,7 @@ Array TextServer::parse_structured_text(StructuredTextParser p_parser_type, cons
 					ret.push_back(Vector2i(prev, i));
 					ret.push_back(Vector2i(i, i + 1));
 					prev = i + 1;
-				} else if (!local & (p_text[i] == '.')) { // Add each dot separated "domain" part as context.
+				} else if (!local && (p_text[i] == '.')) { // Add each dot separated "domain" part as context.
 					if (prev != i) {
 						ret.push_back(Vector2i(prev, i));
 					}
@@ -1655,8 +1760,8 @@ Array TextServer::parse_structured_text(StructuredTextParser p_parser_type, cons
 	return ret;
 }
 
-Array TextServer::_shaped_text_get_glyphs_wrapper(const RID &p_shaped) const {
-	Array ret;
+TypedArray<Dictionary> TextServer::_shaped_text_get_glyphs_wrapper(const RID &p_shaped) const {
+	TypedArray<Dictionary> ret;
 
 	const Glyph *glyphs = shaped_text_get_glyphs(p_shaped);
 	int gl_size = shaped_text_get_glyph_count(p_shaped);
@@ -1680,7 +1785,7 @@ Array TextServer::_shaped_text_get_glyphs_wrapper(const RID &p_shaped) const {
 	return ret;
 }
 
-Array TextServer::_shaped_text_sort_logical_wrapper(const RID &p_shaped) {
+TypedArray<Dictionary> TextServer::_shaped_text_sort_logical_wrapper(const RID &p_shaped) {
 	Array ret;
 
 	const Glyph *glyphs = shaped_text_sort_logical(p_shaped);
@@ -1705,8 +1810,8 @@ Array TextServer::_shaped_text_sort_logical_wrapper(const RID &p_shaped) {
 	return ret;
 }
 
-Array TextServer::_shaped_text_get_ellipsis_glyphs_wrapper(const RID &p_shaped) const {
-	Array ret;
+TypedArray<Dictionary> TextServer::_shaped_text_get_ellipsis_glyphs_wrapper(const RID &p_shaped) const {
+	TypedArray<Dictionary> ret;
 
 	const Glyph *glyphs = shaped_text_get_ellipsis_glyphs(p_shaped);
 	int gl_size = shaped_text_get_ellipsis_glyph_count(p_shaped);
@@ -1728,6 +1833,26 @@ Array TextServer::_shaped_text_get_ellipsis_glyphs_wrapper(const RID &p_shaped) 
 	}
 
 	return ret;
+}
+
+bool TextServer::is_valid_identifier(const String &p_string) const {
+	const char32_t *str = p_string.ptr();
+	int len = p_string.length();
+
+	if (len == 0) {
+		return false; // Empty string.
+	}
+
+	if (!is_unicode_identifier_start(str[0])) {
+		return false;
+	}
+
+	for (int i = 1; i < len; i++) {
+		if (!is_unicode_identifier_continue(str[i])) {
+			return false;
+		}
+	}
+	return true;
 }
 
 TextServer::TextServer() {

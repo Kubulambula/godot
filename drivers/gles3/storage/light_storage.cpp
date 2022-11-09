@@ -58,6 +58,7 @@ void LightStorage::_light_initialize(RID p_light, RS::LightType p_type) {
 
 	light.param[RS::LIGHT_PARAM_ENERGY] = 1.0;
 	light.param[RS::LIGHT_PARAM_INDIRECT_ENERGY] = 1.0;
+	light.param[RS::LIGHT_PARAM_VOLUMETRIC_FOG_ENERGY] = 1.0;
 	light.param[RS::LIGHT_PARAM_SPECULAR] = 0.5;
 	light.param[RS::LIGHT_PARAM_RANGE] = 1.0;
 	light.param[RS::LIGHT_PARAM_SIZE] = 0.0;
@@ -70,10 +71,10 @@ void LightStorage::_light_initialize(RID p_light, RS::LightType p_type) {
 	light.param[RS::LIGHT_PARAM_SHADOW_SPLIT_3_OFFSET] = 0.6;
 	light.param[RS::LIGHT_PARAM_SHADOW_FADE_START] = 0.8;
 	light.param[RS::LIGHT_PARAM_SHADOW_NORMAL_BIAS] = 1.0;
+	light.param[RS::LIGHT_PARAM_SHADOW_OPACITY] = 1.0;
 	light.param[RS::LIGHT_PARAM_SHADOW_BIAS] = 0.02;
 	light.param[RS::LIGHT_PARAM_SHADOW_BLUR] = 0;
 	light.param[RS::LIGHT_PARAM_SHADOW_PANCAKE_SIZE] = 20.0;
-	light.param[RS::LIGHT_PARAM_SHADOW_VOLUMETRIC_FOG_FADE] = 0.1;
 	light.param[RS::LIGHT_PARAM_TRANSMITTANCE_BIAS] = 0.05;
 
 	light_owner.initialize_rid(p_light, light);
@@ -317,7 +318,7 @@ AABB LightStorage::light_get_aabb(RID p_light) const {
 	switch (light->type) {
 		case RS::LIGHT_SPOT: {
 			float len = light->param[RS::LIGHT_PARAM_RANGE];
-			float size = Math::tan(Math::deg2rad(light->param[RS::LIGHT_PARAM_SPOT_ANGLE])) * len;
+			float size = Math::tan(Math::deg_to_rad(light->param[RS::LIGHT_PARAM_SPOT_ANGLE])) * len;
 			return AABB(Vector3(-size, -size, -len), Vector3(size * 2, size * 2, len));
 		};
 		case RS::LIGHT_OMNI: {
@@ -330,6 +331,46 @@ AABB LightStorage::light_get_aabb(RID p_light) const {
 	}
 
 	ERR_FAIL_V(AABB());
+}
+
+/* LIGHT INSTANCE API */
+
+RID LightStorage::light_instance_create(RID p_light) {
+	RID li = light_instance_owner.make_rid(LightInstance());
+
+	LightInstance *light_instance = light_instance_owner.get_or_null(li);
+
+	light_instance->self = li;
+	light_instance->light = p_light;
+	light_instance->light_type = light_get_type(p_light);
+
+	return li;
+}
+
+void LightStorage::light_instance_free(RID p_light_instance) {
+	LightInstance *light_instance = light_instance_owner.get_or_null(p_light_instance);
+	ERR_FAIL_COND(!light_instance);
+	light_instance_owner.free(p_light_instance);
+}
+
+void LightStorage::light_instance_set_transform(RID p_light_instance, const Transform3D &p_transform) {
+	LightInstance *light_instance = light_instance_owner.get_or_null(p_light_instance);
+	ERR_FAIL_COND(!light_instance);
+
+	light_instance->transform = p_transform;
+}
+
+void LightStorage::light_instance_set_aabb(RID p_light_instance, const AABB &p_aabb) {
+	LightInstance *light_instance = light_instance_owner.get_or_null(p_light_instance);
+	ERR_FAIL_COND(!light_instance);
+
+	light_instance->aabb = p_aabb;
+}
+
+void LightStorage::light_instance_set_shadow_transform(RID p_light_instance, const Projection &p_projection, const Transform3D &p_transform, float p_far, float p_split, int p_pass, float p_shadow_texel_size, float p_bias_scale, float p_range_begin, const Vector2 &p_uv_scale) {
+}
+
+void LightStorage::light_instance_mark_visible(RID p_light_instance) {
 }
 
 /* PROBE API */
@@ -418,16 +459,67 @@ float LightStorage::reflection_probe_get_mesh_lod_threshold(RID p_probe) const {
 	return 0.0;
 }
 
-/* LIGHTMAP CAPTURE */
+/* REFLECTION ATLAS */
 
-RID LightStorage::lightmap_allocate() {
+RID LightStorage::reflection_atlas_create() {
 	return RID();
 }
 
+void LightStorage::reflection_atlas_free(RID p_ref_atlas) {
+}
+
+int LightStorage::reflection_atlas_get_size(RID p_ref_atlas) const {
+	return 0;
+}
+
+void LightStorage::reflection_atlas_set_size(RID p_ref_atlas, int p_reflection_size, int p_reflection_count) {
+}
+
+/* REFLECTION PROBE INSTANCE */
+
+RID LightStorage::reflection_probe_instance_create(RID p_probe) {
+	return RID();
+}
+
+void LightStorage::reflection_probe_instance_free(RID p_instance) {
+}
+
+void LightStorage::reflection_probe_instance_set_transform(RID p_instance, const Transform3D &p_transform) {
+}
+
+void LightStorage::reflection_probe_release_atlas_index(RID p_instance) {
+}
+
+bool LightStorage::reflection_probe_instance_needs_redraw(RID p_instance) {
+	return false;
+}
+
+bool LightStorage::reflection_probe_instance_has_reflection(RID p_instance) {
+	return false;
+}
+
+bool LightStorage::reflection_probe_instance_begin_render(RID p_instance, RID p_reflection_atlas) {
+	return false;
+}
+
+bool LightStorage::reflection_probe_instance_postprocess_step(RID p_instance) {
+	return true;
+}
+
+/* LIGHTMAP CAPTURE */
+
+RID LightStorage::lightmap_allocate() {
+	return lightmap_owner.allocate_rid();
+}
+
 void LightStorage::lightmap_initialize(RID p_rid) {
+	lightmap_owner.initialize_rid(p_rid, Lightmap());
 }
 
 void LightStorage::lightmap_free(RID p_rid) {
+	Lightmap *lightmap = lightmap_owner.get_or_null(p_rid);
+	lightmap->dependency.deleted_notify(p_rid);
+	lightmap_owner.free(p_rid);
 }
 
 void LightStorage::lightmap_set_textures(RID p_lightmap, RID p_light, bool p_uses_spherical_haromics) {
@@ -440,6 +532,9 @@ void LightStorage::lightmap_set_probe_interior(RID p_lightmap, bool p_interior) 
 }
 
 void LightStorage::lightmap_set_probe_capture_data(RID p_lightmap, const PackedVector3Array &p_points, const PackedColorArray &p_point_sh, const PackedInt32Array &p_tetrahedra, const PackedInt32Array &p_bsp_tree) {
+}
+
+void LightStorage::lightmap_set_baked_exposure_normalization(RID p_lightmap, float p_exposure) {
 }
 
 PackedVector3Array LightStorage::lightmap_get_probe_capture_points(RID p_lightmap) const {
@@ -474,6 +569,18 @@ void LightStorage::lightmap_set_probe_capture_update_speed(float p_speed) {
 
 float LightStorage::lightmap_get_probe_capture_update_speed() const {
 	return 0;
+}
+
+/* LIGHTMAP INSTANCE */
+
+RID LightStorage::lightmap_instance_create(RID p_lightmap) {
+	return RID();
+}
+
+void LightStorage::lightmap_instance_free(RID p_lightmap) {
+}
+
+void LightStorage::lightmap_instance_set_transform(RID p_lightmap, const Transform3D &p_transform) {
 }
 
 /* LIGHT SHADOW MAPPING */
@@ -575,5 +682,37 @@ void LightStorage::canvas_light_occluder_set_polylines(RID p_occluder, const Poo
 	}
 }
 */
+
+/* SHADOW ATLAS API */
+
+RID LightStorage::shadow_atlas_create() {
+	return RID();
+}
+
+void LightStorage::shadow_atlas_free(RID p_atlas) {
+}
+
+void LightStorage::shadow_atlas_set_size(RID p_atlas, int p_size, bool p_16_bits) {
+}
+
+void LightStorage::shadow_atlas_set_quadrant_subdivision(RID p_atlas, int p_quadrant, int p_subdivision) {
+}
+
+bool LightStorage::shadow_atlas_update_light(RID p_atlas, RID p_light_intance, float p_coverage, uint64_t p_light_version) {
+	return false;
+}
+
+void LightStorage::shadow_atlas_update(RID p_atlas) {
+}
+
+void LightStorage::directional_shadow_atlas_set_size(int p_size, bool p_16_bits) {
+}
+
+int LightStorage::get_directional_light_shadow_size(RID p_light_intance) {
+	return 0;
+}
+
+void LightStorage::set_directional_shadow_count(int p_count) {
+}
 
 #endif // !GLES3_ENABLED

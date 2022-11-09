@@ -34,6 +34,8 @@
 #include "scene/main/node.h"
 
 class Node2D;
+class NavigationPathQueryParameters2D;
+class NavigationPathQueryResult2D;
 
 class NavigationAgent2D : public Node {
 	GDCLASS(NavigationAgent2D, Node);
@@ -50,7 +52,7 @@ class NavigationAgent2D : public Node {
 	real_t path_desired_distance = 1.0;
 	real_t target_desired_distance = 1.0;
 	real_t radius = 0.0;
-	real_t neighbor_dist = 0.0;
+	real_t neighbor_distance = 0.0;
 	int max_neighbors = 0;
 	real_t time_horizon = 0.0;
 	real_t max_speed = 0.0;
@@ -58,7 +60,8 @@ class NavigationAgent2D : public Node {
 	real_t path_max_distance = 3.0;
 
 	Vector2 target_location;
-	Vector<Vector2> navigation_path;
+	Ref<NavigationPathQueryParameters2D> navigation_query;
+	Ref<NavigationPathQueryResult2D> navigation_result;
 	int nav_path_index = 0;
 	bool velocity_submitted = false;
 	Vector2 prev_safe_velocity;
@@ -110,9 +113,9 @@ public:
 		return radius;
 	}
 
-	void set_neighbor_dist(real_t p_dist);
-	real_t get_neighbor_dist() const {
-		return neighbor_dist;
+	void set_neighbor_distance(real_t p_distance);
+	real_t get_neighbor_distance() const {
+		return neighbor_distance;
 	}
 
 	void set_max_neighbors(int p_count);
@@ -138,9 +141,7 @@ public:
 
 	Vector2 get_next_location();
 
-	Vector<Vector2> get_nav_path() const {
-		return navigation_path;
-	}
+	const Vector<Vector2> &get_nav_path() const;
 
 	int get_nav_path_index() const {
 		return nav_path_index;
@@ -155,7 +156,7 @@ public:
 	void set_velocity(Vector2 p_velocity);
 	void _avoidance_done(Vector3 p_new_velocity);
 
-	TypedArray<String> get_configuration_warnings() const override;
+	PackedStringArray get_configuration_warnings() const override;
 
 private:
 	void update_navigation();

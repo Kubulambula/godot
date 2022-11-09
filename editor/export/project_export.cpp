@@ -38,6 +38,7 @@
 #include "editor/editor_properties.h"
 #include "editor/editor_scale.h"
 #include "editor/export/editor_export.h"
+#include "scene/gui/check_button.h"
 #include "scene/gui/link_button.h"
 #include "scene/gui/tree.h"
 
@@ -93,7 +94,7 @@ void ProjectExportDialog::_add_preset(int p_platform) {
 	Ref<EditorExportPreset> preset = EditorExport::get_singleton()->get_export_platform(p_platform)->create_preset();
 	ERR_FAIL_COND(!preset.is_valid());
 
-	String name = EditorExport::get_singleton()->get_export_platform(p_platform)->get_name();
+	String preset_name = EditorExport::get_singleton()->get_export_platform(p_platform)->get_name();
 	bool make_runnable = true;
 	int attempt = 1;
 	while (true) {
@@ -104,7 +105,7 @@ void ProjectExportDialog::_add_preset(int p_platform) {
 			if (p->get_platform() == preset->get_platform() && p->is_runnable()) {
 				make_runnable = false;
 			}
-			if (p->get_name() == name) {
+			if (p->get_name() == preset_name) {
 				valid = false;
 				break;
 			}
@@ -115,10 +116,10 @@ void ProjectExportDialog::_add_preset(int p_platform) {
 		}
 
 		attempt++;
-		name = EditorExport::get_singleton()->get_export_platform(p_platform)->get_name() + " " + itos(attempt);
+		preset_name = EditorExport::get_singleton()->get_export_platform(p_platform)->get_name() + " " + itos(attempt);
 	}
 
-	preset->set_name(name);
+	preset->set_name(preset_name);
 	if (make_runnable) {
 		preset->set_runnable(make_runnable);
 	}
@@ -153,12 +154,12 @@ void ProjectExportDialog::_update_presets() {
 			current_idx = i;
 		}
 
-		String name = preset->get_name();
+		String preset_name = preset->get_name();
 		if (preset->is_runnable()) {
-			name += " (" + TTR("Runnable") + ")";
+			preset_name += " (" + TTR("Runnable") + ")";
 		}
 		preset->update_files_to_export();
-		presets->add_item(name, preset->get_platform()->get_logo());
+		presets->add_item(preset_name, preset->get_platform()->get_logo());
 	}
 
 	if (current_idx != -1) {
@@ -184,9 +185,9 @@ void ProjectExportDialog::_update_export_all() {
 	export_all_button->set_disabled(!can_export);
 
 	if (can_export) {
-		export_all_button->set_tooltip(TTR("Export the project for all the presets defined."));
+		export_all_button->set_tooltip_text(TTR("Export the project for all the presets defined."));
 	} else {
-		export_all_button->set_tooltip(TTR("All presets must have an export path defined for Export All to work."));
+		export_all_button->set_tooltip_text(TTR("All presets must have an export path defined for Export All to work."));
 	}
 }
 
@@ -218,6 +219,7 @@ void ProjectExportDialog::_edit_preset(int p_index) {
 	export_path->show();
 	duplicate_preset->set_disabled(false);
 	delete_preset->set_disabled(false);
+	get_ok_button()->set_disabled(false);
 	name->set_text(current->get_name());
 
 	List<String> extension_list = current->get_platform()->get_binary_extensions(current);
@@ -264,7 +266,6 @@ void ProjectExportDialog::_edit_preset(int p_index) {
 
 		export_warning->hide();
 		export_button->set_disabled(true);
-		get_ok_button()->set_disabled(true);
 	} else {
 		if (error != String()) {
 			Vector<String> items = error.split("\n", false);
@@ -284,7 +285,6 @@ void ProjectExportDialog::_edit_preset(int p_index) {
 		export_error->hide();
 		export_templates_error->hide();
 		export_button->set_disabled(false);
-		get_ok_button()->set_disabled(false);
 	}
 
 	custom_features->set_text(current->get_custom_features());
@@ -552,7 +552,7 @@ void ProjectExportDialog::_duplicate_preset() {
 	Ref<EditorExportPreset> preset = current->get_platform()->create_preset();
 	ERR_FAIL_COND(!preset.is_valid());
 
-	String name = current->get_name() + " (copy)";
+	String preset_name = current->get_name() + " (copy)";
 	bool make_runnable = true;
 	while (true) {
 		bool valid = true;
@@ -562,7 +562,7 @@ void ProjectExportDialog::_duplicate_preset() {
 			if (p->get_platform() == preset->get_platform() && p->is_runnable()) {
 				make_runnable = false;
 			}
-			if (p->get_name() == name) {
+			if (p->get_name() == preset_name) {
 				valid = false;
 				break;
 			}
@@ -572,10 +572,10 @@ void ProjectExportDialog::_duplicate_preset() {
 			break;
 		}
 
-		name += " (copy)";
+		preset_name += " (copy)";
 	}
 
-	preset->set_name(name);
+	preset->set_name(preset_name);
 	if (make_runnable) {
 		preset->set_runnable(make_runnable);
 	}
@@ -865,10 +865,10 @@ void ProjectExportDialog::_validate_export_path(const String &p_path) {
 
 	if (invalid_path) {
 		export_project->get_ok_button()->set_disabled(true);
-		export_project->get_line_edit()->disconnect("text_submitted", Callable(export_project, "_file_submitted"));
+		export_project->get_line_edit()->disconnect("text_submitted", callable_mp(export_project, &EditorFileDialog::_file_submitted));
 	} else {
 		export_project->get_ok_button()->set_disabled(false);
-		export_project->get_line_edit()->connect("text_submitted", Callable(export_project, "_file_submitted"));
+		export_project->get_line_edit()->connect("text_submitted", callable_mp(export_project, &EditorFileDialog::_file_submitted));
 	}
 }
 
@@ -901,9 +901,9 @@ void ProjectExportDialog::_export_project() {
 	// with _validate_export_path.
 	// FIXME: This is a hack, we should instead change EditorFileDialog to allow
 	// disabling validation by the "text_submitted" signal.
-	if (!export_project->get_line_edit()->is_connected("text_submitted", Callable(export_project, "_file_submitted"))) {
+	if (!export_project->get_line_edit()->is_connected("text_submitted", callable_mp(export_project, &EditorFileDialog::_file_submitted))) {
 		export_project->get_ok_button()->set_disabled(false);
-		export_project->get_line_edit()->connect("text_submitted", Callable(export_project, "_file_submitted"));
+		export_project->get_line_edit()->connect("text_submitted", callable_mp(export_project, &EditorFileDialog::_file_submitted));
 	}
 
 	export_project->set_file_mode(EditorFileDialog::FILE_MODE_SAVE_FILE);
@@ -932,8 +932,10 @@ void ProjectExportDialog::_export_project_to_path(const String &p_path) {
 }
 
 void ProjectExportDialog::_export_all_dialog() {
+#ifndef ANDROID_ENABLED
 	export_all_dialog->show();
 	export_all_dialog->popup_centered(Size2(300, 80));
+#endif
 }
 
 void ProjectExportDialog::_export_all_dialog_action(const String &p_str) {
@@ -943,8 +945,8 @@ void ProjectExportDialog::_export_all_dialog_action(const String &p_str) {
 }
 
 void ProjectExportDialog::_export_all(bool p_debug) {
-	String mode = p_debug ? TTR("Debug") : TTR("Release");
-	EditorProgress ep("exportall", TTR("Exporting All") + " " + mode, EditorExport::get_singleton()->get_export_preset_count(), true);
+	String export_target = p_debug ? TTR("Debug") : TTR("Release");
+	EditorProgress ep("exportall", TTR("Exporting All") + " " + export_target, EditorExport::get_singleton()->get_export_preset_count(), true);
 
 	bool show_dialog = false;
 	result_dialog_log->clear();
@@ -1013,19 +1015,17 @@ ProjectExportDialog::ProjectExportDialog() {
 	preset_vb->add_child(mc);
 	mc->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	presets = memnew(ItemList);
-#ifndef _MSC_VER
-#warning must reimplement drag forward
-#endif
+	// TODO: Must reimplement drag forwarding.
 	//presets->set_drag_forwarding(this);
 	mc->add_child(presets);
 	presets->connect("item_selected", callable_mp(this, &ProjectExportDialog::_edit_preset));
 	duplicate_preset = memnew(Button);
-	duplicate_preset->set_tooltip(TTR("Duplicate"));
+	duplicate_preset->set_tooltip_text(TTR("Duplicate"));
 	duplicate_preset->set_flat(true);
 	preset_hb->add_child(duplicate_preset);
 	duplicate_preset->connect("pressed", callable_mp(this, &ProjectExportDialog::_duplicate_preset));
 	delete_preset = memnew(Button);
-	delete_preset->set_tooltip(TTR("Delete"));
+	delete_preset->set_tooltip_text(TTR("Delete"));
 	delete_preset->set_flat(true);
 	preset_hb->add_child(delete_preset);
 	delete_preset->connect("pressed", callable_mp(this, &ProjectExportDialog::_delete_preset));
@@ -1041,7 +1041,7 @@ ProjectExportDialog::ProjectExportDialog() {
 	name->connect("text_changed", callable_mp(this, &ProjectExportDialog::_name_changed));
 	runnable = memnew(CheckButton);
 	runnable->set_text(TTR("Runnable"));
-	runnable->set_tooltip(TTR("If checked, the preset will be available for use in one-click deploy.\nOnly one preset per platform may be marked as runnable."));
+	runnable->set_tooltip_text(TTR("If checked, the preset will be available for use in one-click deploy.\nOnly one preset per platform may be marked as runnable."));
 	runnable->connect("pressed", callable_mp(this, &ProjectExportDialog::_runnable_pressed));
 	settings_vb->add_child(runnable);
 
@@ -1194,11 +1194,16 @@ ProjectExportDialog::ProjectExportDialog() {
 
 	set_cancel_button_text(TTR("Close"));
 	set_ok_button_text(TTR("Export PCK/ZIP..."));
+	get_ok_button()->set_disabled(true);
+#ifdef ANDROID_ENABLED
+	export_button = memnew(Button);
+	export_button->hide();
+#else
 	export_button = add_button(TTR("Export Project..."), !DisplayServer::get_singleton()->get_swap_cancel_ok(), "export");
+#endif
 	export_button->connect("pressed", callable_mp(this, &ProjectExportDialog::_export_project));
 	// Disable initially before we select a valid preset
 	export_button->set_disabled(true);
-	get_ok_button()->set_disabled(true);
 
 	export_all_dialog = memnew(ConfirmationDialog);
 	add_child(export_all_dialog);
@@ -1208,8 +1213,14 @@ ProjectExportDialog::ProjectExportDialog() {
 	export_all_dialog->add_button(TTR("Debug"), true, "debug");
 	export_all_dialog->add_button(TTR("Release"), true, "release");
 	export_all_dialog->connect("custom_action", callable_mp(this, &ProjectExportDialog::_export_all_dialog_action));
+#ifdef ANDROID_ENABLED
+	export_all_dialog->hide();
 
+	export_all_button = memnew(Button);
+	export_all_button->hide();
+#else
 	export_all_button = add_button(TTR("Export All..."), !DisplayServer::get_singleton()->get_swap_cancel_ok(), "export");
+#endif
 	export_all_button->connect("pressed", callable_mp(this, &ProjectExportDialog::_export_all_dialog));
 	export_all_button->set_disabled(true);
 
@@ -1279,7 +1290,7 @@ ProjectExportDialog::ProjectExportDialog() {
 	// If no default set, use project name
 	if (default_filename.is_empty()) {
 		// If no project name defined, use a sane default
-		default_filename = ProjectSettings::get_singleton()->get("application/config/name");
+		default_filename = GLOBAL_GET("application/config/name");
 		if (default_filename.is_empty()) {
 			default_filename = "UnnamedProject";
 		}

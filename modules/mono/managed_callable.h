@@ -31,19 +31,17 @@
 #ifndef MANAGED_CALLABLE_H
 #define MANAGED_CALLABLE_H
 
-#include <mono/metadata/object.h>
-
 #include "core/os/mutex.h"
 #include "core/templates/self_list.h"
 #include "core/variant/callable.h"
 
 #include "mono_gc_handle.h"
-#include "mono_gd/gd_mono_method.h"
 
 class ManagedCallable : public CallableCustom {
 	friend class CSharpLanguage;
-	MonoGCHandleData delegate_handle;
-	GDMonoMethod *delegate_invoke = nullptr;
+	GCHandleIntPtr delegate_handle;
+	void *trampoline = nullptr;
+	ObjectID object_id;
 
 #ifdef GD_MONO_HOT_RELOAD
 	SelfList<ManagedCallable> self_instance = this;
@@ -60,9 +58,8 @@ public:
 	ObjectID get_object() const override;
 	void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const override;
 
-	_FORCE_INLINE_ MonoDelegate *get_delegate() { return (MonoDelegate *)delegate_handle.get_target(); }
-
-	void set_delegate(MonoDelegate *p_delegate);
+	_FORCE_INLINE_ GCHandleIntPtr get_delegate() const { return delegate_handle; }
+	_FORCE_INLINE_ void *get_trampoline() const { return trampoline; }
 
 	static bool compare_equal(const CallableCustom *p_a, const CallableCustom *p_b);
 	static bool compare_less(const CallableCustom *p_a, const CallableCustom *p_b);
@@ -70,7 +67,9 @@ public:
 	static constexpr CompareEqualFunc compare_equal_func_ptr = &ManagedCallable::compare_equal;
 	static constexpr CompareEqualFunc compare_less_func_ptr = &ManagedCallable::compare_less;
 
-	ManagedCallable(MonoDelegate *p_delegate);
+	void release_delegate_handle();
+
+	ManagedCallable(GCHandleIntPtr p_delegate_handle, void *p_trampoline, ObjectID p_object_id);
 	~ManagedCallable();
 };
 

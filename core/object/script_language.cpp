@@ -34,6 +34,7 @@
 #include "core/core_string_names.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/debugger/script_debugger.h"
+#include "core/variant/typed_array.h"
 
 #include <stdint.h>
 
@@ -61,8 +62,8 @@ Variant Script::_get_property_default_value(const StringName &p_property) {
 	return ret;
 }
 
-Array Script::_get_script_property_list() {
-	Array ret;
+TypedArray<Dictionary> Script::_get_script_property_list() {
+	TypedArray<Dictionary> ret;
 	List<PropertyInfo> list;
 	get_script_property_list(&list);
 	for (const PropertyInfo &E : list) {
@@ -71,8 +72,8 @@ Array Script::_get_script_property_list() {
 	return ret;
 }
 
-Array Script::_get_script_method_list() {
-	Array ret;
+TypedArray<Dictionary> Script::_get_script_method_list() {
+	TypedArray<Dictionary> ret;
 	List<MethodInfo> list;
 	get_script_method_list(&list);
 	for (const MethodInfo &E : list) {
@@ -81,8 +82,8 @@ Array Script::_get_script_method_list() {
 	return ret;
 }
 
-Array Script::_get_script_signal_list() {
-	Array ret;
+TypedArray<Dictionary> Script::_get_script_signal_list() {
+	TypedArray<Dictionary> ret;
 	List<MethodInfo> list;
 	get_script_signal_list(&list);
 	for (const MethodInfo &E : list) {
@@ -100,6 +101,31 @@ Dictionary Script::_get_script_constant_map() {
 	}
 	return ret;
 }
+
+#ifdef TOOLS_ENABLED
+
+PropertyInfo Script::get_class_category() const {
+	String path = get_path();
+	String scr_name;
+
+	if (is_built_in()) {
+		if (get_name().is_empty()) {
+			scr_name = TTR("Built-in script");
+		} else {
+			scr_name = vformat("%s (%s)", get_name(), TTR("Built-in"));
+		}
+	} else {
+		if (get_name().is_empty()) {
+			scr_name = path.get_file();
+		} else {
+			scr_name = get_name();
+		}
+	}
+
+	return PropertyInfo(Variant::NIL, scr_name, PROPERTY_HINT_NONE, path, PROPERTY_USAGE_CATEGORY);
+}
+
+#endif // TOOLS_ENABLED
 
 void Script::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("can_instantiate"), &Script::can_instantiate);
@@ -140,6 +166,7 @@ ScriptLanguage *ScriptServer::get_language(int p_idx) {
 }
 
 void ScriptServer::register_language(ScriptLanguage *p_language) {
+	ERR_FAIL_NULL(p_language);
 	ERR_FAIL_COND(_language_count >= MAX_LANGUAGES);
 	_languages[_language_count++] = p_language;
 }
@@ -157,10 +184,10 @@ void ScriptServer::unregister_language(const ScriptLanguage *p_language) {
 }
 
 void ScriptServer::init_languages() {
-	{ //load global classes
+	{ // Load global classes.
 		global_classes_clear();
 		if (ProjectSettings::get_singleton()->has_setting("_global_script_classes")) {
-			Array script_classes = ProjectSettings::get_singleton()->get("_global_script_classes");
+			Array script_classes = GLOBAL_GET("_global_script_classes");
 
 			for (int i = 0; i < script_classes.size(); i++) {
 				Dictionary c = script_classes[i];
@@ -278,7 +305,7 @@ void ScriptServer::save_global_classes() {
 
 	Array old;
 	if (ProjectSettings::get_singleton()->has_setting("_global_script_classes")) {
-		old = ProjectSettings::get_singleton()->get("_global_script_classes");
+		old = GLOBAL_GET("_global_script_classes");
 	}
 	if ((!old.is_empty() || gcarr.is_empty()) && gcarr.hash() == old.hash()) {
 		return;

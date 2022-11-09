@@ -44,6 +44,7 @@ class FileAccessFilesystemJAndroid : public FileAccess {
 	static jmethodID _file_seek_end;
 	static jmethodID _file_tell;
 	static jmethodID _file_eof;
+	static jmethodID _file_set_eof;
 	static jmethodID _file_read;
 	static jmethodID _file_write;
 	static jmethodID _file_flush;
@@ -56,9 +57,10 @@ class FileAccessFilesystemJAndroid : public FileAccess {
 	String path_src;
 
 	void _close(); ///< close a file
+	void _set_eof(bool eof);
 
 public:
-	virtual Error _open(const String &p_path, int p_mode_flags) override; ///< open a file
+	virtual Error open_internal(const String &p_path, int p_mode_flags) override; ///< open a file
 	virtual bool is_open() const override; ///< true when file is open
 
 	/// returns the path for the current open file

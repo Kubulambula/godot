@@ -169,11 +169,10 @@ void Input::_bind_methods() {
 
 void Input::get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const {
 	String pf = p_function;
-	if (p_idx == 0 &&
-			(pf == "is_action_pressed" || pf == "action_press" || pf == "action_release" ||
-					pf == "is_action_just_pressed" || pf == "is_action_just_released" ||
-					pf == "get_action_strength" || pf == "get_action_raw_strength" ||
-					pf == "get_axis" || pf == "get_vector")) {
+
+	if ((p_idx == 0 && (pf == "is_action_pressed" || pf == "action_press" || pf == "action_release" || pf == "is_action_just_pressed" || pf == "is_action_just_released" || pf == "get_action_strength" || pf == "get_action_raw_strength")) ||
+			(p_idx < 2 && pf == "get_axis") ||
+			(p_idx < 4 && pf == "get_vector")) {
 		List<PropertyInfo> pinfo;
 		ProjectSettings::get_singleton()->get_property_list(&pinfo);
 
@@ -366,7 +365,6 @@ Vector2 Input::get_vector(const StringName &p_negative_x, const StringName &p_po
 		// Inverse lerp length to map (p_deadzone, 1) to (0, 1).
 		return vector * (Math::inverse_lerp(p_deadzone, 1.0f, length) / length);
 	}
-	return vector;
 }
 
 float Input::get_joy_axis(int p_device, JoyAxis p_axis) const {
@@ -521,6 +519,7 @@ void Input::_parse_input_event_impl(const Ref<InputEvent> &p_event, bool p_is_em
 			touch_event.instantiate();
 			touch_event->set_pressed(mb->is_pressed());
 			touch_event->set_position(mb->get_position());
+			touch_event->set_double_tap(mb->is_double_click());
 			event_dispatch_function(touch_event);
 		}
 	}
@@ -582,6 +581,7 @@ void Input::_parse_input_event_impl(const Ref<InputEvent> &p_event, bool p_is_em
 				button_event->set_global_position(st->get_position());
 				button_event->set_pressed(st->is_pressed());
 				button_event->set_button_index(MouseButton::LEFT);
+				button_event->set_double_click(st->is_double_tap());
 				if (st->is_pressed()) {
 					button_event->set_button_mask(MouseButton(mouse_button_mask | MouseButton::MASK_LEFT));
 				} else {
@@ -765,9 +765,6 @@ Point2i Input::warp_mouse_motion(const Ref<InputEventMouseMotion> &p_motion, con
 	}
 
 	return rel_warped;
-}
-
-void Input::iteration(float p_step) {
 }
 
 void Input::action_press(const StringName &p_action, float p_strength) {
@@ -974,11 +971,9 @@ void Input::joy_axis(int p_device, JoyAxis p_axis, float p_value) {
 
 	if (map.type == TYPE_BUTTON) {
 		bool pressed = map.value > 0.5;
-		if (pressed == joy_buttons_pressed.has(_combine_device((JoyButton)map.index, p_device))) {
-			// Button already pressed or released; so ignore.
-			return;
+		if (pressed != joy_buttons_pressed.has(_combine_device((JoyButton)map.index, p_device))) {
+			_button_event(p_device, (JoyButton)map.index, pressed);
 		}
-		_button_event(p_device, (JoyButton)map.index, pressed);
 
 		// Ensure opposite D-Pad button is also released.
 		switch ((JoyButton)map.index) {
@@ -1129,7 +1124,7 @@ Input::JoyEvent Input::_get_mapped_axis_event(const JoyDeviceMapping &mapping, J
 				value = -value;
 			}
 			if (binding.input.axis.range == FULL_AXIS ||
-					(binding.input.axis.range == POSITIVE_HALF_AXIS && value > 0) ||
+					(binding.input.axis.range == POSITIVE_HALF_AXIS && value >= 0) ||
 					(binding.input.axis.range == NEGATIVE_HALF_AXIS && value < 0)) {
 				event.type = binding.outputType;
 				float shifted_positive_value = 0;
@@ -1187,7 +1182,7 @@ Input::JoyEvent Input::_get_mapped_axis_event(const JoyDeviceMapping &mapping, J
 	return event;
 }
 
-void Input::_get_mapped_hat_events(const JoyDeviceMapping &mapping, HatDir p_hat, JoyEvent r_events[]) {
+void Input::_get_mapped_hat_events(const JoyDeviceMapping &mapping, HatDir p_hat, JoyEvent r_events[(size_t)HatDir::MAX]) {
 	for (int i = 0; i < mapping.bindings.size(); i++) {
 		const JoyBinding binding = mapping.bindings[i];
 		if (binding.inputType == TYPE_HAT && binding.input.hat.hat == p_hat) {
@@ -1315,7 +1310,7 @@ void Input::parse_mapping(String p_mapping) {
 		JoyButton output_button = _get_output_button(output);
 		JoyAxis output_axis = _get_output_axis(output);
 		ERR_CONTINUE_MSG(output_button == JoyButton::INVALID && output_axis == JoyAxis::INVALID,
-				vformat("Unrecognised output string \"%s\" in mapping:\n%s", output, p_mapping));
+				vformat("Unrecognized output string \"%s\" in mapping:\n%s", output, p_mapping));
 		ERR_CONTINUE_MSG(output_button != JoyButton::INVALID && output_axis != JoyAxis::INVALID,
 				vformat("Output string \"%s\" matched both button and axis in mapping:\n%s", output, p_mapping));
 

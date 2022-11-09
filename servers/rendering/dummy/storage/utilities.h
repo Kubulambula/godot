@@ -31,19 +31,37 @@
 #ifndef UTILITIES_DUMMY_H
 #define UTILITIES_DUMMY_H
 
+#include "mesh_storage.h"
 #include "servers/rendering/storage/utilities.h"
 #include "texture_storage.h"
 
 namespace RendererDummy {
 
 class Utilities : public RendererUtilities {
+private:
+	static Utilities *singleton;
+
 public:
+	static Utilities *get_singleton() { return singleton; }
+
+	Utilities();
+	~Utilities();
+
 	/* INSTANCES */
 
-	virtual RS::InstanceType get_base_type(RID p_rid) const override { return RS::INSTANCE_NONE; }
+	virtual RS::InstanceType get_base_type(RID p_rid) const override {
+		if (RendererDummy::MeshStorage::get_singleton()->owns_mesh(p_rid)) {
+			return RS::INSTANCE_MESH;
+		}
+		return RS::INSTANCE_NONE;
+	}
+
 	virtual bool free(RID p_rid) override {
 		if (RendererDummy::TextureStorage::get_singleton()->owns_texture(p_rid)) {
 			RendererDummy::TextureStorage::get_singleton()->texture_free(p_rid);
+			return true;
+		} else if (RendererDummy::MeshStorage::get_singleton()->owns_mesh(p_rid)) {
+			RendererDummy::MeshStorage::get_singleton()->mesh_free(p_rid);
 			return true;
 		}
 		return false;
@@ -91,6 +109,8 @@ public:
 	virtual String get_video_adapter_vendor() const override { return String(); }
 	virtual RenderingDevice::DeviceType get_video_adapter_type() const override { return RenderingDevice::DeviceType::DEVICE_TYPE_OTHER; }
 	virtual String get_video_adapter_api_version() const override { return String(); }
+
+	virtual Size2i get_maximum_viewport_size() const override { return Size2i(); };
 };
 
 } // namespace RendererDummy

@@ -35,6 +35,7 @@
 #include "editor/editor_settings.h"
 #include "scene/gui/control.h"
 #include "scene/main/node.h"
+#include "scene/theme/theme_db.h"
 
 namespace gdmono {
 
@@ -139,7 +140,7 @@ PackedStringArray get_code_completion(CompletionKind p_kind, const String &p_scr
 			}
 		} break;
 		case CompletionKind::RESOURCE_PATHS: {
-			if (bool(EditorSettings::get_singleton()->get("text_editor/completion/complete_file_paths"))) {
+			if (bool(EDITOR_GET("text_editor/completion/complete_file_paths"))) {
 				_get_directory_contents(EditorFileSystem::get_singleton()->get_filesystem(), suggestions);
 			}
 		} break;
@@ -162,9 +163,9 @@ PackedStringArray get_code_completion(CompletionKind p_kind, const String &p_scr
 					}
 
 					if (dir_access->dir_exists(filename)) {
-						directories.push_back(dir_access->get_current_dir().plus_file(filename));
+						directories.push_back(dir_access->get_current_dir().path_join(filename));
 					} else if (filename.ends_with(".tscn") || filename.ends_with(".scn")) {
-						suggestions.push_back(quoted(dir_access->get_current_dir().plus_file(filename)));
+						suggestions.push_back(quoted(dir_access->get_current_dir().path_join(filename)));
 					}
 
 					filename = dir_access->get_next();
@@ -172,7 +173,7 @@ PackedStringArray get_code_completion(CompletionKind p_kind, const String &p_scr
 			}
 		} break;
 		case CompletionKind::SHADER_PARAMS: {
-			print_verbose("Shared params completion for C# not implemented.");
+			print_verbose("Shader uniforms completion for C# is not implemented yet.");
 		} break;
 		case CompletionKind::SIGNALS: {
 			Ref<Script> script = ResourceLoader::load(p_script_file.simplify_path());
@@ -195,7 +196,7 @@ PackedStringArray get_code_completion(CompletionKind p_kind, const String &p_scr
 			Node *base = _try_find_owner_node_in_tree(script);
 			if (base && Object::cast_to<Control>(base)) {
 				List<StringName> sn;
-				Theme::get_default()->get_color_list(base->get_class(), &sn);
+				ThemeDB::get_singleton()->get_default_theme()->get_color_list(base->get_class(), &sn);
 
 				for (const StringName &E : sn) {
 					suggestions.push_back(quoted(E));
@@ -207,7 +208,7 @@ PackedStringArray get_code_completion(CompletionKind p_kind, const String &p_scr
 			Node *base = _try_find_owner_node_in_tree(script);
 			if (base && Object::cast_to<Control>(base)) {
 				List<StringName> sn;
-				Theme::get_default()->get_constant_list(base->get_class(), &sn);
+				ThemeDB::get_singleton()->get_default_theme()->get_constant_list(base->get_class(), &sn);
 
 				for (const StringName &E : sn) {
 					suggestions.push_back(quoted(E));
@@ -219,7 +220,7 @@ PackedStringArray get_code_completion(CompletionKind p_kind, const String &p_scr
 			Node *base = _try_find_owner_node_in_tree(script);
 			if (base && Object::cast_to<Control>(base)) {
 				List<StringName> sn;
-				Theme::get_default()->get_font_list(base->get_class(), &sn);
+				ThemeDB::get_singleton()->get_default_theme()->get_font_list(base->get_class(), &sn);
 
 				for (const StringName &E : sn) {
 					suggestions.push_back(quoted(E));
@@ -231,7 +232,7 @@ PackedStringArray get_code_completion(CompletionKind p_kind, const String &p_scr
 			Node *base = _try_find_owner_node_in_tree(script);
 			if (base && Object::cast_to<Control>(base)) {
 				List<StringName> sn;
-				Theme::get_default()->get_font_size_list(base->get_class(), &sn);
+				ThemeDB::get_singleton()->get_default_theme()->get_font_size_list(base->get_class(), &sn);
 
 				for (const StringName &E : sn) {
 					suggestions.push_back(quoted(E));
@@ -243,7 +244,7 @@ PackedStringArray get_code_completion(CompletionKind p_kind, const String &p_scr
 			Node *base = _try_find_owner_node_in_tree(script);
 			if (base && Object::cast_to<Control>(base)) {
 				List<StringName> sn;
-				Theme::get_default()->get_stylebox_list(base->get_class(), &sn);
+				ThemeDB::get_singleton()->get_default_theme()->get_stylebox_list(base->get_class(), &sn);
 
 				for (const StringName &E : sn) {
 					suggestions.push_back(quoted(E));

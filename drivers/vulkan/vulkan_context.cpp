@@ -48,15 +48,119 @@
 
 VulkanHooks *VulkanContext::vulkan_hooks = nullptr;
 
-VkResult VulkanContext::vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2 *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass) {
-	if (fpCreateRenderPass2KHR == nullptr) {
-		fpCreateRenderPass2KHR = (PFN_vkCreateRenderPass2KHR)vkGetInstanceProcAddr(inst, "vkCreateRenderPass2KHR");
+Vector<VkAttachmentReference> VulkanContext::_convert_VkAttachmentReference2(uint32_t p_count, const VkAttachmentReference2 *p_refs) {
+	Vector<VkAttachmentReference> att_refs;
+
+	if (p_refs != nullptr) {
+		for (uint32_t i = 0; i < p_count; i++) {
+			// We lose aspectMask in this conversion but we don't use it currently.
+
+			VkAttachmentReference ref = {
+				p_refs[i].attachment, /* attachment */
+				p_refs[i].layout /* layout */
+			};
+
+			att_refs.push_back(ref);
+		}
 	}
 
-	if (fpCreateRenderPass2KHR == nullptr) {
-		return VK_ERROR_EXTENSION_NOT_PRESENT;
+	return att_refs;
+}
+
+VkResult VulkanContext::vkCreateRenderPass2KHR(VkDevice p_device, const VkRenderPassCreateInfo2 *p_create_info, const VkAllocationCallbacks *p_allocator, VkRenderPass *p_render_pass) {
+	if (has_renderpass2_ext) {
+		if (fpCreateRenderPass2KHR == nullptr) {
+			fpCreateRenderPass2KHR = (PFN_vkCreateRenderPass2KHR)vkGetDeviceProcAddr(p_device, "vkCreateRenderPass2KHR");
+		}
+
+		if (fpCreateRenderPass2KHR == nullptr) {
+			return VK_ERROR_EXTENSION_NOT_PRESENT;
+		} else {
+			return (fpCreateRenderPass2KHR)(p_device, p_create_info, p_allocator, p_render_pass);
+		}
 	} else {
-		return (fpCreateRenderPass2KHR)(device, pCreateInfo, pAllocator, pRenderPass);
+		// need to fall back on vkCreateRenderPass
+
+		const void *next = p_create_info->pNext; // ATM we only support multiview which should work if supported.
+
+		Vector<VkAttachmentDescription> attachments;
+		for (uint32_t i = 0; i < p_create_info->attachmentCount; i++) {
+			// Basically the old layout just misses type and next.
+			VkAttachmentDescription att = {
+				p_create_info->pAttachments[i].flags, /* flags */
+				p_create_info->pAttachments[i].format, /* format */
+				p_create_info->pAttachments[i].samples, /* samples */
+				p_create_info->pAttachments[i].loadOp, /* loadOp */
+				p_create_info->pAttachments[i].storeOp, /* storeOp */
+				p_create_info->pAttachments[i].stencilLoadOp, /* stencilLoadOp */
+				p_create_info->pAttachments[i].stencilStoreOp, /* stencilStoreOp */
+				p_create_info->pAttachments[i].initialLayout, /* initialLayout */
+				p_create_info->pAttachments[i].finalLayout /* finalLayout */
+			};
+
+			attachments.push_back(att);
+		}
+
+		Vector<VkSubpassDescription> subpasses;
+		for (uint32_t i = 0; i < p_create_info->subpassCount; i++) {
+			// Here we need to do more, again it's just stripping out type and next
+			// but we have VkAttachmentReference2 to convert to VkAttachmentReference.
+			// Also viewmask is not supported but we don't use it outside of multiview.
+
+			Vector<VkAttachmentReference> input_attachments = _convert_VkAttachmentReference2(p_create_info->pSubpasses[i].inputAttachmentCount, p_create_info->pSubpasses[i].pInputAttachments);
+			Vector<VkAttachmentReference> color_attachments = _convert_VkAttachmentReference2(p_create_info->pSubpasses[i].colorAttachmentCount, p_create_info->pSubpasses[i].pColorAttachments);
+			Vector<VkAttachmentReference> resolve_attachments = _convert_VkAttachmentReference2(p_create_info->pSubpasses[i].colorAttachmentCount, p_create_info->pSubpasses[i].pResolveAttachments);
+			Vector<VkAttachmentReference> depth_attachments = _convert_VkAttachmentReference2(p_create_info->pSubpasses[i].colorAttachmentCount, p_create_info->pSubpasses[i].pDepthStencilAttachment);
+
+			VkSubpassDescription subpass = {
+				p_create_info->pSubpasses[i].flags, /* flags */
+				p_create_info->pSubpasses[i].pipelineBindPoint, /* pipelineBindPoint */
+				p_create_info->pSubpasses[i].inputAttachmentCount, /* inputAttachmentCount */
+				input_attachments.size() == 0 ? nullptr : input_attachments.ptr(), /* pInputAttachments */
+				p_create_info->pSubpasses[i].colorAttachmentCount, /* colorAttachmentCount */
+				color_attachments.size() == 0 ? nullptr : color_attachments.ptr(), /* pColorAttachments */
+				resolve_attachments.size() == 0 ? nullptr : resolve_attachments.ptr(), /* pResolveAttachments */
+				depth_attachments.size() == 0 ? nullptr : depth_attachments.ptr(), /* pDepthStencilAttachment */
+				p_create_info->pSubpasses[i].preserveAttachmentCount, /* preserveAttachmentCount */
+				p_create_info->pSubpasses[i].pPreserveAttachments /* pPreserveAttachments */
+			};
+
+			subpasses.push_back(subpass);
+		}
+
+		Vector<VkSubpassDependency> dependencies;
+		for (uint32_t i = 0; i < p_create_info->dependencyCount; i++) {
+			// We lose viewOffset here but again I don't believe we use this anywhere.
+			VkSubpassDependency dep = {
+				p_create_info->pDependencies[i].srcSubpass, /* srcSubpass */
+				p_create_info->pDependencies[i].dstSubpass, /* dstSubpass */
+				p_create_info->pDependencies[i].srcStageMask, /* srcStageMask */
+				p_create_info->pDependencies[i].dstStageMask, /* dstStageMask */
+				p_create_info->pDependencies[i].srcAccessMask, /* srcAccessMask */
+				p_create_info->pDependencies[i].dstAccessMask, /* dstAccessMask */
+				p_create_info->pDependencies[i].dependencyFlags, /* dependencyFlags */
+			};
+
+			dependencies.push_back(dep);
+		}
+
+		// CorrelatedViewMask is not supported in vkCreateRenderPass but we
+		// currently only use this for multiview.
+		// We'll need to look into this.
+
+		VkRenderPassCreateInfo create_info = {
+			VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, /* sType */
+			next, /* pNext*/
+			p_create_info->flags, /* flags */
+			(uint32_t)attachments.size(), /* attachmentCount */
+			attachments.ptr(), /* pAttachments */
+			(uint32_t)subpasses.size(), /* subpassCount */
+			subpasses.ptr(), /* pSubpasses */
+			(uint32_t)dependencies.size(), /* */
+			dependencies.ptr(), /* */
+		};
+
+		return vkCreateRenderPass(device, &create_info, p_allocator, p_render_pass);
 	}
 }
 
@@ -84,19 +188,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::_debug_messenger_callback(
 			strstr(pCallbackData->pMessage, "must be a memory object") != nullptr) {
 		return VK_FALSE;
 	}
-
-	// Workaround for Vulkan-Loader usability bug: https://github.com/KhronosGroup/Vulkan-Loader/issues/262.
-	if (strstr(pCallbackData->pMessage, "wrong ELF class: ELFCLASS32") != nullptr) {
-		return VK_FALSE;
-	}
-
-#ifdef WINDOWS_ENABLED
-	// Some software installs Vulkan overlays in Windows registry and never cleans them up on uninstall.
-	// So we get spammy error level messages from the loader about those - make them verbose instead.
-	if (strstr(pCallbackData->pMessage, "loader_get_json: Failed to open JSON file") != nullptr) {
-		messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
-	}
-#endif
 
 	if (pCallbackData->pMessageIdName && strstr(pCallbackData->pMessageIdName, "UNASSIGNED-CoreValidation-DrawState-ClearCmdBeforeDraw") != nullptr) {
 		return VK_FALSE;
@@ -237,7 +328,7 @@ Error VulkanContext::_get_preferred_validation_layers(uint32_t *count, const cha
 		{ "VK_LAYER_GOOGLE_threading", "VK_LAYER_LUNARG_parameter_validation", "VK_LAYER_LUNARG_object_tracker", "VK_LAYER_LUNARG_core_validation", "VK_LAYER_GOOGLE_unique_objects" }
 	};
 
-	// Clear out-arguments
+	// Clear out-arguments.
 	*count = 0;
 	if (names != nullptr) {
 		*names = nullptr;
@@ -320,6 +411,16 @@ Error VulkanContext::_initialize_extensions() {
 	VkBool32 platformSurfaceExtFound = 0;
 	memset(extension_names, 0, sizeof(extension_names));
 
+	// Only enable debug utils in verbose mode or DEV_ENABLED.
+	// End users would get spammed with messages of varying verbosity due to the
+	// mess that thirdparty layers/extensions and drivers seem to leave in their
+	// wake, making the Windows registry a bottomless pit of broken layer JSON.
+#ifdef DEV_ENABLED
+	bool want_debug_utils = true;
+#else
+	bool want_debug_utils = OS::get_singleton()->is_stdout_verbose();
+#endif
+
 	VkResult err = vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, nullptr);
 	ERR_FAIL_COND_V(err != VK_SUCCESS && err != VK_INCOMPLETE, ERR_CANT_CREATE);
 
@@ -347,8 +448,10 @@ Error VulkanContext::_initialize_extensions() {
 				}
 			}
 			if (!strcmp(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, instance_extensions[i].extensionName)) {
-				extension_names[enabled_extension_count++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-				enabled_debug_utils = true;
+				if (want_debug_utils) {
+					extension_names[enabled_extension_count++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+					enabled_debug_utils = true;
+				}
 			}
 			if (!strcmp(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, instance_extensions[i].extensionName)) {
 				extension_names[enabled_extension_count++] = VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME;
@@ -441,7 +544,7 @@ String VulkanContext::SubgroupCapabilities::supported_stages_desc() const {
 		res += ", STAGE_MESH_NV";
 	}
 
-	return res.substr(2); // Remove first ", "
+	return res.substr(2); // Remove first ", ".
 }
 
 uint32_t VulkanContext::SubgroupCapabilities::supported_operations_flags_rd() const {
@@ -506,7 +609,7 @@ String VulkanContext::SubgroupCapabilities::supported_operations_desc() const {
 		res += ", FEATURE_PARTITIONED_NV";
 	}
 
-	return res.substr(2); // Remove first ", "
+	return res.substr(2); // Remove first ", ".
 }
 
 Error VulkanContext::_check_capabilities() {
@@ -584,21 +687,43 @@ Error VulkanContext::_check_capabilities() {
 
 		vkGetPhysicalDeviceFeatures2_func(gpu, &device_features);
 
-		vrs_capabilities.pipeline_vrs_supported = vrs_features.pipelineFragmentShadingRate;
-		vrs_capabilities.primitive_vrs_supported = vrs_features.primitiveFragmentShadingRate;
-		vrs_capabilities.attachment_vrs_supported = vrs_features.attachmentFragmentShadingRate;
+		// We must check that the relative extension is present before assuming a
+		// feature as enabled. Actually, according to the spec we shouldn't add the
+		// structs in pNext at all, but this works fine.
+		// See also: https://github.com/godotengine/godot/issues/65409
+		for (uint32_t i = 0; i < enabled_extension_count; ++i) {
+			if (!strcmp(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME, extension_names[i])) {
+				vrs_capabilities.pipeline_vrs_supported = vrs_features.pipelineFragmentShadingRate;
+				vrs_capabilities.primitive_vrs_supported = vrs_features.primitiveFragmentShadingRate;
+				vrs_capabilities.attachment_vrs_supported = vrs_features.attachmentFragmentShadingRate;
 
-		multiview_capabilities.is_supported = multiview_features.multiview;
-		multiview_capabilities.geometry_shader_is_supported = multiview_features.multiviewGeometryShader;
-		multiview_capabilities.tessellation_shader_is_supported = multiview_features.multiviewTessellationShader;
+				continue;
+			}
 
-		shader_capabilities.shader_float16_is_supported = shader_features.shaderFloat16;
-		shader_capabilities.shader_int8_is_supported = shader_features.shaderInt8;
+			if (!strcmp(VK_KHR_MULTIVIEW_EXTENSION_NAME, extension_names[i])) {
+				multiview_capabilities.is_supported = multiview_features.multiview;
+				multiview_capabilities.geometry_shader_is_supported = multiview_features.multiviewGeometryShader;
+				multiview_capabilities.tessellation_shader_is_supported = multiview_features.multiviewTessellationShader;
 
-		storage_buffer_capabilities.storage_buffer_16_bit_access_is_supported = storage_feature.storageBuffer16BitAccess;
-		storage_buffer_capabilities.uniform_and_storage_buffer_16_bit_access_is_supported = storage_feature.uniformAndStorageBuffer16BitAccess;
-		storage_buffer_capabilities.storage_push_constant_16_is_supported = storage_feature.storagePushConstant16;
-		storage_buffer_capabilities.storage_input_output_16 = storage_feature.storageInputOutput16;
+				continue;
+			}
+
+			if (!strcmp(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME, extension_names[i])) {
+				shader_capabilities.shader_float16_is_supported = shader_features.shaderFloat16;
+				shader_capabilities.shader_int8_is_supported = shader_features.shaderInt8;
+
+				continue;
+			}
+
+			if (!strcmp(VK_KHR_16BIT_STORAGE_EXTENSION_NAME, extension_names[i])) {
+				storage_buffer_capabilities.storage_buffer_16_bit_access_is_supported = storage_feature.storageBuffer16BitAccess;
+				storage_buffer_capabilities.uniform_and_storage_buffer_16_bit_access_is_supported = storage_feature.uniformAndStorageBuffer16BitAccess;
+				storage_buffer_capabilities.storage_push_constant_16_is_supported = storage_feature.storagePushConstant16;
+				storage_buffer_capabilities.storage_input_output_16 = storage_feature.storageInputOutput16;
+
+				continue;
+			}
+		}
 	}
 
 	// Check extended properties.
@@ -608,15 +733,18 @@ Error VulkanContext::_check_capabilities() {
 		device_properties_func = (PFN_vkGetPhysicalDeviceProperties2)vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceProperties2KHR");
 	}
 	if (device_properties_func != nullptr) {
-		VkPhysicalDeviceFragmentShadingRatePropertiesKHR vrsProperties;
-		VkPhysicalDeviceMultiviewProperties multiviewProperties;
-		VkPhysicalDeviceSubgroupProperties subgroupProperties;
-		VkPhysicalDeviceProperties2 physicalDeviceProperties;
+		VkPhysicalDeviceFragmentShadingRatePropertiesKHR vrsProperties{};
+		VkPhysicalDeviceMultiviewProperties multiviewProperties{};
+		VkPhysicalDeviceSubgroupProperties subgroupProperties{};
+		VkPhysicalDeviceProperties2 physicalDeviceProperties{};
 		void *nextptr = nullptr;
 
-		subgroupProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
-		subgroupProperties.pNext = nextptr;
-		nextptr = &subgroupProperties;
+		if (!(vulkan_major == 1 && vulkan_minor == 0)) {
+			subgroupProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+			subgroupProperties.pNext = nextptr;
+
+			nextptr = &subgroupProperties;
+		}
 
 		if (multiview_capabilities.is_supported) {
 			multiviewProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES;
@@ -641,8 +769,8 @@ Error VulkanContext::_check_capabilities() {
 		subgroup_capabilities.supportedStages = subgroupProperties.supportedStages;
 		subgroup_capabilities.supportedOperations = subgroupProperties.supportedOperations;
 		// Note: quadOperationsInAllStages will be true if:
-		// - supportedStages has VK_SHADER_STAGE_ALL_GRAPHICS + VK_SHADER_STAGE_COMPUTE_BIT
-		// - supportedOperations has VK_SUBGROUP_FEATURE_QUAD_BIT
+		// - supportedStages has VK_SHADER_STAGE_ALL_GRAPHICS + VK_SHADER_STAGE_COMPUTE_BIT.
+		// - supportedOperations has VK_SUBGROUP_FEATURE_QUAD_BIT.
 		subgroup_capabilities.quadOperationsInAllStages = subgroupProperties.quadOperationsInAllStages;
 
 		if (vrs_capabilities.pipeline_vrs_supported || vrs_capabilities.primitive_vrs_supported || vrs_capabilities.attachment_vrs_supported) {
@@ -654,7 +782,7 @@ Error VulkanContext::_check_capabilities() {
 				print_verbose("  Primitive fragment shading rate");
 			}
 			if (vrs_capabilities.attachment_vrs_supported) {
-				// TODO expose these somehow to the end user
+				// TODO expose these somehow to the end user.
 				vrs_capabilities.min_texel_size.x = vrsProperties.minFragmentShadingRateAttachmentTexelSize.width;
 				vrs_capabilities.min_texel_size.y = vrsProperties.minFragmentShadingRateAttachmentTexelSize.height;
 				vrs_capabilities.max_texel_size.x = vrsProperties.maxFragmentShadingRateAttachmentTexelSize.width;
@@ -704,7 +832,7 @@ Error VulkanContext::_create_instance() {
 		}
 	}
 
-	CharString cs = ProjectSettings::get_singleton()->get("application/config/name").operator String().utf8();
+	CharString cs = GLOBAL_GET("application/config/name").operator String().utf8();
 	const VkApplicationInfo app = {
 		/*sType*/ VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		/*pNext*/ nullptr,
@@ -731,7 +859,7 @@ Error VulkanContext::_create_instance() {
 	VkDebugUtilsMessengerCreateInfoEXT dbg_messenger_create_info;
 	VkDebugReportCallbackCreateInfoEXT dbg_report_callback_create_info{};
 	if (enabled_debug_utils) {
-		// VK_EXT_debug_utils style
+		// VK_EXT_debug_utils style.
 		dbg_messenger_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 		dbg_messenger_create_info.pNext = nullptr;
 		dbg_messenger_create_info.flags = 0;
@@ -902,8 +1030,8 @@ Error VulkanContext::_create_physical_device(VkSurfaceKHR p_surface) {
 		}
 	} else {
 		// TODO: At least on Linux Laptops integrated GPUs fail with Vulkan in many instances.
-		//   The device should really be a preference, but for now choosing a discrete GPU over the
-		//   integrated one is better than the default.
+		// The device should really be a preference, but for now choosing a discrete GPU over the
+		// integrated one is better than the default.
 
 		int type_selected = -1;
 		print_verbose("Vulkan devices:");
@@ -1061,6 +1189,7 @@ Error VulkanContext::_create_physical_device(VkSurfaceKHR p_surface) {
 				extension_names[enabled_extension_count++] = VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME;
 			}
 			if (!strcmp(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, device_extensions[i].extensionName)) {
+				has_renderpass2_ext = true;
 				extension_names[enabled_extension_count++] = VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME;
 			}
 			if (enabled_extension_count >= MAX_EXTENSIONS) {
@@ -1175,7 +1304,7 @@ Error VulkanContext::_create_device() {
 
 	VkPhysicalDeviceFragmentShadingRateFeaturesKHR vrs_features;
 	if (vrs_capabilities.pipeline_vrs_supported || vrs_capabilities.primitive_vrs_supported || vrs_capabilities.attachment_vrs_supported) {
-		// insert into our chain to enable these features if they are available
+		// Insert into our chain to enable these features if they are available.
 		vrs_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
 		vrs_features.pNext = nextptr;
 		vrs_features.pipelineFragmentShadingRate = vrs_capabilities.pipeline_vrs_supported;
@@ -1207,7 +1336,7 @@ Error VulkanContext::_create_device() {
 		vulkan11features.shaderDrawParameters = 0;
 		nextptr = &vulkan11features;
 	} else {
-		// On Vulkan 1.0 and 1.1 we use our older structs to initialise these features.
+		// On Vulkan 1.0 and 1.1 we use our older structs to initialize these features.
 		storage_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR;
 		storage_feature.pNext = nextptr;
 		storage_feature.storageBuffer16BitAccess = storage_buffer_capabilities.storage_buffer_16_bit_access_is_supported;
@@ -1354,7 +1483,7 @@ Error VulkanContext::_initialize_queues(VkSurfaceKHR p_surface) {
 		color_space = surfFormats[0].colorSpace;
 	} else {
 		// These should be ordered with the ones we want to use on top and fallback modes further down
-		// we want a 32bit RGBA unsigned normalised buffer or similar.
+		// we want a 32bit RGBA unsigned normalized buffer or similar.
 		const VkFormat allowed_formats[] = {
 			VK_FORMAT_B8G8R8A8_UNORM,
 			VK_FORMAT_R8G8B8A8_UNORM
@@ -1434,6 +1563,24 @@ Error VulkanContext::_create_semaphores() {
 
 bool VulkanContext::_use_validation_layers() {
 	return Engine::get_singleton()->is_validation_layers_enabled();
+}
+
+VkExtent2D VulkanContext::_compute_swapchain_extent(const VkSurfaceCapabilitiesKHR &p_surf_capabilities, int *p_window_width, int *p_window_height) const {
+	// Width and height are either both 0xFFFFFFFF, or both not 0xFFFFFFFF.
+	if (p_surf_capabilities.currentExtent.width == 0xFFFFFFFF) {
+		// If the surface size is undefined, the size is set to the size
+		// of the images requested, which must fit within the minimum and
+		// maximum values.
+		VkExtent2D extent = {};
+		extent.width = CLAMP((uint32_t)(*p_window_width), p_surf_capabilities.minImageExtent.width, p_surf_capabilities.maxImageExtent.width);
+		extent.height = CLAMP((uint32_t)(*p_window_height), p_surf_capabilities.minImageExtent.height, p_surf_capabilities.maxImageExtent.height);
+		return extent;
+	} else {
+		// If the surface size is defined, the swap chain size must match.
+		*p_window_width = p_surf_capabilities.currentExtent.width;
+		*p_window_height = p_surf_capabilities.currentExtent.height;
+		return p_surf_capabilities.currentExtent;
+	}
 }
 
 Error VulkanContext::_window_create(DisplayServer::WindowID p_window_id, DisplayServer::VSyncMode p_vsync_mode, VkSurfaceKHR p_surface, int p_width, int p_height) {
@@ -1576,32 +1723,7 @@ Error VulkanContext::_update_swap_chain(Window *window) {
 		ERR_FAIL_V(ERR_CANT_CREATE);
 	}
 
-	VkExtent2D swapchainExtent;
-	// Width and height are either both 0xFFFFFFFF, or both not 0xFFFFFFFF.
-	if (surfCapabilities.currentExtent.width == 0xFFFFFFFF) {
-		// If the surface size is undefined, the size is set to the size
-		// of the images requested, which must fit within the minimum and
-		// maximum values.
-		swapchainExtent.width = window->width;
-		swapchainExtent.height = window->height;
-
-		if (swapchainExtent.width < surfCapabilities.minImageExtent.width) {
-			swapchainExtent.width = surfCapabilities.minImageExtent.width;
-		} else if (swapchainExtent.width > surfCapabilities.maxImageExtent.width) {
-			swapchainExtent.width = surfCapabilities.maxImageExtent.width;
-		}
-
-		if (swapchainExtent.height < surfCapabilities.minImageExtent.height) {
-			swapchainExtent.height = surfCapabilities.minImageExtent.height;
-		} else if (swapchainExtent.height > surfCapabilities.maxImageExtent.height) {
-			swapchainExtent.height = surfCapabilities.maxImageExtent.height;
-		}
-	} else {
-		// If the surface size is defined, the swap chain size must match.
-		swapchainExtent = surfCapabilities.currentExtent;
-		window->width = surfCapabilities.currentExtent.width;
-		window->height = surfCapabilities.currentExtent.height;
-	}
+	VkExtent2D swapchainExtent = _compute_swapchain_extent(surfCapabilities, &window->width, &window->height);
 
 	if (window->width == 0 || window->height == 0) {
 		free(presentModes);
@@ -1611,17 +1733,17 @@ Error VulkanContext::_update_swap_chain(Window *window) {
 	// The FIFO present mode is guaranteed by the spec to be supported
 	// and to have no tearing.  It's a great default present mode to use.
 
-	//  There are times when you may wish to use another present mode.  The
-	//  following code shows how to select them, and the comments provide some
-	//  reasons you may wish to use them.
+	// There are times when you may wish to use another present mode.  The
+	// following code shows how to select them, and the comments provide some
+	// reasons you may wish to use them.
 	//
 	// It should be noted that Vulkan 1.0 doesn't provide a method for
-	// synchronizing rendering with the presentation engine's display.  There
+	// synchronizing rendering with the presentation engine's display. There
 	// is a method provided for throttling rendering with the display, but
 	// there are some presentation engines for which this method will not work.
 	// If an application doesn't throttle its rendering, and if it renders much
 	// faster than the refresh rate of the display, this can waste power on
-	// mobile devices.  That is because power is being spent rendering images
+	// mobile devices. That is because power is being spent rendering images
 	// that may never be seen.
 
 	// VK_PRESENT_MODE_IMMEDIATE_KHR is for applications that don't care about
@@ -1666,7 +1788,22 @@ Error VulkanContext::_update_swap_chain(Window *window) {
 	if (present_mode_available) {
 		window->presentMode = requested_present_mode;
 	} else {
-		WARN_PRINT("Requested VSync mode is not available!");
+		String present_mode_string;
+		switch (window->vsync_mode) {
+			case DisplayServer::VSYNC_MAILBOX:
+				present_mode_string = "Mailbox";
+				break;
+			case DisplayServer::VSYNC_ADAPTIVE:
+				present_mode_string = "Adaptive";
+				break;
+			case DisplayServer::VSYNC_ENABLED:
+				present_mode_string = "Enabled";
+				break;
+			case DisplayServer::VSYNC_DISABLED:
+				present_mode_string = "Disabled";
+				break;
+		}
+		WARN_PRINT(vformat("The requested V-Sync mode %s is not available. Falling back to V-Sync mode Enabled.", present_mode_string));
 		window->vsync_mode = DisplayServer::VSYNC_ENABLED; // Set to default.
 	}
 
@@ -1684,7 +1821,7 @@ Error VulkanContext::_update_swap_chain(Window *window) {
 	// If maxImageCount is 0, we can ask for as many images as we want;
 	// otherwise we're limited to maxImageCount.
 	if ((surfCapabilities.maxImageCount > 0) && (desiredNumOfSwapchainImages > surfCapabilities.maxImageCount)) {
-		// Application must settle for fewer images than desired:
+		// Application must settle for fewer images than desired.
 		desiredNumOfSwapchainImages = surfCapabilities.maxImageCount;
 	}
 
@@ -1695,18 +1832,22 @@ Error VulkanContext::_update_swap_chain(Window *window) {
 		preTransform = surfCapabilities.currentTransform;
 	}
 
-	// Find a supported composite alpha mode - one of these is guaranteed to be set.
 	VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	VkCompositeAlphaFlagBitsKHR compositeAlphaFlags[4] = {
-		VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-		VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
-		VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
-		VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
-	};
-	for (uint32_t i = 0; i < ARRAY_SIZE(compositeAlphaFlags); i++) {
-		if (surfCapabilities.supportedCompositeAlpha & compositeAlphaFlags[i]) {
-			compositeAlpha = compositeAlphaFlags[i];
-			break;
+
+	if (OS::get_singleton()->is_layered_allowed() || !(surfCapabilities.supportedCompositeAlpha & compositeAlpha)) {
+		// Find a supported composite alpha mode - one of these is guaranteed to be set.
+		VkCompositeAlphaFlagBitsKHR compositeAlphaFlags[4] = {
+			VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+			VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+			VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+			VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+		};
+
+		for (uint32_t i = 0; i < ARRAY_SIZE(compositeAlphaFlags); i++) {
+			if (surfCapabilities.supportedCompositeAlpha & compositeAlphaFlags[i]) {
+				compositeAlpha = compositeAlphaFlags[i];
+				break;
+			}
 		}
 	}
 
@@ -2028,14 +2169,14 @@ Error VulkanContext::prepare_buffers() {
 		}
 
 		do {
-			// Get the index of the next available swapchain image:
+			// Get the index of the next available swapchain image.
 			err =
 					fpAcquireNextImageKHR(device, w->swapchain, UINT64_MAX,
 							w->image_acquired_semaphores[frame_index], VK_NULL_HANDLE, &w->current_buffer);
 
 			if (err == VK_ERROR_OUT_OF_DATE_KHR) {
 				// Swapchain is out of date (e.g. the window was resized) and
-				// must be recreated:
+				// must be recreated.
 				print_verbose("Vulkan: Early out of date swapchain, recreating.");
 				// resize_notify();
 				_update_swap_chain(w);
@@ -2068,7 +2209,7 @@ Error VulkanContext::swap_buffers() {
 #if 0
 	if (VK_GOOGLE_display_timing_enabled) {
 		// Look at what happened to previous presents, and make appropriate
-		// adjustments in timing:
+		// adjustments in timing.
 		DemoUpdateTargetIPD(demo);
 
 		// Note: a real application would position its geometry to that it's in
@@ -2231,7 +2372,7 @@ Error VulkanContext::swap_buffers() {
 			uint64_t curtime = getTimeInNanoseconds();
 			if (curtime == 0) {
 				// Since we didn't find out the current time, don't give a
-				// desiredPresentTime:
+				// desiredPresentTime.
 				ptime.desiredPresentTime = 0;
 			} else {
 				ptime.desiredPresentTime = curtime + (target_IPD >> 1);
@@ -2253,8 +2394,6 @@ Error VulkanContext::swap_buffers() {
 		}
 	}
 #endif
-	static int total_frames = 0;
-	total_frames++;
 	//	print_line("current buffer:  " + itos(current_buffer));
 	err = fpQueuePresentKHR(present_queue, &present);
 
@@ -2263,7 +2402,7 @@ Error VulkanContext::swap_buffers() {
 
 	if (err == VK_ERROR_OUT_OF_DATE_KHR) {
 		// Swapchain is out of date (e.g. the window was resized) and
-		// must be recreated:
+		// must be recreated.
 		print_verbose("Vulkan: Swapchain is out of date, recreating.");
 		resize_notify();
 	} else if (err == VK_SUBOPTIMAL_KHR) {
@@ -2471,12 +2610,12 @@ String VulkanContext::get_device_pipeline_cache_uuid() const {
 }
 
 DisplayServer::VSyncMode VulkanContext::get_vsync_mode(DisplayServer::WindowID p_window) const {
-	ERR_FAIL_COND_V_MSG(!windows.has(p_window), DisplayServer::VSYNC_ENABLED, "Could not get VSync mode for window with WindowID " + itos(p_window) + " because it does not exist.");
+	ERR_FAIL_COND_V_MSG(!windows.has(p_window), DisplayServer::VSYNC_ENABLED, "Could not get V-Sync mode for window with WindowID " + itos(p_window) + " because it does not exist.");
 	return windows[p_window].vsync_mode;
 }
 
 void VulkanContext::set_vsync_mode(DisplayServer::WindowID p_window, DisplayServer::VSyncMode p_mode) {
-	ERR_FAIL_COND_MSG(!windows.has(p_window), "Could not set VSync mode for window with WindowID " + itos(p_window) + " because it does not exist.");
+	ERR_FAIL_COND_MSG(!windows.has(p_window), "Could not set V-Sync mode for window with WindowID " + itos(p_window) + " because it does not exist.");
 	windows[p_window].vsync_mode = p_mode;
 	_update_swap_chain(&windows[p_window]);
 }

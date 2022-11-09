@@ -124,7 +124,7 @@ void EditorExport::add_export_preset(const Ref<EditorExportPreset> &p_preset, in
 }
 
 String EditorExportPlatform::test_etc2() const {
-	const bool etc2_supported = ProjectSettings::get_singleton()->get("rendering/textures/vram_compression/import_etc2");
+	const bool etc2_supported = GLOBAL_GET("rendering/textures/vram_compression/import_etc2");
 
 	if (!etc2_supported) {
 		return TTR("Target platform requires 'ETC2' texture compression. Enable 'Import Etc 2' in Project Settings.");
@@ -312,12 +312,14 @@ void EditorExport::update_export_presets() {
 			// Clear the preset properties and values prior to reloading
 			preset->properties.clear();
 			preset->values.clear();
+			preset->update_visibility.clear();
 
 			for (const EditorExportPlatform::ExportOption &E : options) {
 				preset->properties.push_back(E.option);
 
 				StringName option_name = E.option.name;
 				preset->values[option_name] = previous_values.has(option_name) ? previous_values[option_name] : E.default_value;
+				preset->update_visibility[option_name] = E.update_visibility;
 			}
 		}
 	}
@@ -349,6 +351,8 @@ EditorExport::EditorExport() {
 
 	singleton = this;
 	set_process(true);
+
+	GLOBAL_DEF("editor/export/convert_text_resources_to_binary", true);
 }
 
 EditorExport::~EditorExport() {

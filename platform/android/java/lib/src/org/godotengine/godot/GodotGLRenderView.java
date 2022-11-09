@@ -31,7 +31,6 @@
 package org.godotengine.godot;
 import org.godotengine.godot.gl.GLSurfaceView;
 import org.godotengine.godot.gl.GodotRenderer;
-import org.godotengine.godot.input.GodotGestureHandler;
 import org.godotengine.godot.input.GodotInputHandler;
 import org.godotengine.godot.utils.GLUtils;
 import org.godotengine.godot.xr.XRMode;
@@ -46,7 +45,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.os.Build;
-import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.PointerIcon;
@@ -75,9 +73,7 @@ import androidx.annotation.Keep;
 public class GodotGLRenderView extends GLSurfaceView implements GodotRenderView {
 	private final Godot godot;
 	private final GodotInputHandler inputHandler;
-	private final GestureDetector detector;
 	private final GodotRenderer godotRenderer;
-	private PointerIcon pointerIcon;
 
 	public GodotGLRenderView(Context context, Godot godot, XRMode xrMode, boolean p_use_debug_opengl) {
 		super(context);
@@ -85,10 +81,9 @@ public class GodotGLRenderView extends GLSurfaceView implements GodotRenderView 
 
 		this.godot = godot;
 		this.inputHandler = new GodotInputHandler(this);
-		this.detector = new GestureDetector(context, new GodotGestureHandler(this));
 		this.godotRenderer = new GodotRenderer();
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-			pointerIcon = PointerIcon.getSystemIcon(getContext(), PointerIcon.TYPE_DEFAULT);
+			setPointerIcon(PointerIcon.getSystemIcon(getContext(), PointerIcon.TYPE_DEFAULT));
 		}
 		init(xrMode, false);
 	}
@@ -132,7 +127,6 @@ public class GodotGLRenderView extends GLSurfaceView implements GodotRenderView 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		super.onTouchEvent(event);
-		this.detector.onTouchEvent(event);
 		return inputHandler.onTouchEvent(event);
 	}
 
@@ -156,19 +150,40 @@ public class GodotGLRenderView extends GLSurfaceView implements GodotRenderView 
 		return inputHandler.onGenericMotionEvent(event);
 	}
 
+	@Override
+	public void onPointerCaptureChange(boolean hasCapture) {
+		super.onPointerCaptureChange(hasCapture);
+		inputHandler.onPointerCaptureChange(hasCapture);
+	}
+
+	@Override
+	public void requestPointerCapture() {
+		super.requestPointerCapture();
+		inputHandler.onPointerCaptureChange(true);
+	}
+
+	@Override
+	public void releasePointerCapture() {
+		super.releasePointerCapture();
+		inputHandler.onPointerCaptureChange(false);
+	}
+
 	/**
 	 * called from JNI to change pointer icon
 	 */
 	@Keep
 	public void setPointerIcon(int pointerType) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-			pointerIcon = PointerIcon.getSystemIcon(getContext(), pointerType);
+			setPointerIcon(PointerIcon.getSystemIcon(getContext(), pointerType));
 		}
 	}
 
 	@Override
 	public PointerIcon onResolvePointerIcon(MotionEvent me, int pointerIndex) {
-		return pointerIcon;
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			return getPointerIcon();
+		}
+		return super.onResolvePointerIcon(me, pointerIndex);
 	}
 
 	private void init(XRMode xrMode, boolean translucent) {

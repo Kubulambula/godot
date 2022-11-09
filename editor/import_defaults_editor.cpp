@@ -36,6 +36,7 @@
 #include "editor/editor_autoload_settings.h"
 #include "editor/editor_plugin_settings.h"
 #include "editor/editor_sectioned_inspector.h"
+#include "editor/editor_settings.h"
 #include "editor/localization_editor.h"
 #include "editor/shader_globals_editor.h"
 #include "scene/gui/center_container.h"
@@ -139,7 +140,7 @@ void ImportDefaultsEditor::_update_importer() {
 		importer->get_import_options("", &options);
 		Dictionary d;
 		if (ProjectSettings::get_singleton()->has_setting("importer_defaults/" + importer->get_importer_name())) {
-			d = ProjectSettings::get_singleton()->get("importer_defaults/" + importer->get_importer_name());
+			d = GLOBAL_GET("importer_defaults/" + importer->get_importer_name());
 		}
 
 		for (const ResourceImporter::ImportOption &E : options) {

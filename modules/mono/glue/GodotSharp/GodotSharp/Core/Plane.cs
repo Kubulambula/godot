@@ -1,8 +1,3 @@
-#if REAL_T_IS_DOUBLE
-using real_t = System.Double;
-#else
-using real_t = System.Single;
-#endif
 using System;
 using System.Runtime.InteropServices;
 
@@ -297,6 +292,18 @@ namespace Godot
         }
 
         /// <summary>
+        /// Constructs a <see cref="Plane"/> from a <paramref name="normal"/> vector and
+        /// a <paramref name="point"/> on the plane.
+        /// </summary>
+        /// <param name="normal">The normal of the plane, must be normalized.</param>
+        /// <param name="point">The point on the plane.</param>
+        public Plane(Vector3 normal, Vector3 point)
+        {
+            _normal = normal;
+            D = _normal.Dot(point);
+        }
+
+        /// <summary>
         /// Constructs a <see cref="Plane"/> from the three points, given in clockwise order.
         /// </summary>
         /// <param name="v1">The first point.</param>
@@ -358,12 +365,7 @@ namespace Godot
         /// <returns>Whether or not the plane and the other object are exactly equal.</returns>
         public override bool Equals(object obj)
         {
-            if (obj is Plane)
-            {
-                return Equals((Plane)obj);
-            }
-
-            return false;
+            return obj is Plane other && Equals(other);
         }
 
         /// <summary>

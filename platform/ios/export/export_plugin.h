@@ -57,8 +57,10 @@ class EditorExportPlatformIOS : public EditorExportPlatform {
 
 	// Plugins
 	SafeFlag plugins_changed;
+#ifndef ANDROID_ENABLED
 	Thread check_for_changes_thread;
 	SafeFlag quit_request;
+#endif
 	Mutex plugins_lock;
 	Vector<PluginConfigIOS> plugins;
 
@@ -79,6 +81,7 @@ class EditorExportPlatformIOS : public EditorExportPlatform {
 		String modules_buildphase;
 		String modules_buildgrp;
 		Vector<String> capabilities;
+		bool use_swift_runtime;
 	};
 	struct ExportArchitecture {
 		String name;
@@ -138,6 +141,7 @@ class EditorExportPlatformIOS : public EditorExportPlatform {
 		return true;
 	}
 
+#ifndef ANDROID_ENABLED
 	static void _check_for_changes_poll_thread(void *ud) {
 		EditorExportPlatformIOS *ea = static_cast<EditorExportPlatformIOS *>(ud);
 
@@ -171,6 +175,7 @@ class EditorExportPlatformIOS : public EditorExportPlatform {
 			}
 		}
 	}
+#endif
 
 protected:
 	virtual void get_preset_features(const Ref<EditorExportPreset> &p_preset, List<String> *r_features) const override;
@@ -197,7 +202,8 @@ public:
 	}
 	virtual Error export_project(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, int p_flags = 0) override;
 
-	virtual bool can_export(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const override;
+	virtual bool has_valid_export_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const override;
+	virtual bool has_valid_project_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error) const override;
 
 	virtual void get_platform_features(List<String> *r_features) const override {
 		r_features->push_back("mobile");
@@ -232,9 +238,9 @@ public:
 
 				if (da->current_is_dir()) {
 					if (p_check_directories) {
-						Vector<String> directory_files = list_plugin_config_files(p_path.plus_file(file), false);
+						Vector<String> directory_files = list_plugin_config_files(p_path.path_join(file), false);
 						for (int i = 0; i < directory_files.size(); ++i) {
-							dir_files.push_back(file.plus_file(directory_files[i]));
+							dir_files.push_back(file.path_join(directory_files[i]));
 						}
 					}
 
@@ -254,7 +260,7 @@ public:
 	static Vector<PluginConfigIOS> get_plugins() {
 		Vector<PluginConfigIOS> loaded_plugins;
 
-		String plugins_dir = ProjectSettings::get_singleton()->get_resource_path().plus_file("ios/plugins");
+		String plugins_dir = ProjectSettings::get_singleton()->get_resource_path().path_join("ios/plugins");
 
 		if (DirAccess::exists(plugins_dir)) {
 			Vector<String> plugins_filenames = list_plugin_config_files(plugins_dir, true);
@@ -262,7 +268,7 @@ public:
 			if (!plugins_filenames.is_empty()) {
 				Ref<ConfigFile> config_file = memnew(ConfigFile);
 				for (int i = 0; i < plugins_filenames.size(); i++) {
-					PluginConfigIOS config = PluginConfigIOS::load_plugin_config(config_file, plugins_dir.plus_file(plugins_filenames[i]));
+					PluginConfigIOS config = PluginConfigIOS::load_plugin_config(config_file, plugins_dir.path_join(plugins_filenames[i]));
 					if (config.valid_config) {
 						loaded_plugins.push_back(config);
 					} else {

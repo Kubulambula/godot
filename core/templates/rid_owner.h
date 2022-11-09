@@ -79,7 +79,7 @@ class RID_Alloc : public RID_AllocBase {
 
 	const char *description = nullptr;
 
-	SpinLock spin_lock;
+	mutable SpinLock spin_lock;
 
 	_FORCE_INLINE_ RID _allocate_rid() {
 		if (THREAD_SAFE) {
@@ -220,7 +220,7 @@ public:
 		memnew_placement(mem, T(p_value));
 	}
 
-	_FORCE_INLINE_ bool owns(const RID &p_rid) {
+	_FORCE_INLINE_ bool owns(const RID &p_rid) const {
 		if (THREAD_SAFE) {
 			spin_lock.lock();
 		}
@@ -292,7 +292,7 @@ public:
 	_FORCE_INLINE_ uint32_t get_rid_count() const {
 		return alloc_count;
 	}
-	void get_owned_list(List<RID> *p_owned) {
+	void get_owned_list(List<RID> *p_owned) const {
 		if (THREAD_SAFE) {
 			spin_lock.lock();
 		}
@@ -308,7 +308,7 @@ public:
 	}
 
 	//used for fast iteration in the elements or RIDs
-	void fill_owned_buffer(RID *p_rid_buffer) {
+	void fill_owned_buffer(RID *p_rid_buffer) const {
 		if (THREAD_SAFE) {
 			spin_lock.lock();
 		}
@@ -335,15 +335,8 @@ public:
 
 	~RID_Alloc() {
 		if (alloc_count) {
-			if (description) {
-				print_error("ERROR: " + itos(alloc_count) + " RID allocations of type '" + description + "' were leaked at exit.");
-			} else {
-#ifdef NO_SAFE_CAST
-				print_error("ERROR: " + itos(alloc_count) + " RID allocations of type 'unknown' were leaked at exit.");
-#else
-				print_error("ERROR: " + itos(alloc_count) + " RID allocations of type '" + typeid(T).name() + "' were leaked at exit.");
-#endif
-			}
+			print_error(vformat("ERROR: %d RID allocations of type '%s' were leaked at exit.",
+					alloc_count, description ? description : typeid(T).name()));
 
 			for (size_t i = 0; i < max_alloc; i++) {
 				uint64_t validator = validator_chunks[i / elements_in_chunk][i % elements_in_chunk];
@@ -402,7 +395,7 @@ public:
 		*ptr = p_new_ptr;
 	}
 
-	_FORCE_INLINE_ bool owns(const RID &p_rid) {
+	_FORCE_INLINE_ bool owns(const RID &p_rid) const {
 		return alloc.owns(p_rid);
 	}
 
@@ -414,11 +407,11 @@ public:
 		return alloc.get_rid_count();
 	}
 
-	_FORCE_INLINE_ void get_owned_list(List<RID> *p_owned) {
+	_FORCE_INLINE_ void get_owned_list(List<RID> *p_owned) const {
 		return alloc.get_owned_list(p_owned);
 	}
 
-	void fill_owned_buffer(RID *p_rid_buffer) {
+	void fill_owned_buffer(RID *p_rid_buffer) const {
 		alloc.fill_owned_buffer(p_rid_buffer);
 	}
 
@@ -458,7 +451,7 @@ public:
 		return alloc.get_or_null(p_rid);
 	}
 
-	_FORCE_INLINE_ bool owns(const RID &p_rid) {
+	_FORCE_INLINE_ bool owns(const RID &p_rid) const {
 		return alloc.owns(p_rid);
 	}
 
@@ -470,10 +463,10 @@ public:
 		return alloc.get_rid_count();
 	}
 
-	_FORCE_INLINE_ void get_owned_list(List<RID> *p_owned) {
+	_FORCE_INLINE_ void get_owned_list(List<RID> *p_owned) const {
 		return alloc.get_owned_list(p_owned);
 	}
-	void fill_owned_buffer(RID *p_rid_buffer) {
+	void fill_owned_buffer(RID *p_rid_buffer) const {
 		alloc.fill_owned_buffer(p_rid_buffer);
 	}
 

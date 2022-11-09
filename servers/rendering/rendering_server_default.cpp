@@ -91,7 +91,10 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 	RSG::viewport->draw_viewports();
 	RSG::canvas_render->update();
 
-	RSG::rasterizer->end_frame(p_swap_buffers);
+	if (OS::get_singleton()->get_current_rendering_driver_name() != "opengl3") {
+		// Already called for gl_compatibility renderer.
+		RSG::rasterizer->end_frame(p_swap_buffers);
+	}
 
 	XRServer *xr_server = XRServer::get_singleton();
 	if (xr_server != nullptr) {
@@ -328,6 +331,14 @@ bool RenderingServerDefault::is_low_end() const {
 	return RendererCompositor::is_low_end();
 }
 
+Size2i RenderingServerDefault::get_maximum_viewport_size() const {
+	if (RSG::utilities) {
+		return RSG::utilities->get_maximum_viewport_size();
+	} else {
+		return Size2i();
+	}
+}
+
 void RenderingServerDefault::_thread_exit() {
 	exit.set();
 }
@@ -397,6 +408,7 @@ RenderingServerDefault::RenderingServerDefault(bool p_create_thread) :
 	RSG::canvas = memnew(RendererCanvasCull);
 	RSG::viewport = memnew(RendererViewport);
 	RendererSceneCull *sr = memnew(RendererSceneCull);
+	RSG::camera_attributes = memnew(RendererCameraAttributes);
 	RSG::scene = sr;
 	RSG::rasterizer = RendererCompositor::create();
 	RSG::utilities = RSG::rasterizer->get_utilities();
@@ -418,4 +430,5 @@ RenderingServerDefault::~RenderingServerDefault() {
 	memdelete(RSG::viewport);
 	memdelete(RSG::rasterizer);
 	memdelete(RSG::scene);
+	memdelete(RSG::camera_attributes);
 }

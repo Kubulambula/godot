@@ -36,6 +36,9 @@
 #include "core/templates/list.h"
 #include "core/templates/vector.h"
 
+template <typename T>
+class TypedArray;
+
 class Engine {
 public:
 	struct Singleton {
@@ -57,7 +60,7 @@ private:
 	int ips = 60;
 	double physics_jitter_fix = 0.5;
 	double _fps = 1;
-	int _target_fps = 0;
+	int _max_fps = 0;
 	double _time_scale = 1.0;
 	uint64_t _physics_frames = 0;
 	double _physics_interpolation_fraction = 0.0f;
@@ -79,6 +82,11 @@ private:
 	String write_movie_path;
 	String shader_cache_path;
 
+	Dictionary startup_benchmark_json;
+	String startup_benchmark_section;
+	uint64_t startup_benchmark_from = 0;
+	uint64_t startup_benchmark_total_from = 0;
+
 public:
 	static Engine *get_singleton();
 
@@ -88,8 +96,8 @@ public:
 	void set_physics_jitter_fix(double p_threshold);
 	double get_physics_jitter_fix() const;
 
-	virtual void set_target_fps(int p_fps);
-	virtual int get_target_fps() const;
+	virtual void set_max_fps(int p_fps);
+	virtual int get_max_fps() const;
 
 	virtual double get_frames_per_second() const { return _fps; }
 
@@ -134,7 +142,7 @@ public:
 
 	Dictionary get_version_info() const;
 	Dictionary get_author_info() const;
-	Array get_copyright_info() const;
+	TypedArray<Dictionary> get_copyright_info() const;
 	Dictionary get_donor_info() const;
 	Dictionary get_license_info() const;
 	String get_license_text() const;
@@ -142,12 +150,19 @@ public:
 	void set_write_movie_path(const String &p_path);
 	String get_write_movie_path() const;
 
+	String get_architecture_name() const;
+
 	void set_shader_cache_path(const String &p_path);
 	String get_shader_cache_path() const;
 
 	bool is_abort_on_gpu_errors_enabled() const;
 	bool is_validation_layers_enabled() const;
 	int32_t get_gpu_index() const;
+
+	void startup_begin();
+	void startup_benchmark_begin_measure(const String &p_what);
+	void startup_benchmark_end_measure();
+	void startup_dump(const String &p_to_file);
 
 	Engine();
 	virtual ~Engine() {}

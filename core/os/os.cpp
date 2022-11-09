@@ -38,6 +38,7 @@
 #include "core/version_generated.gen.h"
 
 #include <stdarg.h>
+#include <thread>
 
 OS *OS::singleton = nullptr;
 uint64_t OS::target_ticks = 0;
@@ -52,10 +53,6 @@ uint64_t OS::get_ticks_msec() const {
 
 double OS::get_unix_time() const {
 	return 0;
-}
-
-void OS::debug_break() {
-	// something
 }
 
 void OS::_set_logger(CompositeLogger *p_logger) {
@@ -159,15 +156,11 @@ int OS::get_process_id() const {
 }
 
 void OS::vibrate_handheld(int p_duration_ms) {
-	WARN_PRINT("vibrate_handheld() only works with Android, iOS and HTML5");
+	WARN_PRINT("vibrate_handheld() only works with Android, iOS and Web");
 }
 
 bool OS::is_stdout_verbose() const {
 	return _verbose_stdout;
-}
-
-bool OS::is_single_window() const {
-	return _single_window;
 }
 
 bool OS::is_stdout_debug_enabled() const {
@@ -188,50 +181,6 @@ void OS::set_stdout_enabled(bool p_enabled) {
 
 void OS::set_stderr_enabled(bool p_enabled) {
 	_stderr_enabled = p_enabled;
-}
-
-void OS::dump_memory_to_file(const char *p_file) {
-	//Memory::dump_static_mem_to_file(p_file);
-}
-
-static Ref<FileAccess> _OSPRF;
-
-static void _OS_printres(Object *p_obj) {
-	Resource *res = Object::cast_to<Resource>(p_obj);
-	if (!res) {
-		return;
-	}
-
-	String str = vformat("%s - %s - %s", res->to_string(), res->get_name(), res->get_path());
-	if (_OSPRF.is_valid()) {
-		_OSPRF->store_line(str);
-	} else {
-		print_line(str);
-	}
-}
-
-void OS::print_all_resources(String p_to_file) {
-	ERR_FAIL_COND(!p_to_file.is_empty() && _OSPRF.is_valid());
-	if (!p_to_file.is_empty()) {
-		Error err;
-		_OSPRF = FileAccess::open(p_to_file, FileAccess::WRITE, &err);
-		if (err != OK) {
-			_OSPRF.unref();
-			ERR_FAIL_MSG("Can't print all resources to file: " + String(p_to_file) + ".");
-		}
-	}
-
-	ObjectDB::debug_objects(_OS_printres);
-
-	_OSPRF.unref();
-}
-
-void OS::print_resources_in_use(bool p_short) {
-	ResourceCache::dump(nullptr, p_short);
-}
-
-void OS::dump_resources_to_file(const char *p_file) {
-	ResourceCache::dump(p_file);
 }
 
 int OS::get_exit_code() const {
@@ -362,9 +311,10 @@ String OS::get_model_name() const {
 	return "GenericDevice";
 }
 
-void OS::set_cmdline(const char *p_execpath, const List<String> &p_args) {
+void OS::set_cmdline(const char *p_execpath, const List<String> &p_args, const List<String> &p_user_args) {
 	_execpath = String::utf8(p_execpath);
 	_cmdline = p_args;
+	_user_args = p_user_args;
 }
 
 String OS::get_unique_id() const {
@@ -372,19 +322,11 @@ String OS::get_unique_id() const {
 }
 
 int OS::get_processor_count() const {
-	return 1;
+	return std::thread::hardware_concurrency();
 }
 
 String OS::get_processor_name() const {
 	return "";
-}
-
-bool OS::can_use_threads() const {
-#ifdef NO_THREADS
-	return false;
-#else
-	return true;
-#endif
 }
 
 void OS::set_has_server_feature_callback(HasServerFeatureCallback p_callback) {
@@ -570,10 +512,10 @@ void OS::add_frame_delay(bool p_can_draw) {
 	if (is_in_low_processor_usage_mode() || !p_can_draw) {
 		dynamic_delay = get_low_processor_usage_mode_sleep_usec();
 	}
-	const int target_fps = Engine::get_singleton()->get_target_fps();
-	if (target_fps > 0 && !Engine::get_singleton()->is_editor_hint()) {
+	const int max_fps = Engine::get_singleton()->get_max_fps();
+	if (max_fps > 0 && !Engine::get_singleton()->is_editor_hint()) {
 		// Override the low processor usage mode sleep delay if the target FPS is lower.
-		dynamic_delay = MAX(dynamic_delay, (uint64_t)(1000000 / target_fps));
+		dynamic_delay = MAX(dynamic_delay, (uint64_t)(1000000 / max_fps));
 	}
 
 	if (dynamic_delay > 0) {

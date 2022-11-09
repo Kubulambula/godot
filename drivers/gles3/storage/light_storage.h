@@ -36,6 +36,7 @@
 #include "core/templates/local_vector.h"
 #include "core/templates/rid_owner.h"
 #include "core/templates/self_list.h"
+#include "drivers/gles3/storage/texture_storage.h"
 #include "servers/rendering/renderer_compositor.h"
 #include "servers/rendering/storage/light_storage.h"
 #include "servers/rendering/storage/utilities.h"
@@ -75,6 +76,33 @@ struct Light {
 	Dependency dependency;
 };
 
+/* Light instance */
+struct LightInstance {
+	RS::LightType light_type = RS::LIGHT_DIRECTIONAL;
+
+	AABB aabb;
+	RID self;
+	RID light;
+	Transform3D transform;
+
+	Vector3 light_vector;
+	Vector3 spot_vector;
+	float linear_att = 0.0;
+
+	uint64_t shadow_pass = 0;
+	uint64_t last_scene_pass = 0;
+	uint64_t last_scene_shadow_pass = 0;
+	uint64_t last_pass = 0;
+	uint32_t cull_mask = 0;
+	uint32_t light_directional_index = 0;
+
+	Rect2 directional_rect;
+
+	uint32_t gl_id = -1;
+
+	LightInstance() {}
+};
+
 /* REFLECTION PROBE */
 
 struct ReflectionProbe {
@@ -92,6 +120,7 @@ struct ReflectionProbe {
 	bool enable_shadows = false;
 	uint32_t cull_mask = (1 << 20) - 1;
 	float mesh_lod_threshold = 0.01;
+	float baked_exposure = 1.0;
 
 	Dependency dependency;
 };
@@ -103,6 +132,7 @@ struct Lightmap {
 	bool uses_spherical_harmonics = false;
 	bool interior = false;
 	AABB bounds = AABB(Vector3(), Vector3(1, 1, 1));
+	float baked_exposure = 1.0;
 	int32_t array_index = -1; //unassigned
 	PackedVector3Array points;
 	PackedColorArray point_sh;
@@ -124,6 +154,9 @@ private:
 
 	/* LIGHT */
 	mutable RID_Owner<Light, true> light_owner;
+
+	/* Light instance */
+	mutable RID_Owner<LightInstance> light_instance_owner;
 
 	/* REFLECTION PROBE */
 	mutable RID_Owner<ReflectionProbe, true> reflection_probe_owner;
@@ -244,7 +277,7 @@ public:
 		const Light *light = light_owner.get_or_null(p_light);
 		ERR_FAIL_COND_V(!light, RS::LIGHT_DIRECTIONAL);
 
-		return light_owner.owns(light->projector);
+		return TextureStorage::get_singleton()->owns_texture(light->projector);
 	}
 
 	_FORCE_INLINE_ bool light_is_negative(RID p_light) const {
@@ -261,16 +294,31 @@ public:
 		return light->param[RS::LIGHT_PARAM_TRANSMITTANCE_BIAS];
 	}
 
-	_FORCE_INLINE_ float light_get_shadow_volumetric_fog_fade(RID p_light) const {
-		const Light *light = light_owner.get_or_null(p_light);
-		ERR_FAIL_COND_V(!light, 0.0);
-
-		return light->param[RS::LIGHT_PARAM_SHADOW_VOLUMETRIC_FOG_FADE];
-	}
-
 	virtual RS::LightBakeMode light_get_bake_mode(RID p_light) override;
 	virtual uint32_t light_get_max_sdfgi_cascade(RID p_light) override { return 0; }
 	virtual uint64_t light_get_version(RID p_light) const override;
+
+	/* LIGHT INSTANCE API */
+
+	LightInstance *get_light_instance(RID p_rid) { return light_instance_owner.get_or_null(p_rid); };
+	bool owns_light_instance(RID p_rid) { return light_instance_owner.owns(p_rid); };
+
+	virtual RID light_instance_create(RID p_light) override;
+	virtual void light_instance_free(RID p_light_instance) override;
+
+	virtual void light_instance_set_transform(RID p_light_instance, const Transform3D &p_transform) override;
+	virtual void light_instance_set_aabb(RID p_light_instance, const AABB &p_aabb) override;
+	virtual void light_instance_set_shadow_transform(RID p_light_instance, const Projection &p_projection, const Transform3D &p_transform, float p_far, float p_split, int p_pass, float p_shadow_texel_size, float p_bias_scale = 1.0, float p_range_begin = 0, const Vector2 &p_uv_scale = Vector2()) override;
+	virtual void light_instance_mark_visible(RID p_light_instance) override;
+
+	_FORCE_INLINE_ RS::LightType light_instance_get_type(RID p_light_instance) {
+		LightInstance *li = light_instance_owner.get_or_null(p_light_instance);
+		return li->light_type;
+	}
+	_FORCE_INLINE_ uint32_t light_instance_get_gl_id(RID p_light_instance) {
+		LightInstance *li = light_instance_owner.get_or_null(p_light_instance);
+		return li->gl_id;
+	}
 
 	/* PROBE API */
 
@@ -302,7 +350,28 @@ public:
 	virtual float reflection_probe_get_origin_max_distance(RID p_probe) const override;
 	virtual bool reflection_probe_renders_shadows(RID p_probe) const override;
 
+	/* REFLECTION ATLAS */
+
+	virtual RID reflection_atlas_create() override;
+	virtual void reflection_atlas_free(RID p_ref_atlas) override;
+	virtual int reflection_atlas_get_size(RID p_ref_atlas) const override;
+	virtual void reflection_atlas_set_size(RID p_ref_atlas, int p_reflection_size, int p_reflection_count) override;
+
+	/* REFLECTION PROBE INSTANCE */
+
+	virtual RID reflection_probe_instance_create(RID p_probe) override;
+	virtual void reflection_probe_instance_free(RID p_instance) override;
+	virtual void reflection_probe_instance_set_transform(RID p_instance, const Transform3D &p_transform) override;
+	virtual void reflection_probe_release_atlas_index(RID p_instance) override;
+	virtual bool reflection_probe_instance_needs_redraw(RID p_instance) override;
+	virtual bool reflection_probe_instance_has_reflection(RID p_instance) override;
+	virtual bool reflection_probe_instance_begin_render(RID p_instance, RID p_reflection_atlas) override;
+	virtual bool reflection_probe_instance_postprocess_step(RID p_instance) override;
+
 	/* LIGHTMAP CAPTURE */
+
+	Lightmap *get_lightmap(RID p_rid) { return lightmap_owner.get_or_null(p_rid); };
+	bool owns_lightmap(RID p_rid) { return lightmap_owner.owns(p_rid); };
 
 	virtual RID lightmap_allocate() override;
 	virtual void lightmap_initialize(RID p_rid) override;
@@ -312,6 +381,7 @@ public:
 	virtual void lightmap_set_probe_bounds(RID p_lightmap, const AABB &p_bounds) override;
 	virtual void lightmap_set_probe_interior(RID p_lightmap, bool p_interior) override;
 	virtual void lightmap_set_probe_capture_data(RID p_lightmap, const PackedVector3Array &p_points, const PackedColorArray &p_point_sh, const PackedInt32Array &p_tetrahedra, const PackedInt32Array &p_bsp_tree) override;
+	virtual void lightmap_set_baked_exposure_normalization(RID p_lightmap, float p_exposure) override;
 	virtual PackedVector3Array lightmap_get_probe_capture_points(RID p_lightmap) const override;
 	virtual PackedColorArray lightmap_get_probe_capture_sh(RID p_lightmap) const override;
 	virtual PackedInt32Array lightmap_get_probe_capture_tetrahedra(RID p_lightmap) const override;
@@ -338,6 +408,26 @@ public:
 	RID canvas_light_occluder_create();
 	void canvas_light_occluder_set_polylines(RID p_occluder, const LocalVector<Vector2> &p_lines);
 	*/
+
+	/* LIGHTMAP INSTANCE */
+
+	virtual RID lightmap_instance_create(RID p_lightmap) override;
+	virtual void lightmap_instance_free(RID p_lightmap) override;
+	virtual void lightmap_instance_set_transform(RID p_lightmap, const Transform3D &p_transform) override;
+
+	/* SHADOW ATLAS API */
+
+	virtual RID shadow_atlas_create() override;
+	virtual void shadow_atlas_free(RID p_atlas) override;
+	virtual void shadow_atlas_set_size(RID p_atlas, int p_size, bool p_16_bits = true) override;
+	virtual void shadow_atlas_set_quadrant_subdivision(RID p_atlas, int p_quadrant, int p_subdivision) override;
+	virtual bool shadow_atlas_update_light(RID p_atlas, RID p_light_intance, float p_coverage, uint64_t p_light_version) override;
+
+	virtual void shadow_atlas_update(RID p_atlas) override;
+
+	virtual void directional_shadow_atlas_set_size(int p_size, bool p_16_bits = true) override;
+	virtual int get_directional_light_shadow_size(RID p_light_intance) override;
+	virtual void set_directional_shadow_count(int p_count) override;
 };
 
 } // namespace GLES3

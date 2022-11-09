@@ -40,6 +40,7 @@
 #include "scene/resources/texture.h"
 
 class ViewPanner;
+class EditorUndoRedoManager;
 
 class TextureRegionEditor : public AcceptDialog {
 	GDCLASS(TextureRegionEditor, AcceptDialog);
@@ -68,7 +69,7 @@ class TextureRegionEditor : public AcceptDialog {
 	VScrollBar *vscroll = nullptr;
 	HScrollBar *hscroll = nullptr;
 
-	UndoRedo *undo_redo = nullptr;
+	Ref<EditorUndoRedoManager> undo_redo;
 
 	Vector2 draw_ofs;
 	float draw_zoom = 0.0;
@@ -84,6 +85,8 @@ class TextureRegionEditor : public AcceptDialog {
 	NinePatchRect *node_ninepatch = nullptr;
 	Ref<StyleBoxTexture> obj_styleBox;
 	Ref<AtlasTexture> atlas_tex;
+
+	Ref<CanvasTexture> preview_tex;
 
 	Rect2 rect;
 	Rect2 rect_prev;

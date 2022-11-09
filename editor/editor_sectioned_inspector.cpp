@@ -113,18 +113,13 @@ class SectionedInspectorFilter : public Object {
 		}
 	}
 
-	bool property_can_revert(const String &p_name) {
-		return edited->call("property_can_revert", section + "/" + p_name);
+	bool _property_can_revert(const StringName &p_name) const {
+		return edited->property_can_revert(section + "/" + p_name);
 	}
 
-	Variant property_get_revert(const String &p_name) {
-		return edited->call("property_get_revert", section + "/" + p_name);
-	}
-
-protected:
-	static void _bind_methods() {
-		ClassDB::bind_method("property_can_revert", &SectionedInspectorFilter::property_can_revert);
-		ClassDB::bind_method("property_get_revert", &SectionedInspectorFilter::property_get_revert);
+	bool _property_get_revert(const StringName &p_name, Variant &r_property) const {
+		r_property = edited->property_get_revert(section + "/" + p_name);
+		return true;
 	}
 
 public:
@@ -156,7 +151,9 @@ void SectionedInspector::_section_selected() {
 
 void SectionedInspector::set_current_section(const String &p_section) {
 	if (section_map.has(p_section)) {
-		section_map[p_section]->select(0);
+		TreeItem *item = section_map[p_section];
+		item->select(0);
+		sections->scroll_to_item(item);
 	}
 }
 
@@ -231,9 +228,9 @@ void SectionedInspector::update_category_list() {
 	TreeItem *root = sections->create_item();
 	section_map[""] = root;
 
-	String filter;
+	String filter_text;
 	if (search_box) {
-		filter = search_box->get_text();
+		filter_text = search_box->get_text();
 	}
 
 	const EditorPropertyNameProcessor::Style name_style = EditorPropertyNameProcessor::get_settings_style();
@@ -250,7 +247,7 @@ void SectionedInspector::update_category_list() {
 			continue;
 		}
 
-		if (!filter.is_empty() && !_property_path_matches(pi.name, filter, name_style)) {
+		if (!filter_text.is_empty() && !_property_path_matches(pi.name, filter_text, name_style)) {
 			continue;
 		}
 
@@ -283,7 +280,7 @@ void SectionedInspector::update_category_list() {
 				const String tooltip = EditorPropertyNameProcessor::get_singleton()->process_name(sectionarr[i], tooltip_style);
 
 				ms->set_text(0, text);
-				ms->set_tooltip(0, tooltip);
+				ms->set_tooltip_text(0, tooltip);
 				ms->set_metadata(0, metasection);
 				ms->set_selectable(0, false);
 			}

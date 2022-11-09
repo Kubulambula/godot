@@ -118,7 +118,7 @@ void TileMapPattern::remove_cell(const Vector2i &p_coords, bool p_update_size) {
 
 	pattern.erase(p_coords);
 	if (p_update_size) {
-		size = Vector2i();
+		size = Size2i();
 		for (const KeyValue<Vector2i, TileMapCell> &E : pattern) {
 			size = size.max(E.key + Vector2i(1, 1));
 		}
@@ -157,11 +157,11 @@ TypedArray<Vector2i> TileMapPattern::get_used_cells() const {
 	return a;
 }
 
-Vector2i TileMapPattern::get_size() const {
+Size2i TileMapPattern::get_size() const {
 	return size;
 }
 
-void TileMapPattern::set_size(const Vector2i &p_size) {
+void TileMapPattern::set_size(const Size2i &p_size) {
 	for (const KeyValue<Vector2i, TileMapCell> &E : pattern) {
 		Vector2i coords = E.key;
 		if (p_size.x <= coords.x || p_size.y <= coords.y) {
@@ -178,7 +178,7 @@ bool TileMapPattern::is_empty() const {
 };
 
 void TileMapPattern::clear() {
-	size = Vector2i();
+	size = Size2i();
 	pattern.clear();
 	emit_changed();
 };
@@ -1537,7 +1537,6 @@ Vector<Point2> TileSet::get_terrain_polygon(int p_terrain_set) {
 		}
 		return _get_half_offset_terrain_polygon(tile_size, overlap, tile_offset_axis);
 	}
-	return Vector<Point2>();
 }
 
 Vector<Point2> TileSet::get_terrain_peering_bit_polygon(int p_terrain_set, TileSet::CellNeighbor p_bit) {
@@ -1802,11 +1801,11 @@ Vector<Vector<Ref<Texture2D>>> TileSet::generate_terrains_icons(Size2i p_size) {
 				// Get the best tile.
 				Ref<Texture2D> texture = counts[terrain_set][terrain].texture;
 				Rect2i region = counts[terrain_set][terrain].region;
-				image->create(region.size.x, region.size.y, false, Image::FORMAT_RGBA8);
+				image->initialize_data(region.size.x, region.size.y, false, Image::FORMAT_RGBA8);
 				image->blit_rect(texture->get_image(), region, Point2i());
 				image->resize(p_size.x, p_size.y, Image::INTERPOLATE_NEAREST);
 			} else {
-				image->create(1, 1, false, Image::FORMAT_RGBA8);
+				image->initialize_data(1, 1, false, Image::FORMAT_RGBA8);
 				image->set_pixel(0, 0, get_terrain_color(terrain_set, terrain));
 			}
 			Ref<ImageTexture> icon = ImageTexture::create_from_image(image);
@@ -3302,11 +3301,11 @@ void TileSet::_get_property_list(List<PropertyInfo> *p_list) const {
 	}
 }
 
-void TileSet::_validate_property(PropertyInfo &property) const {
-	if (property.name == "tile_layout" && tile_shape == TILE_SHAPE_SQUARE) {
-		property.usage ^= PROPERTY_USAGE_READ_ONLY;
-	} else if (property.name == "tile_offset_axis" && tile_shape == TILE_SHAPE_SQUARE) {
-		property.usage ^= PROPERTY_USAGE_READ_ONLY;
+void TileSet::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name == "tile_layout" && tile_shape == TILE_SHAPE_SQUARE) {
+		p_property.usage ^= PROPERTY_USAGE_READ_ONLY;
+	} else if (p_property.name == "tile_offset_axis" && tile_shape == TILE_SHAPE_SQUARE) {
+		p_property.usage ^= PROPERTY_USAGE_READ_ONLY;
 	}
 }
 
@@ -3780,14 +3779,14 @@ bool TileSetAtlasSource::get_use_texture_padding() const {
 }
 
 Vector2i TileSetAtlasSource::get_atlas_grid_size() const {
-	Ref<Texture2D> texture = get_texture();
-	if (!texture.is_valid()) {
+	Ref<Texture2D> txt = get_texture();
+	if (!txt.is_valid()) {
 		return Vector2i();
 	}
 
 	ERR_FAIL_COND_V(texture_region_size.x <= 0 || texture_region_size.y <= 0, Vector2i());
 
-	Size2i valid_area = texture->get_size() - margins;
+	Size2i valid_area = txt->get_size() - margins;
 
 	// Compute the number of valid tiles in the tiles atlas
 	Size2i grid_size = Size2i();
@@ -4603,9 +4602,7 @@ void TileSetAtlasSource::_update_padded_texture() {
 		return;
 	}
 
-	Ref<Image> image;
-	image.instantiate();
-	image->create(size.x, size.y, false, src->get_format());
+	Ref<Image> image = Image::create_empty(size.x, size.y, false, src->get_format());
 
 	for (KeyValue<Vector2i, TileAlternativesData> kv : tiles) {
 		for (int frame = 0; frame < (int)kv.value.animation_frames_durations.size(); frame++) {
@@ -4716,14 +4713,19 @@ void TileSetScenesCollectionSource::set_scene_tile_id(int p_id, int p_new_id) {
 void TileSetScenesCollectionSource::set_scene_tile_scene(int p_id, Ref<PackedScene> p_packed_scene) {
 	ERR_FAIL_COND(!scenes.has(p_id));
 	if (p_packed_scene.is_valid()) {
-		// Make sure we have a root node. Supposed to be at 0 index because find_node_by_path() does not seem to work.
-		ERR_FAIL_COND(!p_packed_scene->get_state().is_valid());
-		ERR_FAIL_COND(p_packed_scene->get_state()->get_node_count() < 1);
-
 		// Check if it extends CanvasItem.
-		String type = p_packed_scene->get_state()->get_node_type(0);
+		Ref<SceneState> scene_state = p_packed_scene->get_state();
+		String type;
+		while (scene_state.is_valid() && type.is_empty()) {
+			// Make sure we have a root node. Supposed to be at 0 index because find_node_by_path() does not seem to work.
+			ERR_FAIL_COND(scene_state->get_node_count() < 1);
+
+			type = scene_state->get_node_type(0);
+			scene_state = scene_state->get_base_scene_state();
+		}
+		ERR_FAIL_COND_MSG(type.is_empty(), vformat("Invalid PackedScene for TileSetScenesCollectionSource: %s. Could not get the type of the root node.", p_packed_scene->get_path()));
 		bool extends_correct_class = ClassDB::is_parent_class(type, "Control") || ClassDB::is_parent_class(type, "Node2D");
-		ERR_FAIL_COND_MSG(!extends_correct_class, vformat("Invalid PackedScene for TileSetScenesCollectionSource: %s. Root node should extend Control or Node2D.", p_packed_scene->get_path()));
+		ERR_FAIL_COND_MSG(!extends_correct_class, vformat("Invalid PackedScene for TileSetScenesCollectionSource: %s. Root node should extend Control or Node2D. Found %s instead.", p_packed_scene->get_path(), type));
 
 		scenes[p_id].scene = p_packed_scene;
 	} else {
@@ -5013,7 +5015,7 @@ void TileData::add_custom_data_layer(int p_to_pos) {
 void TileData::move_custom_data_layer(int p_from_index, int p_to_pos) {
 	ERR_FAIL_INDEX(p_from_index, custom_data.size());
 	ERR_FAIL_INDEX(p_to_pos, custom_data.size() + 1);
-	custom_data.insert(p_to_pos, navigation[p_from_index]);
+	custom_data.insert(p_to_pos, custom_data[p_from_index]);
 	custom_data.remove_at(p_to_pos < p_from_index ? p_from_index + 1 : p_from_index);
 }
 
@@ -5271,6 +5273,7 @@ void TileData::set_terrain_set(int p_terrain_set) {
 	}
 	if (tile_set) {
 		ERR_FAIL_COND(p_terrain_set >= tile_set->get_terrain_sets_count());
+		terrain = -1;
 		for (int i = 0; i < 16; i++) {
 			terrain_peering_bits[i] = -1;
 		}

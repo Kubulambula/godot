@@ -14,8 +14,7 @@ comprehensive set of [common tools](https://godotengine.org/features), so that u
 without having to reinvent the wheel. Games can be exported with one click to a
 number of platforms, including the major desktop platforms (Linux, macOS,
 Windows), mobile platforms (Android, iOS), as well as Web-based platforms
-(HTML5) and
-[consoles](https://docs.godotengine.org/en/latest/tutorials/platform/consoles.html).
+and [consoles](https://docs.godotengine.org/en/latest/tutorials/platform/consoles.html).
 
 ## Free, open source and community-driven
 
@@ -74,5 +73,4 @@ for more information.
 
 [![Code Triagers Badge](https://www.codetriage.com/godotengine/godot/badges/users.svg)](https://www.codetriage.com/godotengine/godot)
 [![Translate on Weblate](https://hosted.weblate.org/widgets/godot-engine/-/godot/svg-badge.svg)](https://hosted.weblate.org/engage/godot-engine/?utm_source=widget)
-[![Total alerts on LGTM](https://img.shields.io/lgtm/alerts/g/godotengine/godot.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/godotengine/godot/alerts)
 [![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/godotengine/godot)](https://www.tickgit.com/browse?repo=github.com/godotengine/godot)

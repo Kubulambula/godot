@@ -79,7 +79,7 @@ class VideoStreamPlayer : public Control {
 protected:
 	static void _bind_methods();
 	void _notification(int p_notification);
-	void _validate_property(PropertyInfo &p_property) const override;
+	void _validate_property(PropertyInfo &p_property) const;
 
 public:
 	Size2 get_minimum_size() const override;
@@ -105,8 +105,8 @@ public:
 	float get_volume_db() const;
 
 	String get_stream_name() const;
-	float get_stream_position() const;
-	void set_stream_position(float p_position);
+	double get_stream_position() const;
+	void set_stream_position(double p_position);
 
 	void set_autoplay(bool p_enable);
 	bool has_autoplay() const;

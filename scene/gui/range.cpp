@@ -30,8 +30,8 @@
 
 #include "range.h"
 
-TypedArray<String> Range::get_configuration_warnings() const {
-	TypedArray<String> warnings = Node::get_configuration_warnings();
+PackedStringArray Range::get_configuration_warnings() const {
+	PackedStringArray warnings = Node::get_configuration_warnings();
 
 	if (shared->exp_ratio && shared->min <= 0) {
 		warnings.push_back(RTR("If \"Exp Edit\" is enabled, \"Min Value\" must be greater than 0."));
@@ -46,7 +46,7 @@ void Range::_value_changed(double p_value) {
 void Range::_value_changed_notify() {
 	_value_changed(shared->val);
 	emit_signal(SNAME("value_changed"), shared->val);
-	update();
+	queue_redraw();
 }
 
 void Range::Shared::emit_value_changed() {
@@ -61,7 +61,7 @@ void Range::Shared::emit_value_changed() {
 
 void Range::_changed_notify(const char *p_what) {
 	emit_signal(SNAME("changed"));
-	update();
+	queue_redraw();
 }
 
 void Range::_validate_values() {
@@ -80,6 +80,15 @@ void Range::Shared::emit_changed(const char *p_what) {
 }
 
 void Range::set_value(double p_val) {
+	double prev_val = shared->val;
+	set_value_no_signal(p_val);
+
+	if (shared->val != prev_val) {
+		shared->emit_value_changed();
+	}
+}
+
+void Range::set_value_no_signal(double p_val) {
 	if (shared->step > 0) {
 		p_val = Math::round(p_val / shared->step) * shared->step;
 	}
@@ -101,11 +110,13 @@ void Range::set_value(double p_val) {
 	}
 
 	shared->val = p_val;
-
-	shared->emit_value_changed();
 }
 
 void Range::set_min(double p_min) {
+	if (shared->min == p_min) {
+		return;
+	}
+
 	shared->min = p_min;
 	set_value(shared->val);
 	_validate_values();
@@ -116,6 +127,10 @@ void Range::set_min(double p_min) {
 }
 
 void Range::set_max(double p_max) {
+	if (shared->max == p_max) {
+		return;
+	}
+
 	shared->max = p_max;
 	set_value(shared->val);
 	_validate_values();
@@ -124,11 +139,19 @@ void Range::set_max(double p_max) {
 }
 
 void Range::set_step(double p_step) {
+	if (shared->step == p_step) {
+		return;
+	}
+
 	shared->step = p_step;
 	shared->emit_changed("step");
 }
 
 void Range::set_page(double p_page) {
+	if (shared->page == p_page) {
+		return;
+	}
+
 	shared->page = p_page;
 	set_value(shared->val);
 	_validate_values();
@@ -251,6 +274,7 @@ void Range::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_page"), &Range::get_page);
 	ClassDB::bind_method(D_METHOD("get_as_ratio"), &Range::get_as_ratio);
 	ClassDB::bind_method(D_METHOD("set_value", "value"), &Range::set_value);
+	ClassDB::bind_method(D_METHOD("set_value_no_signal", "value"), &Range::set_value_no_signal);
 	ClassDB::bind_method(D_METHOD("set_min", "minimum"), &Range::set_min);
 	ClassDB::bind_method(D_METHOD("set_max", "maximum"), &Range::set_max);
 	ClassDB::bind_method(D_METHOD("set_step", "step"), &Range::set_step);
@@ -300,6 +324,10 @@ bool Range::is_using_rounded_values() const {
 }
 
 void Range::set_exp_ratio(bool p_enable) {
+	if (shared->exp_ratio == p_enable) {
+		return;
+	}
+
 	shared->exp_ratio = p_enable;
 
 	update_configuration_warnings();
