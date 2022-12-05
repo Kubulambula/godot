@@ -4234,7 +4234,7 @@ Point2i TextEdit::get_line_column_at_pos(const Point2i &p_pos, bool p_allow_out_
 		if (!p_allow_out_of_bounds) {
 			return Point2i(-1, -1);
 		}
-		return Point2i(text[row].size(), row);
+		return Point2i(text[row].length(), row);
 	}
 
 	int col = 0;
@@ -7038,8 +7038,8 @@ void TextEdit::_update_selection_mode_word() {
 		if ((col <= carets[caret_idx].selection.selected_word_origin && line == get_selection_line(caret_idx)) || line < get_selection_line(caret_idx)) {
 			carets.write[caret_idx].selection.selecting_column = carets[caret_idx].selection.selected_word_end;
 			select(line, beg, get_selection_line(caret_idx), carets[caret_idx].selection.selected_word_end, caret_idx);
-			set_caret_line(get_selection_from_line(caret_idx), false, true, 0, caret_idx);
-			set_caret_column(get_selection_from_column(caret_idx), true, caret_idx);
+			set_caret_line(line, false, true, 0, caret_idx);
+			set_caret_column(beg, true, caret_idx);
 		} else {
 			carets.write[caret_idx].selection.selecting_column = carets[caret_idx].selection.selected_word_beg;
 			select(get_selection_line(caret_idx), carets[caret_idx].selection.selected_word_beg, line, end, caret_idx);

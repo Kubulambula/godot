@@ -82,7 +82,7 @@ String ProjectSettings::get_imported_files_path() const {
 // Returns the features that a project must have when opened with this build of Godot.
 // This is used by the project manager to provide the initial_settings for config/features.
 const PackedStringArray ProjectSettings::get_required_features() {
-	PackedStringArray features = PackedStringArray();
+	PackedStringArray features;
 	features.append(VERSION_BRANCH);
 #ifdef REAL_T_IS_DOUBLE
 	features.append("Double Precision");
@@ -115,7 +115,7 @@ const PackedStringArray ProjectSettings::_get_supported_features() {
 
 // Returns the features that this project needs but this build of Godot lacks.
 const PackedStringArray ProjectSettings::get_unsupported_features(const PackedStringArray &p_project_features) {
-	PackedStringArray unsupported_features = PackedStringArray();
+	PackedStringArray unsupported_features;
 	PackedStringArray supported_features = singleton->_get_supported_features();
 	for (int i = 0; i < p_project_features.size(); i++) {
 		if (!supported_features.has(p_project_features[i])) {
@@ -1200,6 +1200,7 @@ ProjectSettings::ProjectSettings() {
 	// Initialization of engine variables should be done in the setup() method,
 	// so that the values can be overridden from project.godot or project.binary.
 
+	CRASH_COND_MSG(singleton != nullptr, "Instantiating a new ProjectSettings singleton is not supported.");
 	singleton = this;
 
 	GLOBAL_DEF_BASIC("application/config/name", "");
@@ -1246,12 +1247,12 @@ ProjectSettings::ProjectSettings() {
 
 	GLOBAL_DEF_BASIC("audio/buses/default_bus_layout", "res://default_bus_layout.tres");
 	custom_prop_info["audio/buses/default_bus_layout"] = PropertyInfo(Variant::STRING, "audio/buses/default_bus_layout", PROPERTY_HINT_FILE, "*.tres");
-	GLOBAL_DEF_RST("audio/general/2d_panning_strength", 1.0f);
-	custom_prop_info["audio/general/2d_panning_strength"] = PropertyInfo(Variant::FLOAT, "audio/general/2d_panning_strength", PROPERTY_HINT_RANGE, "0,4,0.01");
-	GLOBAL_DEF_RST("audio/general/3d_panning_strength", 1.0f);
-	custom_prop_info["audio/general/3d_panning_strength"] = PropertyInfo(Variant::FLOAT, "audio/general/3d_panning_strength", PROPERTY_HINT_RANGE, "0,4,0.01");
+	GLOBAL_DEF_RST("audio/general/2d_panning_strength", 0.5f);
+	custom_prop_info["audio/general/2d_panning_strength"] = PropertyInfo(Variant::FLOAT, "audio/general/2d_panning_strength", PROPERTY_HINT_RANGE, "0,2,0.01");
+	GLOBAL_DEF_RST("audio/general/3d_panning_strength", 0.5f);
+	custom_prop_info["audio/general/3d_panning_strength"] = PropertyInfo(Variant::FLOAT, "audio/general/3d_panning_strength", PROPERTY_HINT_RANGE, "0,2,0.01");
 
-	PackedStringArray extensions = PackedStringArray();
+	PackedStringArray extensions;
 	extensions.push_back("gd");
 	if (Engine::get_singleton()->has_singleton("GodotSharp")) {
 		extensions.push_back("cs");

@@ -115,7 +115,7 @@ public:
 	class TerrainConstraint {
 	private:
 		const TileMap *tile_map;
-		Vector2i base_cell_coords = Vector2i();
+		Vector2i base_cell_coords;
 		int bit = -1;
 		int terrain = -1;
 
@@ -235,6 +235,8 @@ private:
 	void _erase_quadrant(HashMap<Vector2i, TileMapQuadrant>::Iterator Q);
 	void _clear_layer_internals(int p_layer);
 	void _clear_internals();
+
+	HashSet<Vector3i> instantiated_scenes;
 
 	// Rect caching.
 	void _recompute_rect_cache();

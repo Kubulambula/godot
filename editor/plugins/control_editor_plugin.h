@@ -31,6 +31,7 @@
 #ifndef CONTROL_EDITOR_PLUGIN_H
 #define CONTROL_EDITOR_PLUGIN_H
 
+#include "editor/editor_inspector.h"
 #include "editor/editor_plugin.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/button.h"
@@ -44,7 +45,7 @@
 #include "scene/gui/separator.h"
 #include "scene/gui/texture_rect.h"
 
-class EditorUndoRedoManager;
+class GridContainer;
 
 // Inspector controls.
 class ControlPositioningWarning : public MarginContainer {
@@ -205,7 +206,6 @@ public:
 class ControlEditorToolbar : public HBoxContainer {
 	GDCLASS(ControlEditorToolbar, HBoxContainer);
 
-	Ref<EditorUndoRedoManager> undo_redo;
 	EditorSelection *editor_selection = nullptr;
 
 	ControlEditorPopupButton *anchors_button = nullptr;

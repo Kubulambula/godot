@@ -58,11 +58,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <X11/Xatom.h>
-#include <X11/Xutil.h>
-#include <X11/extensions/Xinerama.h>
-#include <X11/extensions/shape.h>
-
 // ICCCM
 #define WM_NormalState 1L // window normal state
 #define WM_IconicState 3L // window minimized
@@ -376,10 +371,18 @@ void DisplayServerX11::mouse_set_mode(MouseMode p_mode) {
 	}
 
 	// The only modes that show a cursor are VISIBLE and CONFINED
-	bool showCursor = (p_mode == MOUSE_MODE_VISIBLE || p_mode == MOUSE_MODE_CONFINED);
+	bool show_cursor = (p_mode == MOUSE_MODE_VISIBLE || p_mode == MOUSE_MODE_CONFINED);
+	bool previously_shown = (mouse_mode == MOUSE_MODE_VISIBLE || mouse_mode == MOUSE_MODE_CONFINED);
+
+	if (show_cursor && !previously_shown) {
+		WindowID window_id = get_window_at_screen_position(mouse_get_position());
+		if (window_id != INVALID_WINDOW_ID) {
+			_send_window_event(windows[window_id], WINDOW_EVENT_MOUSE_ENTER);
+		}
+	}
 
 	for (const KeyValue<WindowID, WindowData> &E : windows) {
-		if (showCursor) {
+		if (show_cursor) {
 			XDefineCursor(x11_display, E.value.x11_window, cursors[current_cursor]); // show cursor
 		} else {
 			XDefineCursor(x11_display, E.value.x11_window, null_cursor); // hide cursor
@@ -1311,7 +1314,10 @@ int64_t DisplayServerX11::window_get_native_handle(HandleType p_handle_type, Win
 		}
 #ifdef GLES3_ENABLED
 		case OPENGL_CONTEXT: {
-			return (int64_t)gl_manager->get_glx_context(p_window);
+			if (gl_manager) {
+				return (int64_t)gl_manager->get_glx_context(p_window);
+			}
+			return 0;
 		}
 #endif
 		default: {
@@ -4403,7 +4409,7 @@ void DisplayServerX11::window_set_vsync_mode(DisplayServer::VSyncMode p_vsync_mo
 
 #if defined(GLES3_ENABLED)
 	if (gl_manager) {
-		gl_manager->set_use_vsync(p_vsync_mode == DisplayServer::VSYNC_ENABLED);
+		gl_manager->set_use_vsync(p_vsync_mode != DisplayServer::VSYNC_DISABLED);
 	}
 #endif
 }
@@ -4664,6 +4670,7 @@ DisplayServerX11::WindowID DisplayServerX11::_create_window(WindowMode p_mode, V
 		if (gl_manager) {
 			Error err = gl_manager->window_create(id, wd.x11_window, x11_display, p_rect.size.width, p_rect.size.height);
 			ERR_FAIL_COND_V_MSG(err != OK, INVALID_WINDOW_ID, "Can't create an OpenGL window");
+			window_set_vsync_mode(p_vsync_mode, id);
 		}
 #endif
 
@@ -4698,6 +4705,46 @@ DisplayServerX11::WindowID DisplayServerX11::_create_window(WindowMode p_mode, V
 }
 
 DisplayServerX11::DisplayServerX11(const String &p_rendering_driver, WindowMode p_mode, VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, Error &r_error) {
+#ifdef DEBUG_ENABLED
+	int dylibloader_verbose = 1;
+#else
+	int dylibloader_verbose = 0;
+#endif
+	if (initialize_xlib(dylibloader_verbose) != 0) {
+		r_error = ERR_UNAVAILABLE;
+		ERR_FAIL_MSG("Can't load Xlib dynamically.");
+	}
+
+	if (initialize_xcursor(dylibloader_verbose) != 0) {
+		r_error = ERR_UNAVAILABLE;
+		ERR_FAIL_MSG("Can't load XCursor dynamically.");
+	}
+
+	if (initialize_xext(dylibloader_verbose) != 0) {
+		r_error = ERR_UNAVAILABLE;
+		ERR_FAIL_MSG("Can't load Xext dynamically.");
+	}
+
+	if (initialize_xinerama(dylibloader_verbose) != 0) {
+		r_error = ERR_UNAVAILABLE;
+		ERR_FAIL_MSG("Can't load Xinerama dynamically.");
+	}
+
+	if (initialize_xrandr(dylibloader_verbose) != 0) {
+		r_error = ERR_UNAVAILABLE;
+		ERR_FAIL_MSG("Can't load Xrandr dynamically.");
+	}
+
+	if (initialize_xrender(dylibloader_verbose) != 0) {
+		r_error = ERR_UNAVAILABLE;
+		ERR_FAIL_MSG("Can't load Xrender dynamically.");
+	}
+
+	if (initialize_xinput2(dylibloader_verbose) != 0) {
+		r_error = ERR_UNAVAILABLE;
+		ERR_FAIL_MSG("Can't load Xinput2 dynamically.");
+	}
+
 	Input::get_singleton()->set_event_dispatch_function(_dispatch_input_events);
 
 	r_error = OK;
@@ -4898,7 +4945,7 @@ DisplayServerX11::DisplayServerX11(const String &p_rendering_driver, WindowMode 
 
 		gl_manager = memnew(GLManager_X11(p_resolution, opengl_api_type));
 
-		if (gl_manager->initialize() != OK) {
+		if (gl_manager->initialize(x11_display) != OK) {
 			memdelete(gl_manager);
 			gl_manager = nullptr;
 			r_error = ERR_UNAVAILABLE;

@@ -13,6 +13,7 @@
 			<return type="int" />
 			<param index="0" name="margin" type="int" enum="Side" />
 			<description>
+				Returns the stretch margin with the specified index. See [member stretch_margin_bottom] and related properties.
 			</description>
 		</method>
 		<method name="set_stretch_margin">
@@ -20,6 +21,7 @@
 			<param index="0" name="margin" type="int" enum="Side" />
 			<param index="1" name="value" type="int" />
 			<description>
+				Sets the stretch margin with the specified index. See [member stretch_margin_bottom] and related properties.
 			</description>
 		</method>
 	</methods>
@@ -41,6 +43,8 @@
 		<member name="radial_initial_angle" type="float" setter="set_radial_initial_angle" getter="get_radial_initial_angle" default="0.0">
 			Starting angle for the fill of [member texture_progress] if [member fill_mode] is [constant FILL_CLOCKWISE] or [constant FILL_COUNTER_CLOCKWISE]. When the node's [code]value[/code] is equal to its [code]min_value[/code], the texture doesn't show up at all. When the [code]value[/code] increases, the texture fills and tends towards [member radial_fill_degrees].
 		</member>
+		<member name="size_flags_vertical" type="int" setter="set_v_size_flags" getter="get_v_size_flags" overrides="Control" default="1" />
+		<member name="step" type="float" setter="set_step" getter="get_step" overrides="Range" default="1.0" />
 		<member name="stretch_margin_bottom" type="int" setter="set_stretch_margin" getter="get_stretch_margin" default="0">
 			The height of the 9-patch's bottom row. A margin of 16 means the 9-slice's bottom corners and side will have a height of 16 pixels. You can set all 4 margin values individually to create panels with non-uniform borders.
 		</member>

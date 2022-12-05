@@ -106,6 +106,7 @@ public:
 
 		bool layered_window = false;
 		bool fullscreen = false;
+		bool exclusive_fullscreen = false;
 		bool on_top = false;
 		bool borderless = false;
 		bool resize_disabled = false;
@@ -232,6 +233,7 @@ public:
 	void popup_close(WindowID p_window);
 	void set_is_resizing(bool p_is_resizing);
 	bool get_is_resizing() const;
+	void reparent_check(WindowID p_window);
 
 	void window_update(WindowID p_window);
 	void window_destroy(WindowID p_window);

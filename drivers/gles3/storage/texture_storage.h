@@ -129,7 +129,7 @@ struct Texture {
 	bool is_external = false;
 	bool is_render_target = false;
 
-	RID proxy_to = RID();
+	RID proxy_to;
 	Vector<RID> proxies;
 
 	String path;
@@ -344,6 +344,8 @@ struct RenderTarget {
 
 		struct FBOCacheEntry {
 			GLuint fbo;
+			GLuint color;
+			GLuint depth;
 			Size2i size;
 			Vector<GLuint> allocated_textures;
 		};
@@ -412,7 +414,6 @@ private:
 	mutable RID_Owner<RenderTarget> render_target_owner;
 
 	void _clear_render_target(RenderTarget *rt);
-	void _clear_render_target_overridden_fbo_cache(RenderTarget *rt);
 	void _update_render_target(RenderTarget *rt);
 	void _create_render_target_backbuffer(RenderTarget *rt);
 	void _render_target_allocate_sdf(RenderTarget *rt);
@@ -503,6 +504,8 @@ public:
 	virtual void texture_set_force_redraw_if_visible(RID p_texture, bool p_enable) override;
 
 	virtual Size2 texture_size_with_proxy(RID p_proxy) override;
+
+	virtual RID texture_get_rd_texture_rid(RID p_texture, bool p_srgb = false) const override;
 
 	void texture_set_data(RID p_texture, const Ref<Image> &p_image, int p_layer = 0);
 	void texture_set_data_partial(RID p_texture, const Ref<Image> &p_image, int src_x, int src_y, int src_w, int src_h, int dst_x, int dst_y, int p_dst_mip, int p_layer = 0);

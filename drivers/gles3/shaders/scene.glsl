@@ -102,7 +102,7 @@ vec3 oct_to_vec3(vec2 e) {
 	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
 	float t = max(-v.z, 0.0);
 	v.xy += t * -sign(v.xy);
-	return v;
+	return normalize(v);
 }
 
 #ifdef USE_INSTANCING
@@ -129,7 +129,7 @@ layout(std140) uniform SceneData { // ubo:2
 
 	mediump float ambient_color_sky_mix;
 	bool material_uv2_mode;
-	float pad2;
+	float emissive_exposure_normalization;
 	bool use_ambient_light;
 	bool use_ambient_cubemap;
 	bool use_reflection_cubemap;
@@ -142,7 +142,7 @@ layout(std140) uniform SceneData { // ubo:2
 	uint directional_light_count;
 	float z_far;
 	float z_near;
-	float pad;
+	float IBL_exposure_normalization;
 
 	bool fog_enabled;
 	float fog_density;
@@ -151,6 +151,10 @@ layout(std140) uniform SceneData { // ubo:2
 
 	vec3 fog_light_color;
 	float fog_sun_scatter;
+	uint camera_visible_layers;
+	uint pad3;
+	uint pad4;
+	uint pad5;
 }
 scene_data;
 
@@ -197,7 +201,7 @@ out vec3 tangent_interp;
 out vec3 binormal_interp;
 #endif
 
-#if defined(MATERIAL_UNIFORMS_USED)
+#ifdef MATERIAL_UNIFORMS_USED
 
 /* clang-format off */
 layout(std140) uniform MaterialUniforms { // ubo:3
@@ -366,7 +370,9 @@ void main() {
 #endif
 #endif
 
+#ifndef MODE_RENDER_DEPTH
 #include "tonemap_inc.glsl"
+#endif
 #include "stdlib_inc.glsl"
 
 /* texture unit usage, N is max_texture_unity-N
@@ -428,7 +434,7 @@ layout(std140) uniform GlobalShaderUniformData { //ubo:1
 
 	/* Material Uniforms */
 
-#if defined(MATERIAL_UNIFORMS_USED)
+#ifdef MATERIAL_UNIFORMS_USED
 
 /* clang-format off */
 layout(std140) uniform MaterialUniforms { // ubo:3
@@ -453,7 +459,7 @@ layout(std140) uniform SceneData { // ubo:2
 
 	mediump float ambient_color_sky_mix;
 	bool material_uv2_mode;
-	float pad2;
+	float emissive_exposure_normalization;
 	bool use_ambient_light;
 	bool use_ambient_cubemap;
 	bool use_reflection_cubemap;
@@ -466,7 +472,7 @@ layout(std140) uniform SceneData { // ubo:2
 	uint directional_light_count;
 	float z_far;
 	float z_near;
-	float pad;
+	float IBL_exposure_normalization;
 
 	bool fog_enabled;
 	float fog_density;
@@ -475,6 +481,10 @@ layout(std140) uniform SceneData { // ubo:2
 
 	vec3 fog_light_color;
 	float fog_sun_scatter;
+	uint camera_visible_layers;
+	uint pad3;
+	uint pad4;
+	uint pad5;
 }
 scene_data;
 
@@ -535,7 +545,7 @@ layout(std140) uniform OmniLightData { // ubo:5
 	LightData omni_lights[MAX_LIGHT_DATA_STRUCTS];
 };
 uniform uint omni_light_indices[MAX_FORWARD_LIGHTS];
-uniform int omni_light_count;
+uniform uint omni_light_count;
 #endif
 
 #ifndef DISABLE_LIGHT_SPOT
@@ -545,7 +555,7 @@ layout(std140) uniform SpotLightData { // ubo:6
 	LightData spot_lights[MAX_LIGHT_DATA_STRUCTS];
 };
 uniform uint spot_light_indices[MAX_FORWARD_LIGHTS];
-uniform int spot_light_count;
+uniform uint spot_light_count;
 #endif
 
 #ifdef USE_ADDITIVE_LIGHTING
@@ -918,6 +928,7 @@ void main() {
 #else
 	vec3 view = -normalize(vertex_interp);
 #endif
+	highp mat4 model_matrix = world_transform;
 	vec3 albedo = vec3(1.0);
 	vec3 backlight = vec3(0.0);
 	vec4 transmittance_color = vec4(0.0, 0.0, 0.0, 1.0);
@@ -1097,7 +1108,7 @@ void main() {
 		ref_vec = mix(ref_vec, normal, roughness * roughness);
 		float horizon = min(1.0 + dot(ref_vec, normal), 1.0);
 		ref_vec = scene_data.radiance_inverse_xform * ref_vec;
-		specular_light = textureLod(radiance_map, ref_vec, roughness * RADIANCE_MAX_LOD).rgb;
+		specular_light = textureLod(radiance_map, ref_vec, sqrt(roughness) * RADIANCE_MAX_LOD).rgb;
 		specular_light = srgb_to_linear(specular_light);
 		specular_light *= horizon * horizon;
 		specular_light *= scene_data.ambient_light_color_energy.a;
@@ -1159,7 +1170,7 @@ void main() {
 
 		float a004 = min(r.x * r.x, exp2(-9.28 * ndotv)) * r.x + r.y;
 		vec2 env = vec2(-1.04, 1.04) * a004 + r.zw;
-		specular_light *= env.x * f0 + env.y * clamp(50.0 * f0.g, 0.0, 1.0);
+		specular_light *= env.x * f0 + env.y * clamp(50.0 * f0.g, metallic, 1.0);
 #endif
 	}
 
@@ -1188,7 +1199,7 @@ void main() {
 #endif //!DISABLE_LIGHT_DIRECTIONAL
 
 #ifndef DISABLE_LIGHT_OMNI
-	for (int i = 0; i < MAX_FORWARD_LIGHTS; i++) {
+	for (uint i = 0u; i < MAX_FORWARD_LIGHTS; i++) {
 		if (i >= omni_light_count) {
 			break;
 		}
@@ -1211,7 +1222,7 @@ void main() {
 #endif // !DISABLE_LIGHT_OMNI
 
 #ifndef DISABLE_LIGHT_SPOT
-	for (int i = 0; i < MAX_FORWARD_LIGHTS; i++) {
+	for (uint i = 0u; i < MAX_FORWARD_LIGHTS; i++) {
 		if (i >= spot_light_count) {
 			break;
 		}

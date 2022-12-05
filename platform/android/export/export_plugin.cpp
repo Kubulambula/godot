@@ -245,7 +245,7 @@ static const int EXPORT_FORMAT_AAB = 1;
 static const char *APK_ASSETS_DIRECTORY = "res://android/build/assets";
 static const char *AAB_ASSETS_DIRECTORY = "res://android/build/assetPacks/installTime/src/main/assets";
 
-static const int DEFAULT_MIN_SDK_VERSION = 19; // Should match the value in 'platform/android/java/app/config.gradle#minSdk'
+static const int DEFAULT_MIN_SDK_VERSION = 21; // Should match the value in 'platform/android/java/app/config.gradle#minSdk'
 static const int DEFAULT_TARGET_SDK_VERSION = 32; // Should match the value in 'platform/android/java/app/config.gradle#targetSdk'
 
 #ifndef ANDROID_ENABLED
@@ -703,7 +703,7 @@ Error EditorExportPlatformAndroid::save_apk_so(void *p_userdata, const SharedObj
 			exported = true;
 			String abi = abis[abi_index].abi;
 			String dst_path = String("lib").path_join(abi).path_join(p_so.path.get_file());
-			Vector<uint8_t> array = FileAccess::get_file_as_array(p_so.path);
+			Vector<uint8_t> array = FileAccess::get_file_as_bytes(p_so.path);
 			Error store_err = store_in_apk(ed, dst_path, array);
 			ERR_FAIL_COND_V_MSG(store_err, store_err, "Cannot store in apk file '" + dst_path + "'.");
 		}
@@ -748,7 +748,7 @@ Error EditorExportPlatformAndroid::copy_gradle_so(void *p_userdata, const Shared
 			String abi = abis[abi_index].abi;
 			String filename = p_so.path.get_file();
 			String dst_path = base.path_join(type).path_join(abi).path_join(filename);
-			Vector<uint8_t> data = FileAccess::get_file_as_array(p_so.path);
+			Vector<uint8_t> data = FileAccess::get_file_as_bytes(p_so.path);
 			print_verbose("Copying .so file from " + p_so.path + " to " + dst_path);
 			Error err = store_file_at_path(dst_path, data);
 			ERR_FAIL_COND_V_MSG(err, err, "Failed to copy .so file from " + p_so.path + " to " + dst_path);
@@ -802,7 +802,7 @@ void EditorExportPlatformAndroid::_get_permissions(const Ref<EditorExportPreset>
 }
 
 void EditorExportPlatformAndroid::_write_tmp_manifest(const Ref<EditorExportPreset> &p_preset, bool p_give_internet, bool p_debug) {
-	print_verbose("Building temporary manifest..");
+	print_verbose("Building temporary manifest...");
 	String manifest_text =
 			"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 			"<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
@@ -2491,7 +2491,7 @@ void EditorExportPlatformAndroid::_clear_assets_directory() {
 
 	// Clear the APK assets directory
 	if (da_res->dir_exists(APK_ASSETS_DIRECTORY)) {
-		print_verbose("Clearing APK assets directory..");
+		print_verbose("Clearing APK assets directory...");
 		Ref<DirAccess> da_assets = DirAccess::open(APK_ASSETS_DIRECTORY);
 		da_assets->erase_contents_recursive();
 		da_res->remove(APK_ASSETS_DIRECTORY);
@@ -2499,7 +2499,7 @@ void EditorExportPlatformAndroid::_clear_assets_directory() {
 
 	// Clear the AAB assets directory
 	if (da_res->dir_exists(AAB_ASSETS_DIRECTORY)) {
-		print_verbose("Clearing AAB assets directory..");
+		print_verbose("Clearing AAB assets directory...");
 		Ref<DirAccess> da_assets = DirAccess::open(AAB_ASSETS_DIRECTORY);
 		da_assets->erase_contents_recursive();
 		da_res->remove(AAB_ASSETS_DIRECTORY);
@@ -2615,10 +2615,10 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 	}
 
 	if (use_custom_build) {
-		print_verbose("Starting custom build..");
+		print_verbose("Starting custom build...");
 		//test that installed build version is alright
 		{
-			print_verbose("Checking build version..");
+			print_verbose("Checking build version...");
 			Ref<FileAccess> f = FileAccess::open("res://android/.build_version", FileAccess::READ);
 			if (f.is_null()) {
 				add_message(EXPORT_MESSAGE_ERROR, TTR("Export"), TTR("Trying to build from a custom built template, but no version info for it exists. Please reinstall from the 'Project' menu."));
@@ -2651,7 +2651,7 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 		_clear_assets_directory();
 		_remove_copied_libs();
 		if (!apk_expansion) {
-			print_verbose("Exporting project files..");
+			print_verbose("Exporting project files...");
 			CustomExportData user_data;
 			user_data.assets_directory = assets_directory;
 			user_data.debug = p_debug;
@@ -2665,14 +2665,14 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 				fa->store_string(JSON::stringify(user_data.libs, "\t"));
 			}
 		} else {
-			print_verbose("Saving apk expansion file..");
+			print_verbose("Saving apk expansion file...");
 			err = save_apk_expansion_file(p_preset, p_debug, p_path);
 			if (err != OK) {
 				add_message(EXPORT_MESSAGE_ERROR, TTR("Export"), TTR("Could not write expansion package file!"));
 				return err;
 			}
 		}
-		print_verbose("Storing command line flags..");
+		print_verbose("Storing command line flags...");
 		store_file_at_path(assets_directory + "/_cl_", command_line_flags);
 
 		print_verbose("Updating ANDROID_HOME environment to " + sdk_path);
@@ -2825,7 +2825,7 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 		return OK;
 	}
 	// This is the start of the Legacy build system
-	print_verbose("Starting legacy build system..");
+	print_verbose("Starting legacy build system...");
 	if (p_debug) {
 		src_apk = p_preset->get("custom_template/debug");
 	} else {

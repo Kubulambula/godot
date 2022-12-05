@@ -30,10 +30,13 @@
 
 #include "tiles_editor_plugin.h"
 
+#include "tile_set_editor.h"
+
 #include "core/os/mutex.h"
 
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
+#include "editor/editor_settings.h"
 #include "editor/plugins/canvas_item_editor_plugin.h"
 
 #include "scene/2d/tile_map.h"
@@ -42,8 +45,6 @@
 #include "scene/gui/control.h"
 #include "scene/gui/separator.h"
 #include "scene/resources/tile_set.h"
-
-#include "tile_set_editor.h"
 
 TilesEditorPlugin *TilesEditorPlugin::singleton = nullptr;
 
@@ -92,7 +93,7 @@ void TilesEditorPlugin::_thread() {
 
 				TypedArray<Vector2i> used_cells = tile_map->get_used_cells(0);
 
-				Rect2 encompassing_rect = Rect2();
+				Rect2 encompassing_rect;
 				encompassing_rect.set_position(tile_map->map_to_local(used_cells[0]));
 				for (int i = 0; i < used_cells.size(); i++) {
 					Vector2i cell = used_cells[i];
