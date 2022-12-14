@@ -221,7 +221,7 @@ float DisplayServerAndroid::screen_get_refresh_rate(int p_screen) const {
 	return godot_io_java->get_screen_refresh_rate(SCREEN_REFRESH_RATE_FALLBACK);
 }
 
-bool DisplayServerAndroid::screen_is_touchscreen(int p_screen) const {
+bool DisplayServerAndroid::is_touchscreen_available() const {
 	return true;
 }
 
@@ -366,6 +366,10 @@ Point2i DisplayServerAndroid::window_get_position(DisplayServer::WindowID p_wind
 	return Point2i();
 }
 
+Point2i DisplayServerAndroid::window_get_position_with_decorations(DisplayServer::WindowID p_window) const {
+	return Point2i();
+}
+
 void DisplayServerAndroid::window_set_position(const Point2i &p_position, DisplayServer::WindowID p_window) {
 	// Not supported on Android.
 }
@@ -398,7 +402,7 @@ Size2i DisplayServerAndroid::window_get_size(DisplayServer::WindowID p_window) c
 	return OS_Android::get_singleton()->get_display_size();
 }
 
-Size2i DisplayServerAndroid::window_get_real_size(DisplayServer::WindowID p_window) const {
+Size2i DisplayServerAndroid::window_get_size_with_decorations(DisplayServer::WindowID p_window) const {
 	return OS_Android::get_singleton()->get_display_size();
 }
 

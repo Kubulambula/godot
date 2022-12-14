@@ -32,7 +32,7 @@
 
 #include "core/config/project_settings.h"
 #include "core/crypto/crypto_core.h"
-#include "core/extension/native_extension.h"
+#include "core/extension/gdextension.h"
 #include "core/io/file_access_encrypted.h"
 #include "core/io/file_access_pack.h" // PACK_HEADER_MAGIC, PACK_FORMAT_VERSION
 #include "core/io/zip_io.h"
@@ -442,10 +442,11 @@ HashSet<String> EditorExportPlatform::get_features(const Ref<EditorExportPreset>
 		result.insert(E);
 	}
 
+	result.insert("template");
 	if (p_debug) {
-		result.insert("debug");
+		result.insert("template_debug");
 	} else {
-		result.insert("release");
+		result.insert("template_release");
 	}
 
 	if (!p_preset->get_custom_features().is_empty()) {
@@ -1266,7 +1267,7 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 		}
 	}
 
-	String extension_list_config_file = NativeExtension::get_extension_list_config_file();
+	String extension_list_config_file = GDExtension::get_extension_list_config_file();
 	if (FileAccess::exists(extension_list_config_file)) {
 		Vector<uint8_t> array = FileAccess::get_file_as_bytes(extension_list_config_file);
 		err = p_func(p_udata, extension_list_config_file, array, idx, total, enc_in_filters, enc_ex_filters, key);

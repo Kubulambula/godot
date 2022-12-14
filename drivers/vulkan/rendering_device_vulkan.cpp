@@ -1579,12 +1579,12 @@ Error RenderingDeviceVulkan::_buffer_update(Buffer *p_buffer, size_t p_offset, c
 	return OK;
 }
 
-void RenderingDeviceVulkan::_memory_barrier(VkPipelineStageFlags p_src_stage_mask, VkPipelineStageFlags p_dst_stage_mask, VkAccessFlags p_src_access, VkAccessFlags p_dst_sccess, bool p_sync_with_draw) {
+void RenderingDeviceVulkan::_memory_barrier(VkPipelineStageFlags p_src_stage_mask, VkPipelineStageFlags p_dst_stage_mask, VkAccessFlags p_src_access, VkAccessFlags p_dst_access, bool p_sync_with_draw) {
 	VkMemoryBarrier mem_barrier;
 	mem_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 	mem_barrier.pNext = nullptr;
 	mem_barrier.srcAccessMask = p_src_access;
-	mem_barrier.dstAccessMask = p_dst_sccess;
+	mem_barrier.dstAccessMask = p_dst_access;
 
 	if (p_src_stage_mask == 0 || p_dst_stage_mask == 0) {
 		return; // No barrier, since this is invalid.
@@ -1628,14 +1628,14 @@ void RenderingDeviceVulkan::_full_barrier(bool p_sync_with_draw) {
 			p_sync_with_draw);
 }
 
-void RenderingDeviceVulkan::_buffer_memory_barrier(VkBuffer buffer, uint64_t p_from, uint64_t p_size, VkPipelineStageFlags p_src_stage_mask, VkPipelineStageFlags p_dst_stage_mask, VkAccessFlags p_src_access, VkAccessFlags p_dst_sccess, bool p_sync_with_draw) {
+void RenderingDeviceVulkan::_buffer_memory_barrier(VkBuffer buffer, uint64_t p_from, uint64_t p_size, VkPipelineStageFlags p_src_stage_mask, VkPipelineStageFlags p_dst_stage_mask, VkAccessFlags p_src_access, VkAccessFlags p_dst_access, bool p_sync_with_draw) {
 	VkBufferMemoryBarrier buffer_mem_barrier;
 	buffer_mem_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 	buffer_mem_barrier.pNext = nullptr;
 	buffer_mem_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	buffer_mem_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	buffer_mem_barrier.srcAccessMask = p_src_access;
-	buffer_mem_barrier.dstAccessMask = p_dst_sccess;
+	buffer_mem_barrier.dstAccessMask = p_dst_access;
 	buffer_mem_barrier.buffer = buffer;
 	buffer_mem_barrier.offset = p_from;
 	buffer_mem_barrier.size = p_size;
@@ -6424,7 +6424,7 @@ Vector<uint8_t> RenderingDeviceVulkan::buffer_get_data(RID p_buffer) {
 	}
 
 	// Make sure no one is using the buffer -- the "false" gets us to the same command buffer as below.
-	_buffer_memory_barrier(buffer->buffer, 0, buffer->size, src_stage_mask, src_access_mask, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT, false);
+	_buffer_memory_barrier(buffer->buffer, 0, buffer->size, src_stage_mask, VK_PIPELINE_STAGE_TRANSFER_BIT, src_access_mask, VK_ACCESS_TRANSFER_READ_BIT, false);
 
 	VkCommandBuffer command_buffer = frames[frame].setup_command_buffer;
 
@@ -6460,7 +6460,7 @@ Vector<uint8_t> RenderingDeviceVulkan::buffer_get_data(RID p_buffer) {
 /**** RENDER PIPELINE ****/
 /*************************/
 
-RID RenderingDeviceVulkan::render_pipeline_create(RID p_shader, FramebufferFormatID p_framebuffer_format, VertexFormatID p_vertex_format, RenderPrimitive p_render_primitive, const PipelineRasterizationState &p_rasterization_state, const PipelineMultisampleState &p_multisample_state, const PipelineDepthStencilState &p_depth_stencil_state, const PipelineColorBlendState &p_blend_state, int p_dynamic_state_flags, uint32_t p_for_render_pass, const Vector<PipelineSpecializationConstant> &p_specialization_constants) {
+RID RenderingDeviceVulkan::render_pipeline_create(RID p_shader, FramebufferFormatID p_framebuffer_format, VertexFormatID p_vertex_format, RenderPrimitive p_render_primitive, const PipelineRasterizationState &p_rasterization_state, const PipelineMultisampleState &p_multisample_state, const PipelineDepthStencilState &p_depth_stencil_state, const PipelineColorBlendState &p_blend_state, BitField<PipelineDynamicStateFlags> p_dynamic_state_flags, uint32_t p_for_render_pass, const Vector<PipelineSpecializationConstant> &p_specialization_constants) {
 	_THREAD_SAFE_METHOD_
 
 	// Needs a shader.
@@ -6746,31 +6746,31 @@ RID RenderingDeviceVulkan::render_pipeline_create(RID p_shader, FramebufferForma
 	dynamic_states.push_back(VK_DYNAMIC_STATE_VIEWPORT); // Viewport and scissor are always dynamic.
 	dynamic_states.push_back(VK_DYNAMIC_STATE_SCISSOR);
 
-	if (p_dynamic_state_flags & DYNAMIC_STATE_LINE_WIDTH) {
+	if (p_dynamic_state_flags.has_flag(DYNAMIC_STATE_LINE_WIDTH)) {
 		dynamic_states.push_back(VK_DYNAMIC_STATE_LINE_WIDTH);
 	}
 
-	if (p_dynamic_state_flags & DYNAMIC_STATE_DEPTH_BIAS) {
+	if (p_dynamic_state_flags.has_flag(DYNAMIC_STATE_DEPTH_BIAS)) {
 		dynamic_states.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
 	}
 
-	if (p_dynamic_state_flags & DYNAMIC_STATE_BLEND_CONSTANTS) {
+	if (p_dynamic_state_flags.has_flag(DYNAMIC_STATE_BLEND_CONSTANTS)) {
 		dynamic_states.push_back(VK_DYNAMIC_STATE_BLEND_CONSTANTS);
 	}
 
-	if (p_dynamic_state_flags & DYNAMIC_STATE_DEPTH_BOUNDS) {
+	if (p_dynamic_state_flags.has_flag(DYNAMIC_STATE_DEPTH_BOUNDS)) {
 		dynamic_states.push_back(VK_DYNAMIC_STATE_DEPTH_BOUNDS);
 	}
 
-	if (p_dynamic_state_flags & DYNAMIC_STATE_STENCIL_COMPARE_MASK) {
+	if (p_dynamic_state_flags.has_flag(DYNAMIC_STATE_STENCIL_COMPARE_MASK)) {
 		dynamic_states.push_back(VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK);
 	}
 
-	if (p_dynamic_state_flags & DYNAMIC_STATE_STENCIL_WRITE_MASK) {
+	if (p_dynamic_state_flags.has_flag(DYNAMIC_STATE_STENCIL_WRITE_MASK)) {
 		dynamic_states.push_back(VK_DYNAMIC_STATE_STENCIL_WRITE_MASK);
 	}
 
-	if (p_dynamic_state_flags & DYNAMIC_STATE_STENCIL_REFERENCE) {
+	if (p_dynamic_state_flags.has_flag(DYNAMIC_STATE_STENCIL_REFERENCE)) {
 		dynamic_states.push_back(VK_DYNAMIC_STATE_STENCIL_REFERENCE);
 	}
 
